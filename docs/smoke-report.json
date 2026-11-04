@@ -1,0 +1,78 @@
+{
+  "passed": 32,
+  "checks": [
+    "welcome shown with no prior books",
+    "renderer has no Node access and remains sandboxed",
+    "shell API rejects malformed image without writing clipboard",
+    "private shell files cannot be fetched",
+    "simultaneous open requests share one native picker",
+    "picker cancellation returns cleanly to both callers",
+    "native open-file renders all six PDF pages",
+    "PDF text has a selectable text layer",
+    "next-page control turns the page",
+    "page text reaches native clipboard",
+    "native text selection copies the selected passage",
+    "bookmark is saved for the document",
+    "drag capture produces a PNG on native clipboard",
+    "spread renders two pages",
+    "full-document search finds fixture text",
+    "search next remains usable",
+    "night theme changes the reader",
+    "reload restores the last reading position",
+    "reload restores bookmark",
+    "missing recent file returns a useful error",
+    "compact reader with clips keeps page navigation reachable",
+    "Japanese PDF text renders as selectable text",
+    "Japanese text copies without spaces inserted between characters",
+    "Escape cancels a pending search without navigating",
+    "Japanese search finds the three fixture pages",
+    "capture remains unavailable while a new page is rendering",
+    "rapid navigation settles with only the visible page rendered",
+    "incorrect PDF password gets recoverable feedback",
+    "correct password opens the protected PDF",
+    "password dialog can be cancelled",
+    "opening another PDF dismisses a previous password request",
+    "renderer remains responsive after all operations"
+  ],
+  "rendererErrors": [],
+  "observations": {
+    "memoryBeforeNavigation": [
+      {
+        "type": "Browser",
+        "workingSetKB": 174320
+      },
+      {
+        "type": "GPU",
+        "workingSetKB": 130128
+      },
+      {
+        "type": "Utility",
+        "workingSetKB": 31216
+      },
+      {
+        "type": "Tab",
+        "workingSetKB": 200320
+      }
+    ],
+    "memoryAfterTenNavigationRequests": [
+      {
+        "type": "Browser",
+        "workingSetKB": 174320
+      },
+      {
+        "type": "GPU",
+        "workingSetKB": 130144
+      },
+      {
+        "type": "Utility",
+        "workingSetKB": 31216
+      },
+      {
+        "type": "Tab",
+        "workingSetKB": 201360
+      }
+    ],
+    "aggregateWorkingSetKB": 537040,
+    "renderedPagesAfterNavigation": 1
+  }
+}

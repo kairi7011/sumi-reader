@@ -13,6 +13,7 @@
     "setup:runtime": "node scripts/setup-electron.mjs",
     "check": "node --check src/app.js && node --check electron/main.cjs && node --check electron/preload.cjs && node --check scripts/package-mac.mjs && node --check scripts/setup-electron.mjs && node --check scripts/start.mjs && node --check scripts/electron-runtime.mjs",
     "test": "node --test tests/*.test.mjs",
+    "test:smoke": "node scripts/run-smoke.mjs",
     "package:mac": "node scripts/package-mac.mjs"
   },
   "dependencies": {

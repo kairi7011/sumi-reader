@@ -13,6 +13,7 @@ let writeQueue = Promise.resolve();
 let pendingWrites = 0;
 const pendingFiles = [];
 let rendererReady = false;
+let openDialogPromise = null;
 const CSP = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'";
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf', '.wasm': 'application/wasm', '.pdf': 'application/pdf', '.bcmap': 'application/octet-stream' };
 
@@ -77,6 +78,17 @@ async function readPdf(filename) {
 }
 
 async function choosePdf() {
+  if (openDialogPromise) return openDialogPromise;
+  openDialogPromise = choosePdfOnce();
+  try { return await openDialogPromise; }
+  finally { openDialogPromise = null; }
+}
+
+async function choosePdfOnce() {
+  if (!mainWindow) {
+    createWindow();
+    await new Promise(resolve => mainWindow.webContents.once('did-finish-load', resolve));
+  }
   const choice = await dialog.showOpenDialog(mainWindow, { title: 'PDFを開く', properties: ['openFile'], filters: [{ name: 'PDF', extensions: ['pdf'] }] });
   return choice.canceled ? null : readPdf(choice.filePaths[0]);
 }
