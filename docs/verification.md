@@ -1,27 +1,31 @@
-# Verification — 2026-11-04
+# Sumi 0.2.0 verification
 
-Environment: Apple Silicon macOS, Node 22.23.1, Electron 45.2.1, PDF.js 6.4.299.
+Verified on macOS 15.8.1, Apple Silicon, 2026-11-04. The release uses Tauri 2 with the system WKWebView; Electron and its runtime are removed.
 
-## Automated checks
+## Checks
 
-- `npm run check`: JavaScript syntax checks passed.
-- `npm test`: ten tests passed, covering hostile asset paths, IPC payload validation, bounded reading state, backwards capture coordinates, Japanese text extraction, and search highlighting across PDF text runs.
-- `npm run test:smoke`: thirty-two checks passed in an actual Electron window, with zero renderer errors. Fixtures contain original English and Japanese text. Japanese/password fixtures are generated using the system AppKit/PDFKit frameworks.
-- Native PNG and text clipboard writes, drag capture, search, bookmark persistence, reload/resume, missing-file errors, and sandbox isolation passed.
-- Password tests covered wrong password, correct password, cancellation, and replacing the document during a password prompt.
-- Ten rapid page changes left one page rendered in single-page mode. Capture shortcuts were rejected until the current page finished rendering.
-- Screenshots inspected at 1380×940 and 900×650, including both side panels. Japanese glyphs and text-layer alignment were verified visually.
+- 12 JavaScript tests: reading-state bounds, Japanese text/search geometry, capture bounds, native-open races, startup ordering, and text extraction on WebKit streams without async iteration.
+- 14 Python tests: local indexing, Japanese search, bounded reads, read-only MCP, modern and legacy protocol messages.
+- 5 Rust tests: state/PNG limits, Electron history migration, authorized file reads, corrupt-history recovery, and stale-open suppression.
+- 40 checks in a real Tauri WKWebView using authored Japanese, English, and encrypted fixtures. Native text/PNG clipboard, search, wrong/correct password, bookmarks, single/spread forward/backward turns, rapid navigation, reduced motion, cleanup, and uncaught errors were checked.
+- 114 native checks across an authored fixture and nine personally owned technical books. All nine reached a dense body page in addition to cover/early pages. Book text, PDFs, and private screenshots are excluded from Git and the application bundle.
 
-## Resource limits and observations
+Machine-readable results: [authored fixtures](tauri-smoke-fixtures.json), [technical books](tauri-smoke-books.json). The debug-only harness is excluded from the release executable.
 
-- At most two rendered PDF pages; maximum 14 million backing pixels per canvas.
-- Up to 32 extracted page texts cached. PDF page resources are cleaned after use.
-- Capture resolution capped at six million pixels. Collection previews are at most 440 pixels on their longest side. Retained clips are bounded by count (24), encoded characters (32 million), and total image pixels (24 million).
-- The final development smoke run reported an aggregate process working set of 537,040 KiB after rendering, copying, capturing, searching, and switching documents. This sum includes shared pages and is neither unique resident memory nor a clean-launch baseline. It is a limited observation, not a performance benchmark.
-- No user ebook was used for testing. Large scanned textbooks and unusual font encodings still need representative real-book validation.
+The nine-book run plus authored fixture sampled 378 animation/navigation frames and found zero missing or zero-sized visible canvases. On actual books, observed maximum animation frame gaps were 18–20 ms, and next-page completion including the 360 ms curl was 418–505 ms. These are observations on this Mac, not a general performance guarantee. Pixel-by-pixel correctness across every page has not been established.
 
-## Distribution
+## Packaged app
 
-The package is an Apple Silicon `.app` with an original icon and PDF document association. It is ad-hoc signed for local personal use, not Developer ID signed or notarized. `codesign --verify --deep --strict` passed. The packaged application was launched through macOS and its native File menu opened and displayed the Japanese fixture. The app occupies approximately 279 MiB on disk. Electron and PDF.js license files are retained in the bundle.
+The signed release was launched through macOS. Native file selection opened a real 384-page book. Page entry and next-page controls worked on body pages 128–129; dragging a capture produced a clip and native clipboard success feedback. Quit/relaunch restored page 129 and fit-width. Existing Electron reading settings migrated successfully. The final sidebar-order correction was checked in the packaged app: both the page control and book card advanced to page 130. Drag-and-drop is implemented through native Tauri events; the final manual check used the file picker.
 
-Reading history and bookmarks live in `~/Library/Application Support/Sumi/library.json`. Passwords and clipping contents are not persisted. Original PDFs are never written to. No remote pages, telemetry, or uploads are enabled.
+The final package uses a stripped ARM64 binary and macOS frameworks. `codesign --verify --deep --strict` and `plutil -lint` pass. Signing is ad-hoc for personal use; no notarization was performed. Application files total approximately 12.4 MB, compared with the previous 279 MiB Electron bundle. This is a disk-size comparison; whole-system WebKit memory was not benchmarked.
+
+## Local book index
+
+Nine authorized O'Reilly PDFs, 2,876 pages, were indexed locally. The database is 26,976,256 bytes; SQLite integrity checking passed. Reindexing skipped all nine unchanged files. Actual stdio discovery, Japanese keyword search, and page retrieval passed. The index lives outside the repository, with owner-only permissions. MCP client settings were prepared but not installed globally.
+
+## Limits
+
+Only Apple Silicon macOS was tested. PDF text extraction follows the source PDF; complex fonts, spacing, and columns can need cleanup after copying. Scanned pages have image capture but no OCR. The reader does not provide annotation editing or continuous scrolling. Clippings last for the current process only. No uploaded book content, telemetry, cloud sync, or AI API calls are part of the viewer or indexer.
+
+Release ZIP: 4,675,508 bytes. SHA-256: `09176eba2f19fc8f3fcbcf72780e0cdc7956ab015c5f352e2e14cdc6761dab5f`.

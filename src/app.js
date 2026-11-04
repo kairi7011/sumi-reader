@@ -406,8 +406,8 @@ async function renderPages(turn = false) {
     if (token !== rendering) return;
     renderReady = true;
     syncControls();
-    renderSidebar();
     persist();
+    renderSidebar();
   } catch (error) {
     if (token !== rendering || error.name === 'RenderingCancelledException' || error.name === 'AbortException') return;
     state.page = displayedPage || 1;

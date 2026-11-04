@@ -17,6 +17,7 @@ await fs.mkdir(path.join(contents, 'MacOS'), { recursive: true });
 await fs.mkdir(path.join(contents, 'Resources'), { recursive: true });
 await fs.copyFile(binary, path.join(contents, 'MacOS/Sumi'));
 await fs.chmod(path.join(contents, 'MacOS/Sumi'), 0o755);
+execFileSync('/usr/bin/strip', ['-S', '-x', path.join(contents, 'MacOS/Sumi')], { stdio: 'inherit' });
 await fs.copyFile(path.join(root, 'assets/app-icon.icns'), path.join(contents, 'Resources/sumi.icns'));
 await fs.copyFile(path.join(root, 'node_modules/pdfjs-dist/LICENSE'), path.join(contents, 'Resources/PDFjs-LICENSE'));
 await fs.cp(path.join(root, 'tools/library'), path.join(contents, 'Resources/library'), { recursive: true, filter: source => !source.includes('__pycache__') && !source.endsWith('.pyc') });
