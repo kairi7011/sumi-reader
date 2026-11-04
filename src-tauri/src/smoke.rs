@@ -78,6 +78,14 @@ pub fn debug_open_fixture(app: AppHandle, window: WebviewWindow, index: usize) -
 }
 
 #[tauri::command]
+pub fn debug_resize_window(app: AppHandle, window: WebviewWindow, width: u32, height: u32) -> Result<(), String> {
+    trusted(&window)?;
+    app.try_state::<Smoke>().ok_or("Smoke mode is not active")?;
+    if !(860..=2000).contains(&width) || !(620..=1400).contains(&height) { return Err("Unsupported smoke viewport".into()); }
+    window.set_size(tauri::LogicalSize::new(width as f64, height as f64)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn debug_clipboard_text(app: AppHandle, window: WebviewWindow) -> Result<String, String> {
     trusted(&window)?;
     app.try_state::<Smoke>().ok_or("Smoke mode is not active")?;

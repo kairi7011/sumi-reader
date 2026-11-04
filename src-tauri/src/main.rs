@@ -163,7 +163,7 @@ fn ensure_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("src/index.html".into()))
         .title("Sumi").inner_size(1380.0, 940.0).min_inner_size(860.0, 620.0)
         .title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(20.0, 22.0))
+        .traffic_light_position(tauri::LogicalPosition::new(20.0, 11.0))
         .visible(false)
         .on_navigation(|url| url.scheme() == "tauri" && url.host_str() == Some("localhost") && url.path() == "/src/index.html")
         .on_new_window(|_, _| NewWindowResponse::Deny)
@@ -232,7 +232,7 @@ fn main() {
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready]);
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
+    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_resize_window, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
     let application = builder
         .setup(|app| {
             let mut data = app.path().app_data_dir()?.join("library.json");

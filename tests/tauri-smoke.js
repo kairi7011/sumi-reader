@@ -44,7 +44,7 @@
         assert('Japanese selectable text is present', $('#pages').textContent.includes('日本語'));
         observations.copyButton = { disabled: $('#copy-page').disabled, busy: $('#copy-page').dataset.busy };
         $('#copy-page').click();
-        await wait('Japanese clipboard', async () => { const text = await invoke('debug_clipboard_text'); observations.fixtureClipboard = text.slice(0, 1000); observations.copyBusy = $('#copy-page').dataset.busy; return text.includes('日本語の文章を読む'); });
+        await wait('Japanese clipboard', async () => { const text = await invoke('debug_clipboard_text').catch(() => ''); observations.copyBusy = $('#copy-page').dataset.busy; return text.includes('日本語の文章を読む'); });
         assert('Japanese text copied through the native clipboard', true);
         snapshot = $('#pages canvas').toDataURL('image/png');
         $('#search-toggle').click(); $('#search-input').value = '日本語'; $('#search-input').dispatchEvent(new Event('input', { bubbles: true }));
@@ -72,7 +72,8 @@
         const animationFrames = frameIntervals.length;
         const maxFrameMs = Math.round(frameIntervals.at(-1) || 0);
         const p95FrameMs = Math.round(frameIntervals[Math.floor(frameIntervals.length * .95)] || 0);
-        observations[`document${index + 1}`] = { frames, blankFrames, pageCount: total, nextPageMs, animationFrames, maxFrameMs, p95FrameMs, renderedPages: document.querySelectorAll('#pages .pdf-page').length };
+        const p50FrameMs = Math.round(frameIntervals[Math.floor(frameIntervals.length * .5)] || 0);
+        observations[`document${index + 1}`] = { frames, blankFrames, pageCount: total, nextPageMs, animationFrames, maxFrameMs, p95FrameMs, p50FrameMs, renderedPages: document.querySelectorAll('#pages .pdf-page').length };
         if (index === 0) assert('fixture animation has no frame gap above 150 ms', animationFrames > 0 && maxFrameMs <= 150);
         assert(`page turn never removes the visible canvas ${index + 1}`, frames > 0 && blankFrames === 0);
         assert(`rapid page turns end on the last request ${index + 1}`, Number($('#page-input').value) === final);
@@ -100,6 +101,110 @@
           if (fixture.name.startsWith('oreilly-')) observations.bookSpreadTested = true;
         }
         navigate(1); await settled(1);
+      }
+      const pageRect = $('#pages .pdf-page').getBoundingClientRect();
+      const readerRect = $('#reader').getBoundingClientRect();
+      assert(`entire page fits without reader scrolling ${index + 1}`, pageRect.left >= readerRect.left - 1 && pageRect.right <= readerRect.right + 1 && pageRect.top >= readerRect.top - 1 && pageRect.bottom <= readerRect.bottom + 1 && getComputedStyle($('#reader')).overflow === 'hidden');
+      if (index === 0) {
+        const dimensions = () => { const rect = $('#pages .pdf-page').getBoundingClientRect(); return [rect.width, rect.height]; };
+        const beforePanels = dimensions();
+        $('#toggle-sidebar').click(); await sleep(100);
+        assert('sidebar overlays do not resize the page', dimensions().every((value, i) => Math.abs(value - beforePanels[i]) < 1));
+        $('#toggle-sidebar').click();
+        $('#tools-toggle').click(); await sleep(100);
+        assert('reading tools do not resize the page', dimensions().every((value, i) => Math.abs(value - beforePanels[i]) < 1));
+        $('#tools-toggle').click();
+        $('#magnify-toggle').click();
+        await wait('magnifier renders crisp detail', () => !$('#magnifier').hidden && !$('#magnifier-copy').disabled);
+        const sourceSize = dimensions();
+        $('#magnifier-plus').click(); await wait('magnifier zoom settles', () => !$('#magnifier-copy').disabled);
+        assert('temporary magnification preserves the full-page view', dimensions().every((value, i) => Math.abs(value - sourceSize[i]) < 1));
+        const lens = $('#magnifier-canvas');
+        const lensRect = lens.getBoundingClientRect();
+        const oldCapture = lens.setPointerCapture;
+        lens.setPointerCapture = () => {};
+        const markerBefore = $('.magnifier-source').style.left;
+        lens.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 150, clientY: lensRect.top + 120 }));
+        lens.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 210, clientY: lensRect.top + 140 }));
+        lens.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 210, clientY: lensRect.top + 140 }));
+        lens.setPointerCapture = oldCapture;
+        await wait('magnifier drag sharpens', () => !$('#magnifier-copy').disabled);
+        assert('dragging the magnifier moves the inspected region', $('.magnifier-source').style.left !== markerBefore && !lens.dataset.dragging);
+        const copySize = [lens.width, lens.height]; $('#magnifier-copy').click();
+        await wait('magnifier native image copy', async () => { const size = await invoke('debug_clipboard_image_size').catch(() => null); return size?.length === 2 && size.every((value, i) => value === copySize[i]); });
+        assert('magnified detail copies to the native clipboard', true);
+        $('#magnifier-close').click();
+        assert('closing the magnifier restores the unobstructed page', $('#magnifier').hidden && !$('.magnifier-source'));
+        const reader = $('#reader');
+        const captureMethods = [reader.setPointerCapture, reader.hasPointerCapture, reader.releasePointerCapture];
+        let heldPointer = false;
+        reader.setPointerCapture = () => { heldPointer = true; };
+        reader.hasPointerCapture = () => heldPointer;
+        reader.releasePointerCapture = () => { heldPointer = false; };
+        const gesture = async (progress, behavior = 'normal') => {
+          const corner = $('.page-corner.right'); const rect = corner.closest('.pdf-page').getBoundingClientRect();
+          const x = rect.right - 12, y = rect.bottom - 12;
+          const dispatch = (target, type, atX = x) => target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 77, button: 0, clientX: atX, clientY: y }));
+          dispatch(corner, 'pointerdown');
+          if (behavior === 'early-cancel') { dispatch(reader, 'pointercancel'); return; }
+          await wait('paper held at corner', () => $('#reading-area').dataset.turnPhase === 'dragging');
+          dispatch(reader, 'pointermove', x - rect.width * progress);
+          if (behavior === 'escape') { reader.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })); return; }
+          if (behavior === 'return') {
+            await sleep(100); dispatch(reader, 'pointermove', x); await sleep(100); dispatch(reader, 'pointerup'); return;
+          }
+          await sleep(behavior === 'hold' ? 240 : 100);
+          if (behavior !== 'hold') dispatch(reader, 'pointermove', x - rect.width * progress);
+          dispatch(reader, 'pointerup', x - rect.width * progress);
+        };
+        try {
+          await gesture(0, 'early-cancel'); await settled(1);
+          assert('cancel before paper preparation keeps the original page', !$('.staging-pages') && !$('#reader').dataset.grabbing);
+          await gesture(.12); await settled(1);
+          assert('returning the held corner cancels the turn', !$('#pages').inert && !$('.paper-turn'));
+          await gesture(.6, 'return'); await settled(1);
+          assert('dragging out and back to the origin cancels', !$('#pages').inert && !$('#reader').dataset.grabbing);
+          await gesture(.1, 'hold'); await settled(1);
+          assert('a held short drag does not retain flick velocity', !$('#pages').inert && !$('#reader').dataset.grabbing);
+          await gesture(.6, 'escape'); await settled(1);
+          assert('Escape cancels a held paper turn', !$('#pages').inert && !$('#reader').dataset.grabbing);
+          await gesture(.6); await settled(2);
+          assert('dragging the corner across commits the turn', !$('#pages').inert && !$('.paper-turn'));
+          navigate(1); await settled(1);
+        } finally { [reader.setPointerCapture, reader.hasPointerCapture, reader.releasePointerCapture] = captureMethods; }
+      }
+      if (index === 0 || (fixture.name.startsWith('oreilly-') && !observations.bookPageMapTested)) {
+        navigate(1); await settled(1);
+        $('#page-map-toggle').click();
+        await wait('page map opens', () => $('#page-map')?.open);
+        const target = Math.max(2, Math.floor(total * .72));
+        $('#page-map-input').value = String(target);
+        $('#page-map-input').dispatchEvent(new Event('input', { bubbles: true }));
+        await wait('typed target preview', () => $('#page-map-preview canvas').width > 0 && $('#page-map-preview').dataset.loading === 'false' && $(`.page-map-thumb[data-page="${target}"]`)?.dataset.selected === 'true');
+        assert(`arbitrary page preview is immediate and bounded ${index + 1}`, document.querySelectorAll('.page-map-thumb').length <= 36 && Number($('#page-map-input').value) === target);
+        $('#page-map-form').requestSubmit(); await settled(target);
+        assert(`typed page jump reaches its target ${index + 1}`, !$('#page-map').open);
+        $('#page-map-toggle').click(); await wait('page map reopens', () => $('#page-map').open);
+        assert(`jump return is available ${index + 1}`, !$('#page-map-back').hidden);
+        $('#page-map-back').click(); await settled(1);
+        $('#page-map-toggle').click(); await wait('page map opens for scrub', () => $('#page-map').open);
+        $('#page-map-range').value = String(total); $('#page-map-range').dispatchEvent(new Event('input', { bubbles: true }));
+        await wait('last page thumbnail', () => $(`.page-map-thumb[data-page="${total}"]`)?.dataset.ready === 'true');
+        $(`.page-map-thumb[data-page="${total}"]`).click(); await settled(total);
+        assert(`scrub and thumbnail reach the last page ${index + 1}`, !$('#page-map').open);
+        navigate(1); await settled(1);
+        if (index === 0) {
+          await invoke('debug_resize_window', { width: 900, height: 650 }); await sleep(250); await settled(1);
+          $('#page-map-toggle').click(); await wait('compact page map opens', () => $('#page-map').open);
+          $('#page-map-input').value = String(total); $('#page-map-input').dispatchEvent(new Event('input', { bubbles: true }));
+          await wait('compact preview renders', () => $('#page-map-preview').dataset.loading === 'false');
+          const modal = $('#page-map').getBoundingClientRect();
+          assert('page map fits a compact native window', modal.left >= 0 && modal.right <= innerWidth && modal.top >= 0 && modal.bottom <= innerHeight && $('#page-map-scroll').clientWidth > 250 && $('#page-map-input').getBoundingClientRect().right < $('#page-map-scroll').getBoundingClientRect().left);
+          $('#page-map-form').requestSubmit(); await settled(total);
+          assert('compact page map reaches its typed destination', !$('#page-map').open);
+          await invoke('debug_resize_window', { width: 1380, height: 940 }); await sleep(250); navigate(1); await settled(1);
+        }
+        if (fixture.name.startsWith('oreilly-')) observations.bookPageMapTested = true;
       }
       select('#theme-select', 'night'); assert(`night theme switches ${index + 1}`, document.body.dataset.theme === 'night'); select('#theme-select', 'paper');
       if (index === 0) {
