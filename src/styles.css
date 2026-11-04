@@ -137,6 +137,9 @@ body[data-theme="paper"] .paper-turn { filter: sepia(.12); }
 body[data-theme="night"] .paper-turn { filter: invert(.9) hue-rotate(180deg); }
 .reading-area[data-turning="true"] .textLayer { pointer-events: none; }
 .reader[data-loading="true"] { cursor: progress; }
+.reader[data-zoomed="true"] .page-corner { display: none; }
+.reader[data-pan-ready="true"], .reader[data-pan-ready="true"] .textLayer span { cursor: grab; }
+.reader[data-panning="true"], .reader[data-panning="true"] .textLayer span { cursor: grabbing; user-select: none; }
 body[data-theme="paper"] .pdf-page > canvas { filter: sepia(.12); }
 body[data-theme="night"] .pdf-page > canvas { filter: invert(.9) hue-rotate(180deg); }
 .textLayer { position: absolute; text-align: initial; inset: 0; overflow: clip; opacity: 1; line-height: 1; -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 2; }

@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./pdf-layer.css" />
     <link rel="stylesheet" href="./page-map.css" />
-    <link rel="stylesheet" href="./magnifier.css" />
   </head>
   <body data-theme="paper" data-focus="false">
     <div id="app">
@@ -18,7 +17,6 @@
         </div>
         <div class="document-heading" data-tauri-drag-region><h1 data-tauri-drag-region id="document-title">Sumi</h1><span data-tauri-drag-region id="document-meta"></span></div>
         <div class="titlebar-trailing">
-          <button id="magnify-toggle" hidden class="icon-button" data-needs-document aria-label="拡大" title="拡大" aria-pressed="false" disabled><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M7.5 10.5h6m-3-3v6"/></svg></button>
           <button id="search-toggle" class="icon-button" data-needs-document aria-label="本文を検索" title="本文を検索 · ⌘F" aria-pressed="false" disabled><span data-icon="search"></span></button>
           <button id="tools-toggle" class="icon-button" aria-label="読書ツール" title="読書ツール" aria-expanded="false" aria-controls="reader-tools"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h7m5 0h4M4 17h3m5 0h8"/><circle cx="13.5" cy="7" r="2.5"/><circle cx="9.5" cy="17" r="2.5"/></svg></button>
         </div>
@@ -41,7 +39,6 @@
             <button id="zoom-in" class="icon-button compact" data-needs-document aria-label="拡大" title="拡大 · ⌘+" disabled><span data-icon="plus"></span></button>
           </div></div>
           <button id="fit-page" class="text-button fit-page-button" data-needs-document aria-label="全体を表示" title="全体を表示 · ⌘0" aria-pressed="true" disabled><span data-icon="fit-page"></span><span>全体を表示</span><kbd>⌘0</kbd></button>
-          <button id="fit-width" class="icon-button" data-needs-document aria-label="幅に合わせる" aria-pressed="false" disabled hidden><span data-icon="fit-width"></span></button>
         </div>
         <div class="tools-section tools-options">
           <label class="tool-option"><span>読む方向</span><span class="select-control direction-control"><select id="direction-select"><option value="ltr">左 → 右</option><option value="rtl">右 → 左</option></select><span data-icon="chevron-down"></span></span></label>
@@ -135,7 +132,7 @@
     </dialog>
     <dialog id="help-dialog" class="modal help-modal">
       <div class="modal-title"><div><h2>キーボード操作</h2></div><button id="help-close" class="icon-button" aria-label="閉じる"><span data-icon="close"></span></button></div>
-      <dl class="shortcut-list"><div><dt>PDFを開く</dt><dd><kbd>⌘</kbd><kbd>O</kbd></dd></div><div><dt>本文を検索</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div><div><dt>ページ一覧から移動</dt><dd><kbd>G</kbd><span> / </span><kbd>⌘G</kbd></dd></div><div><dt>前・次のページ</dt><dd><kbd>←</kbd><kbd>→</kbd><kbd>Space</kbd></dd></div><div><dt>しおりを付ける</dt><dd><kbd>⌘</kbd><kbd>D</kbd></dd></div><div><dt>拡大・縮小</dt><dd><kbd>⌘</kbd><kbd>＋ / −</kbd></dd></div><div><dt>全体を表示</dt><dd><kbd>⌘</kbd><kbd>0</kbd></dd></div><div><dt>集中モード</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></dd></div><div><dt>範囲を切り抜く</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></dd></div><div><dt>選んだ文章をコピー</dt><dd><kbd>⌘</kbd><kbd>C</kbd></dd></div><div><dt>操作を取り消す</dt><dd><kbd>esc</kbd></dd></div></dl><p class="gesture-hint">ページの角をドラッグしても、めくれます。</p>
+      <dl class="shortcut-list"><div><dt>PDFを開く</dt><dd><kbd>⌘</kbd><kbd>O</kbd></dd></div><div><dt>本文を検索</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div><div><dt>ページ一覧から移動</dt><dd><kbd>G</kbd><span> / </span><kbd>⌘G</kbd></dd></div><div><dt>前・次のページ</dt><dd><kbd>←</kbd><kbd>→</kbd><kbd>Space</kbd></dd></div><div><dt>しおりを付ける</dt><dd><kbd>⌘</kbd><kbd>D</kbd></dd></div><div><dt>拡大・縮小</dt><dd><kbd>⌘</kbd><kbd>＋ / −</kbd></dd></div><div><dt>全体を表示</dt><dd><kbd>⌘</kbd><kbd>0</kbd></dd></div><div><dt>集中モード</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></dd></div><div><dt>範囲を切り抜く</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></dd></div><div><dt>選んだ文章をコピー</dt><dd><kbd>⌘</kbd><kbd>C</kbd></dd></div><div><dt>操作を取り消す</dt><dd><kbd>esc</kbd></dd></div></dl><p class="gesture-hint">ページの角をドラッグしてめくる · 拡大中はSpace＋ドラッグで移動</p>
     </dialog>
     <script type="module" src="./app.js"></script>
   </body>

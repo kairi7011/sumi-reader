@@ -1,7 +1,8 @@
 import './desktop.js';
 import { PaperTurn } from './page-turn.js';
 import { PageMap } from './page-map.js';
-import { Magnifier } from './magnifier.js';
+import { PageZoom } from './page-zoom.js';
+import { deriveBookTitle } from './book-title.js';
 import { readPageText } from './pdf-text.js';
 import * as pdfjs from '../node_modules/pdfjs-dist/legacy/build/pdf.mjs';
 import { renderIcons, icon } from './icons.js';
@@ -35,9 +36,13 @@ let resultIndex = -1;
 let captureMode = false;
 let renderReady = false;
 let turnGesture = null;
-let lastReadingPoint = null;
 const pageMap = new PageMap({ getDocument: () => pdf, getPage: () => displayedPage || state.page, onNavigate: page => navigate(page) });
-const magnifier = new Magnifier({ getDocument: () => pdf, copyImage: image => desktop.copyImage(image), notify: toast, onChange: syncControls });
+const pageZoom = new PageZoom({ reader: $('reader'), getDocument: () => pdf, notify: toast, onChange: syncControls });
+let preferences = { theme: 'paper', mode: 'single', direction: 'ltr' };
+let preferencesReady = false;
+let preferenceSave = Promise.resolve();
+let titleJobRunning = false;
+const titleAttempts = new Set();
 let clips = [];
 let selectedExcerpt = null;
 const textCache = new Map();
@@ -102,22 +107,24 @@ function syncControls() {
   $('page-count').textContent = pdf?.numPages || '—';
   $('page-progress').value = pdf ? Math.round(state.page / pdf.numPages * 100) : 0;
   $('progress-label').textContent = `${$('page-progress').value}%`;
-  $('zoom-value').textContent = `${magnifier.factor}×`;
-  $('zoom-out').disabled = !renderReady || magnifier.factor <= 1.5;
-  $('zoom-in').disabled = !renderReady || magnifier.factor >= 5;
-  $('magnify-toggle').disabled = !renderReady;
-  $('magnify-toggle').setAttribute('aria-pressed', String(magnifier.isOpen));
+  $('zoom-value').textContent = `${Math.round(pageZoom.factor * 100)}%`;
+  $('zoom-out').disabled = !renderReady || pageZoom.factor <= 1;
+  $('zoom-in').disabled = !renderReady || pageZoom.factor >= 4;
   $('page-map-toggle').disabled = !pdf;
   $('capture-region').disabled = !pdf || !renderReady;
   $('copy-page').disabled = !pdf || !renderReady;
   $('bookmark-toggle').disabled = !pdf || !renderReady;
-  $('fit-width').setAttribute('aria-pressed', String(state.fit === 'width'));
-  $('fit-page').setAttribute('aria-pressed', String(!magnifier.isOpen));
+  $('fit-page').setAttribute('aria-pressed', String(pageZoom.factor === 1));
   const marked = state.bookmarks.includes(state.page);
   $('bookmark-toggle').setAttribute('aria-pressed', String(marked));
   $('bookmark-toggle').setAttribute('aria-label', marked ? 'しおりを外す' : 'しおりを付ける');
   $('bookmark-toggle').querySelector('span:not([data-icon])').textContent = marked ? 'しおりを外す' : 'しおりを付ける';
   $('layout-select').value = state.mode;
+  $('layout-single').setAttribute('aria-pressed', String(state.mode === 'single'));
+  $('layout-spread').setAttribute('aria-pressed', String(state.mode === 'spread'));
+  $('layout-toggle').setAttribute('aria-pressed', String(state.mode === 'spread'));
+  $('layout-toggle').title = state.mode === 'spread' ? '1ページで読む' : '見開きで読む';
+  $('layout-toggle').setAttribute('aria-label', $('layout-toggle').title);
   $('direction-select').value = state.direction;
   $('theme-select').value = state.theme;
   document.body.dataset.theme = state.theme;
@@ -125,6 +132,8 @@ function syncControls() {
   $('pages').dataset.direction = state.direction;
   $('footer-status').textContent = pdf ? (renderReady ? '読書位置を自動保存' : `${state.page}ページを準備`) : 'PDFを開いて読み始める';
   $('document-title').textContent = book?.name || 'Sumi';
+  $('document-title').title = book?.filename || '';
+  $('reader').dataset.documentId = book?.id || '';
   $('document-meta').textContent = pdf ? `${pdf.numPages} ページ · このMacで読む` : 'あなたのための読書室';
 }
 
@@ -150,7 +159,8 @@ function renderSidebar() {
       button.setAttribute('aria-current', String(item.id === book?.id));
       const content = document.createElement('span');
       const name = document.createElement('strong');
-      name.textContent = item.name.replace(/\.pdf$/i, '');
+      name.textContent = (item.title || item.name).replace(/\.pdf$/i, '');
+      name.title = item.name;
       const meta = document.createElement('small');
       meta.textContent = `${item.state?.page || 1} ページから · ${(item.size / 1048576).toFixed(1)} MB`;
       content.append(name, meta);
@@ -199,8 +209,39 @@ function renderSidebar() {
 async function refreshLibrary() {
   const data = await desktop.getLibrary();
   library = data.recent;
+  if (!preferencesReady) { preferences = { ...preferences, ...data.preferences }; preferencesReady = true; Object.assign(state, preferences); syncControls(); }
   renderSidebar();
+  setTimeout(updateLibraryTitles, 500);
   return data;
+}
+
+async function updateLibraryTitles() {
+  if (titleJobRunning || !desktop.readBookBytes) return;
+  if (pdf && !renderReady) { setTimeout(updateLibraryTitles, 500); return; }
+  const item = library.find(item => item.id !== book?.id && (!item.title || item.title === item.name) && !titleAttempts.has(`${item.id}:${item.modifiedAt}`));
+  if (!item) return;
+  titleAttempts.add(`${item.id}:${item.modifiedAt}`);
+  titleJobRunning = true;
+  let task, timeout;
+  try {
+    const data = await desktop.readBookBytes(item.id);
+    task = pdfjs.getDocument({ data: new Uint8Array(data), cMapUrl: asset('cmaps'), cMapPacked: true, isEvalSupported: false, enableScripting: false });
+    task.onPassword = () => task.destroy().catch(() => {});
+    timeout = setTimeout(() => task.destroy().catch(() => {}), 8000);
+    const document = await task.promise;
+    const title = await deriveBookTitle(document, item.name);
+    if (title) {
+      await desktop.setBookTitle(item.id, title);
+      const current = library.find(book => book.id === item.id && book.modifiedAt === item.modifiedAt);
+      if (current) { current.title = title; renderSidebar(); }
+    }
+  } catch { /* A missing or locked recent file must not interrupt the current book. */ }
+  finally {
+    clearTimeout(timeout);
+    await task?.destroy().catch(() => {});
+    titleJobRunning = false;
+    setTimeout(updateLibraryTitles, 500);
+  }
 }
 
 function askPassword(updatePassword, reason) {
@@ -222,8 +263,7 @@ async function openDocument(document) {
   if (!document) return;
   const token = ++opening;
   pageMap.reset();
-  magnifier.close();
-  lastReadingPoint = null;
+  pageZoom.reset();
   closePanels();
   $('password-dialog').close();
   $('password-form').onsubmit = null;
@@ -271,8 +311,14 @@ async function openDocument(document) {
     const loaded = await task.promise;
     if (token !== opening) { await loaded.destroy(); return; }
     pdf = loaded;
-    book = { id: document.id, name: document.name };
-    state = normalizeState(document.state, pdf.numPages);
+    if (!preferencesReady) await refreshLibrary();
+    if (token !== opening) return;
+    const title = await deriveBookTitle(loaded, document.name).catch(() => null);
+    if (token !== opening) return;
+    book = { id: document.id, name: title || document.title || document.name.replace(/\.pdf$/i, ''), filename: document.name };
+    if (title && title !== document.title) await desktop.setBookTitle(document.id, title).catch(() => {});
+    if (token !== opening) return;
+    state = normalizeState({ ...document.state, ...preferences }, pdf.numPages);
     state.fit = 'page';
     $('welcome').hidden = true;
     $('reader').hidden = false;
@@ -338,7 +384,7 @@ async function renderPages(turn = false, gesture = null) {
   state.fit = 'page';
   const target = { ...state };
   cancelRender(false, gesture);
-  magnifier.close();
+  pageZoom.reset();
   renderReady = false;
   setCapture(false);
   selectionToolbar.hidden = true;
@@ -496,7 +542,7 @@ async function getText(page, currentPdf = pdf) {
 }
 
 function setPanel(id, show) {
-  if (show) { closePanels(); magnifier.close(); }
+  if (show) { closePanels(); pageZoom.reset(); }
   $(id).hidden = !show;
   $(id === 'sidebar' ? 'toggle-sidebar' : 'clips-toggle').setAttribute('aria-pressed', String(show));
 }
@@ -572,7 +618,7 @@ function setCapture(enabled) {
   $('capture-region').setAttribute('aria-pressed', String(captureMode));
   document.querySelectorAll('.capture-overlay').forEach(element => element.remove());
   if (!captureMode) { if (!$('reader-status').dataset.error || $('reader-status').dataset.error === 'false') $('reader-status').hidden = true; return; }
-  magnifier.close(); closePanels();
+  closePanels();
   selectionToolbar.hidden = true;
   window.getSelection()?.removeAllRanges();
   $('reader-status').dataset.error = 'false';
@@ -588,7 +634,7 @@ function setCapture(enabled) {
     wrapper.append(overlay);
     let start = null;
     let current = null;
-    const point = event => { const bounds = overlay.getBoundingClientRect(); return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }; };
+    const point = event => { const bounds = overlay.getBoundingClientRect(); return { x: (event.clientX - bounds.left) * overlay.clientWidth / bounds.width, y: (event.clientY - bounds.top) * overlay.clientHeight / bounds.height }; };
     overlay.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -696,7 +742,7 @@ function bookmark() {
 
 function focusMode() {
   const focused = document.body.dataset.focus !== 'true';
-  if (focused) { closePanels(); magnifier.close(); setCapture(false); toggleSearch(false); }
+  if (focused) { closePanels(); pageZoom.reset(); setCapture(false); toggleSearch(false); }
   document.body.dataset.focus = String(focused);
   $('focus-toggle').setAttribute('aria-pressed', String(focused));
   if (pdf) $('reader').focus({ preventScroll: true });
@@ -719,27 +765,13 @@ function closePanels() {
 
 function showPageMap() {
   if (!pdf) return;
-  magnifier.close(); closePanels();
+  pageZoom.reset(); closePanels();
   pageMap.open();
   $('page-map-toggle').setAttribute('aria-expanded', String(pageMap.dialog.open));
 }
 
-function showMagnifier(point = lastReadingPoint) {
-  if (!pdf || !renderReady) return;
-  closePanels(); setCapture(false);
-  selectionToolbar.hidden = true;
-  const pages = [...$('pages').querySelectorAll('.pdf-page')];
-  const wrapper = point && pages.find(page => {
-    const rect = page.getBoundingClientRect();
-    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
-  });
-  magnifier.open(wrapper || pages[0], wrapper ? point : null);
-}
-
 function zoom(delta) {
-  if (!pdf || !renderReady) return;
-  magnifier.zoom(delta);
-  if (!magnifier.isOpen) showMagnifier();
+  if (pdf && renderReady) pageZoom.zoom(delta);
 }
 
 function installPageCorners() {
@@ -761,7 +793,7 @@ function installPageCorners() {
 
 $('reader').addEventListener('pointerdown', event => {
   const corner = event.target.closest('.page-corner');
-  if (!corner || event.button !== 0 || !renderReady || captureMode || magnifier.isOpen) return;
+  if (!corner || event.button !== 0 || !renderReady || captureMode || pageZoom.factor > 1) return;
   event.preventDefault();
   const rect = corner.closest('.pdf-page').getBoundingClientRect();
   const delta = Number(corner.dataset.delta);
@@ -773,7 +805,6 @@ $('reader').addEventListener('pointerdown', event => {
   navigate(state.page + delta * (state.mode === 'spread' ? 2 : 1), gesture);
 });
 $('reader').addEventListener('pointermove', event => {
-  lastReadingPoint = { x: event.clientX, y: event.clientY };
   const gesture = turnGesture;
   if (!gesture || gesture.pointerId !== event.pointerId || gesture.released) return;
   event.preventDefault();
@@ -805,13 +836,6 @@ function releasePaper(event) {
 }
 $('reader').addEventListener('pointerup', releasePaper);
 $('reader').addEventListener('pointercancel', releasePaper);
-$('reader').addEventListener('click', event => {
-  if (event.target.closest('.page-corner')) return;
-  if (event.altKey && event.target.closest('.pdf-page') && !captureMode) {
-    event.preventDefault();
-    showMagnifier({ x: event.clientX, y: event.clientY });
-  }
-});
 
 renderIcons();
 syncControls();
@@ -824,8 +848,7 @@ $('page-input').addEventListener('change', () => navigate($('page-input').value)
 $('page-input').addEventListener('keydown', event => { if (event.key === 'Enter') { navigate($('page-input').value); $('reader').focus(); } });
 $('zoom-out').addEventListener('click', () => zoom(-.5));
 $('zoom-in').addEventListener('click', () => zoom(.5));
-for (const fit of ['width', 'page']) $(`fit-${fit}`).addEventListener('click', () => magnifier.close());
-$('magnify-toggle').addEventListener('click', () => magnifier.isOpen ? magnifier.close() : showMagnifier());
+$('fit-page').addEventListener('click', () => pageZoom.set(1));
 $('page-map-toggle').addEventListener('click', showPageMap);
 pageMap.dialog.addEventListener('close', () => $('page-map-toggle').setAttribute('aria-expanded', 'false'));
 $('tools-toggle').addEventListener('click', () => {
@@ -837,9 +860,19 @@ $('tools-toggle').addEventListener('click', () => {
 document.addEventListener('pointerdown', event => {
   if (!event.target.closest('#reader-tools, #tools-toggle, #sidebar, #clips-panel, #toggle-sidebar, #clips-toggle')) closePanels();
 });
-$('theme-select').addEventListener('change', event => { state.theme = event.target.value; syncControls(); persist(); });
-$('layout-select').addEventListener('change', event => { state.mode = event.target.value; syncControls(); renderPages(); persist(); });
-$('direction-select').addEventListener('change', event => { state.direction = event.target.value; syncControls(); renderPages(); persist(); });
+function changePreferences(change) {
+  preferences = { ...preferences, ...change };
+  Object.assign(state, preferences); syncControls();
+  if ('mode' in change || 'direction' in change) renderPages();
+  const snapshot = { ...preferences };
+  preferenceSave = preferenceSave.then(() => desktop.savePreferences(snapshot)).catch(() => toast('表示設定を保存できませんでした。', true));
+}
+$('theme-select').addEventListener('change', event => changePreferences({ theme: event.target.value }));
+$('layout-select').addEventListener('change', event => changePreferences({ mode: event.target.value }));
+$('layout-single').addEventListener('click', () => changePreferences({ mode: 'single' }));
+$('layout-spread').addEventListener('click', () => changePreferences({ mode: 'spread' }));
+$('layout-toggle').addEventListener('click', () => changePreferences({ mode: state.mode === 'spread' ? 'single' : 'spread' }));
+$('direction-select').addEventListener('change', event => changePreferences({ direction: event.target.value }));
 $('focus-toggle').addEventListener('click', focusMode);
 $('toggle-sidebar').addEventListener('click', () => setPanel('sidebar', $('sidebar').hidden));
 $('clips-toggle').addEventListener('click', () => setPanel('clips-panel', $('clips-panel').hidden));
@@ -915,10 +948,10 @@ document.addEventListener('keydown', event => {
       releasePaper({ type: 'pointercancel', pointerId: turnGesture.pointerId, clientX: turnGesture.lastX, clientY: turnGesture.y + turnGesture.vertical });
       return;
     }
-    if (magnifier.isOpen) { magnifier.close(); return; }
     if (!$('reader-tools').hidden || !$('sidebar').hidden || !$('clips-panel').hidden) { closePanels(); return; }
     if (captureMode) { setCapture(false); toast('切り抜きをキャンセルしました'); }
     else if (!$('search-panel').hidden) toggleSearch(false);
+    else if (pageZoom.factor > 1) pageZoom.set(1);
     else if (document.body.dataset.focus === 'true') focusMode();
     return;
   }
@@ -928,12 +961,11 @@ document.addEventListener('keydown', event => {
   if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); bookmark(); return; }
   if (command && ['+', '=', '-', '0'].includes(event.key)) {
     event.preventDefault();
-    if (event.key === '0') magnifier.close(); else zoom(event.key === '-' ? -.5 : .5);
+    if (event.key === '0') pageZoom.set(1); else zoom(event.key === '-' ? -.5 : .5);
     return;
   }
   if ((!typing || command) && event.key.toLowerCase() === 'g') { event.preventDefault(); showPageMap(); return; }
-  if (typing || command || event.target.closest('#magnifier')) return;
-  if (event.key.toLowerCase() === 'z') { event.preventDefault(); magnifier.isOpen ? magnifier.close() : showMagnifier(); return; }
+  if (typing || command) return;
   if (event.key === ' ') {
     if (event.target.closest('button, a')) return;
     event.preventDefault(); step(event.shiftKey ? -1 : 1); return;
