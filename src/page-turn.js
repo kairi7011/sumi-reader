@@ -6,8 +6,7 @@ function polygon(ctx, points) {
   ctx.closePath();
 }
 
-function clippedPaper(width, height, distance) {
-  const corners = [{ x: 0, y: 0 }, { x: width, y: 0 }, { x: width, y: height }, { x: 0, y: height }];
+function clipPolygon(corners, distance) {
   const result = [];
   corners.forEach((a, index) => {
     const b = corners[(index + 1) % corners.length];
@@ -19,6 +18,10 @@ function clippedPaper(width, height, distance) {
     }
   });
   return result;
+}
+
+function rectangle(width, top, bottom) {
+  return [{ x: 0, y: top }, { x: width, y: top }, { x: width, y: bottom }, { x: 0, y: bottom }];
 }
 
 // Affine triangles approximate the bent surface without allocating another texture canvas.
@@ -33,11 +36,18 @@ function textureTriangle(ctx, texture, points, width, height, mirror, alpha = 1)
     (p[key] * (b.x * c.y - c.x * b.y) + q[key] * (c.x * a.y - a.x * c.y) + r[key] * (a.x * b.y - b.x * a.y)) / determinant,
   ];
   const x = coefficient('x'), y = coefficient('y');
-  const center = { x: (p.x + q.x + r.x) / 3, y: (p.y + q.y + r.y) / 3 };
-  // A subpixel overlap keeps antialiased triangle borders from showing a white mesh.
-  const clip = points.map(point => {
-    const dx = point.x - center.x, dy = point.y - center.y, length = Math.hypot(dx, dy) || 1;
-    return { x: point.x + dx / length * .45, y: point.y + dy / length * .45 };
+  const orientation = Math.sign((q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y)) || 1;
+  const normals = points.map((point, index) => {
+    const next = points[(index + 1) % 3], dx = next.x - point.x, dy = next.y - point.y;
+    const length = Math.hypot(dx, dy) || 1;
+    return { x: orientation * dy / length, y: -orientation * dx / length };
+  });
+  // Offset the edges, not radial vertices: narrow curl triangles otherwise leave white seams.
+  const clip = points.map((point, index) => {
+    const before = normals[(index + 2) % 3], after = normals[index];
+    const x = before.x + after.x, y = before.y + after.y;
+    const distance = Math.min(.65 / Math.max(.01, 1 + before.x * after.x + before.y * after.y), 3 / (Math.hypot(x, y) || 1));
+    return { x: point.x + x * distance, y: point.y + y * distance };
   });
   ctx.save();
   polygon(ctx, clip); ctx.clip();
@@ -46,7 +56,13 @@ function textureTriangle(ctx, texture, points, width, height, mirror, alpha = 1)
   ctx.save();
   ctx.transform(x[0], y[0], x[1], y[1], x[2], y[2]);
   ctx.globalAlpha = alpha;
-  ctx.drawImage(texture, 0, 0);
+  // WebKit otherwise samples the entire page for every clipped triangle.
+  const padding = Math.ceil(Math.max(texture.width / width, texture.height / height) * 2);
+  const sourceX = Math.max(0, Math.floor(Math.min(a.x, b.x, c.x)) - padding);
+  const sourceY = Math.max(0, Math.floor(Math.min(a.y, b.y, c.y)) - padding);
+  const sourceWidth = Math.min(texture.width, Math.ceil(Math.max(a.x, b.x, c.x)) + padding) - sourceX;
+  const sourceHeight = Math.min(texture.height, Math.ceil(Math.max(a.y, b.y, c.y)) + padding) - sourceY;
+  ctx.drawImage(texture, sourceX, sourceY, sourceWidth, sourceHeight, sourceX, sourceY, sourceWidth, sourceHeight);
   ctx.restore();
   const shades = points.map(point => .018 * (1 - Math.cos(point.theta)) + .15 * Math.sin(point.theta));
   const area = (q.x - p.x) * (r.y - p.y) - (r.x - p.x) * (q.y - p.y);
@@ -150,14 +166,14 @@ export class PaperTurn {
     const gutter = spread ? Math.max(0, sheets[1].rect.left - sheets[0].rect.right) : 0;
     overlay = document.createElement('canvas');
     overlay.className = 'paper-turn'; overlay.setAttribute('aria-hidden', 'true');
-    const scale = Math.min(devicePixelRatio || 1, 2, Math.sqrt(5_990_000 / (hostRect.width * hostRect.height)));
+    const scale = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(3_490_000 / (hostRect.width * hostRect.height)));
     overlay.width = Math.floor(hostRect.width * scale); overlay.height = Math.floor(hostRect.height * scale);
     const ctx = overlay.getContext('2d');
     if (!ctx) { overlay.width = overlay.height = 0; overlay = null; return session; }
     this.host.append(overlay);
     next.inert = true;
     this.host.dataset.turning = 'true'; this.host.dataset.turnPhase = 'dragging';
-    const columns = 40, rows = 18;
+    const bendBands = 18, verticalBands = 8;
     const cornerSign = cornerY < .5 ? -1 : 1;
     const anchorY = cornerSign > 0 ? height : 0;
     paint = () => {
@@ -179,9 +195,10 @@ export class PaperTurn {
       const fold = nx * width * Math.pow(1 - p, 1.12);
       const distance = (u, v) => nx * u + ny * (v - anchorY) - fold;
       const radius = width * (.045 + .065 * lift) * lift;
+      const radiusAt = v => Math.max(.001, radius * (.72 + .43 * Math.abs(v - anchorY) / height));
       const project = (u, v) => {
         const s = distance(u, v);
-        const r = Math.max(.001, radius * (.72 + .43 * Math.abs(v - anchorY) / height));
+        const r = radiusAt(v);
         const theta = s <= 0 ? 0 : Math.min(Math.PI, s / r);
         const along = s <= 0 ? s : r * Math.sin(theta) - Math.max(0, s - Math.PI * r);
         const z = s <= 0 ? 0 : r * (1 - Math.cos(theta));
@@ -197,25 +214,37 @@ export class PaperTurn {
       ctx.shadowColor = `rgba(25,22,16,${.24 * lift})`; ctx.shadowBlur = 18 * lift;
       ctx.shadowOffsetX = -10 * lift; ctx.shadowOffsetY = 12 * lift;
       polygon(ctx, outline); ctx.fillStyle = '#fffef9'; ctx.fill(); ctx.restore();
-      const flat = clippedPaper(width, height, distance);
+      const flat = clipPolygon(rectangle(width, 0, height), distance);
       if (flat.length > 2) {
         ctx.save(); polygon(ctx, flat); ctx.clip();
         if (direction < 0) { ctx.translate(width, 0); ctx.scale(-1, 1); }
         ctx.drawImage(canvas, 0, 0, width, height); ctx.restore();
       }
-      const vertices = Array.from({ length: rows + 1 }, (_, j) => Array.from({ length: columns + 1 }, (_, i) => project(width * i / columns, height * j / rows)));
       const triangles = [];
-      for (let j = 0; j < rows; j++) for (let i = 0; i < columns; i++) {
-        const a = vertices[j][i], b = vertices[j][i + 1], c = vertices[j + 1][i], d = vertices[j + 1][i + 1];
-        for (const points of [[a, b, c], [b, d, c]]) {
-          if (points.every(point => point.s <= 0)) continue;
-          const theta = points.reduce((sum, point) => sum + point.theta, 0) / 3;
-          triangles.push({ points, theta, z: points.reduce((sum, point) => sum + point.z, 0) / 3 });
+      const addSurface = (polygon, back) => {
+        const projected = polygon.map(point => project(point.x, point.y));
+        for (let i = 1; i + 1 < projected.length; i++) {
+          const points = [projected[0], projected[i], projected[i + 1]];
+          triangles.push({ points, back, z: points.reduce((sum, point) => sum + point.z, 0) / 3 });
+        }
+      };
+      for (let row = 0; row < verticalBands; row++) {
+        const top = height * row / verticalBands, bottom = height * (row + 1) / verticalBands;
+        // The turned face is planar; a few horizontal slices preserve its perspective.
+        addSurface(clipPolygon(rectangle(width, top, bottom), (u, v) => Math.PI * radiusAt(v) - distance(u, v)), true);
+        for (let band = 0; band < bendBands; band++) {
+          const from = Math.PI * band / bendBands, to = Math.PI * (band + 1) / bendBands;
+          const source = (theta, v) => ({ x: (fold - ny * (v - anchorY) + theta * radiusAt(v)) / nx, y: v });
+          let surface = [source(from, top), source(to, top), source(to, bottom), source(from, bottom)];
+          surface = clipPolygon(surface, u => -u);
+          surface = clipPolygon(surface, u => u - width);
+          // An angle boundary at pi/2 prevents a triangle from mixing the two printed faces.
+          addSurface(surface, band >= bendBands / 2);
         }
       }
       triangles.sort((a, b) => a.z - b.z);
       for (const triangle of triangles) {
-        const back = triangle.theta > Math.PI / 2;
+        const back = triangle.back;
         const texture = back && reverse ? reverse.canvas : canvas;
         const mirror = back && reverse ? direction > 0 : direction < 0;
         textureTriangle(ctx, texture, triangle.points, width, height, mirror, back && !reverse ? .075 : 1);
