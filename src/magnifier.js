@@ -22,7 +22,7 @@ export class Magnifier {
       if (event.button !== 0) return;
       event.preventDefault();
       this.canvas.setPointerCapture(event.pointerId);
-      this.drag = { x: event.clientX, y: event.clientY, cx: this.center.x, cy: this.center.y };
+      this.drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, cx: this.center.x, cy: this.center.y };
       this.canvas.dataset.dragging = 'true';
     });
     this.canvas.addEventListener('pointermove', event => {
@@ -70,7 +70,9 @@ export class Magnifier {
     this.task?.cancel(); this.task = null;
     this.panel.hidden = true;
     this.marker?.remove(); this.marker = null;
+    if (this.drag && this.canvas.hasPointerCapture(this.drag.pointerId)) this.canvas.releasePointerCapture(this.drag.pointerId);
     this.source = null; this.drag = null;
+    delete this.canvas.dataset.dragging;
     this.canvas.width = this.canvas.height = 0;
     this.detail?.remove(); this.detail = null;
     this.returnFocus?.isConnected && this.returnFocus.focus({ preventScroll: true });

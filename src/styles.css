@@ -256,6 +256,8 @@ body[data-theme="night"] .icon-button[aria-pressed="true"], body[data-theme="nig
 body[data-focus="true"] .sidebar, body[data-focus="true"] .clips-panel { display: none; }
 body[data-focus="true"] .titlebar { background: var(--stage); border-bottom-color: transparent; }
 body[data-focus="true"] .brand-small { opacity: .5; }
+body[data-focus="true"] .titlebar-leading, body[data-focus="true"] .titlebar-trailing, body[data-focus="true"] .reader-footer { visibility: hidden; }
+body[data-focus="true"] .reader { padding: 8px 14px 14px; }
 
 
 .titlebar .icon-button { width: 28px; height: 28px; border-radius: 6px; }

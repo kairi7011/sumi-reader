@@ -116,6 +116,7 @@ function syncControls() {
   const marked = state.bookmarks.includes(state.page);
   $('bookmark-toggle').setAttribute('aria-pressed', String(marked));
   $('bookmark-toggle').setAttribute('aria-label', marked ? 'しおりを外す' : 'しおりを付ける');
+  $('bookmark-toggle').querySelector('span:not([data-icon])').textContent = marked ? 'しおりを外す' : 'しおりを付ける';
   $('layout-select').value = state.mode;
   $('direction-select').value = state.direction;
   $('theme-select').value = state.theme;
@@ -571,6 +572,7 @@ function setCapture(enabled) {
   $('capture-region').setAttribute('aria-pressed', String(captureMode));
   document.querySelectorAll('.capture-overlay').forEach(element => element.remove());
   if (!captureMode) { if (!$('reader-status').dataset.error || $('reader-status').dataset.error === 'false') $('reader-status').hidden = true; return; }
+  magnifier.close(); closePanels();
   selectionToolbar.hidden = true;
   window.getSelection()?.removeAllRanges();
   $('reader-status').dataset.error = 'false';
@@ -694,12 +696,15 @@ function bookmark() {
 
 function focusMode() {
   const focused = document.body.dataset.focus !== 'true';
+  if (focused) { closePanels(); magnifier.close(); setCapture(false); toggleSearch(false); }
   document.body.dataset.focus = String(focused);
   $('focus-toggle').setAttribute('aria-pressed', String(focused));
+  if (pdf) $('reader').focus({ preventScroll: true });
   toast(focused ? '集中モード · Escで戻る' : '通常表示に戻りました');
 }
 
 function closeTools() {
+  if ($('reader-tools').contains(document.activeElement)) $('tools-toggle').focus({ preventScroll: true });
   $('reader-tools').hidden = true;
   $('tools-toggle').setAttribute('aria-expanded', 'false');
 }
@@ -727,8 +732,8 @@ function showMagnifier(point = lastReadingPoint) {
   const wrapper = point && pages.find(page => {
     const rect = page.getBoundingClientRect();
     return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
-  }) || pages[0];
-  magnifier.open(wrapper, wrapper === pages[0] && !point ? null : point);
+  });
+  magnifier.open(wrapper || pages[0], wrapper ? point : null);
 }
 
 function zoom(delta) {
@@ -853,7 +858,7 @@ $('copy-page').addEventListener('click', () => {
   });
 });
 $('copy-all-clips').addEventListener('click', () => action($('copy-all-clips'), () => desktop.copyText(clips.filter(clip => clip.text).map(clip => citation(clip.name, clip.page, clip.text)).join('\n\n---\n\n')), '文章をまとめてコピーしました'));
-$('capture-region').addEventListener('click', () => { magnifier.close(); closeTools(); setCapture(!captureMode); });
+$('capture-region').addEventListener('click', () => setCapture(!captureMode));
 $('search-toggle').addEventListener('click', () => toggleSearch());
 $('search-input').addEventListener('input', () => { ++searchToken; clearTimeout(searchTimer); searchTimer = setTimeout(search, 230); });
 $('search-input').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); visitResult(event.shiftKey ? -1 : 1); } });
@@ -929,7 +934,10 @@ document.addEventListener('keydown', event => {
   if ((!typing || command) && event.key.toLowerCase() === 'g') { event.preventDefault(); showPageMap(); return; }
   if (typing || command || event.target.closest('#magnifier')) return;
   if (event.key.toLowerCase() === 'z') { event.preventDefault(); magnifier.isOpen ? magnifier.close() : showMagnifier(); return; }
-  if (event.key === ' ') { event.preventDefault(); step(event.shiftKey ? -1 : 1); return; }
+  if (event.key === ' ') {
+    if (event.target.closest('button, a')) return;
+    event.preventDefault(); step(event.shiftKey ? -1 : 1); return;
+  }
   if (['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp'].includes(event.key)) {
     event.preventDefault();
     let delta = ['ArrowRight', 'PageDown'].includes(event.key) ? 1 : -1;
