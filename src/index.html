@@ -9,12 +9,12 @@
   </head>
   <body data-theme="paper" data-focus="false">
     <div id="app">
-      <header class="titlebar">
+      <header class="titlebar" data-tauri-drag-region>
         <div class="titlebar-leading">
           <button id="toggle-sidebar" class="icon-button" aria-label="サイドバー" title="サイドバー" aria-pressed="true"><span data-icon="sidebar"></span></button>
           <span class="brand-small">sumi<span class="brand-dot">.</span></span>
         </div>
-        <div class="document-heading"><h1 id="document-title">Sumi</h1><span id="document-meta">あなたのための読書室</span></div>
+        <div class="document-heading" data-tauri-drag-region><h1 data-tauri-drag-region id="document-title">Sumi</h1><span data-tauri-drag-region id="document-meta">あなたのための読書室</span></div>
         <div class="titlebar-trailing">
           <button id="focus-toggle" class="icon-button" aria-label="集中モード" title="集中モード · ⌘⇧F" aria-pressed="false"><span data-icon="focus"></span></button>
           <button id="clips-toggle" class="icon-button" aria-label="切り抜き" title="切り抜き" aria-pressed="false"><span data-icon="clips"></span></button>

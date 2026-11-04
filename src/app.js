@@ -1,8 +1,10 @@
-import * as pdfjs from '../node_modules/pdfjs-dist/build/pdf.mjs';
+import './desktop.js';
+import { PaperTurn } from './page-turn.js';
+import * as pdfjs from '../node_modules/pdfjs-dist/legacy/build/pdf.mjs';
 import { renderIcons, icon } from './icons.js';
 import { clamp, normalizeState, visiblePages, cropRect, pageText, textSegments, matchingSegments, citation, searchMatches } from './model.js';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL('../node_modules/pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL('../node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).href;
 const $ = id => document.getElementById(id);
 const desktop = window.desktop;
 const asset = path => new URL(`../node_modules/pdfjs-dist/${path}/`, import.meta.url).href;
@@ -15,7 +17,10 @@ let sidebarTab = 'library';
 let opening = 0;
 let rendering = 0;
 let loadingTask = null;
-let renderTasks = [];
+let pendingBatch = null;
+let displayedPage = 0;
+let displayedMode = null;
+const paperTurn = new PaperTurn(document.getElementById('reading-area'));
 let pageProxies = [];
 let textLayers = [];
 let toastTimer;
@@ -93,6 +98,8 @@ function syncControls() {
   $('zoom-out').disabled = !pdf || state.zoom <= .35;
   $('zoom-in').disabled = !pdf || state.zoom >= 3;
   $('capture-region').disabled = !pdf || !renderReady;
+  $('copy-page').disabled = !pdf || !renderReady;
+  $('bookmark-toggle').disabled = !pdf || !renderReady;
   $('fit-width').setAttribute('aria-pressed', String(state.fit === 'width'));
   $('fit-page').setAttribute('aria-pressed', String(state.fit === 'page'));
   const marked = state.bookmarks.includes(state.page);
@@ -212,7 +219,8 @@ async function openDocument(document) {
   selectionToolbar.hidden = true;
   if (book && pdf) await desktop.saveReadingState(book.id, state).catch(() => {});
   if (token !== opening) return;
-  cancelRender();
+  cancelRender(true);
+  displayedPage = 0;
   const previousTask = loadingTask;
   loadingTask = null;
   await previousTask?.destroy().catch(() => {});
@@ -270,45 +278,71 @@ async function openDocument(document) {
   }
 }
 
-function cancelRender() {
-  renderTasks.forEach(task => task.cancel());
-  textLayers.forEach(layer => layer.cancel());
-  renderTasks = [];
-  textLayers = [];
-  for (const page of pageProxies) page.cleanup();
-  pageProxies = [];
+function disposeBatch(batch) {
+  if (!batch || batch.disposed) return;
+  batch.disposed = true;
+  batch.tasks.forEach(task => task.cancel());
+  batch.layers.forEach(layer => layer.cancel());
+  batch.node.remove();
+  batch.node.querySelectorAll('canvas').forEach(canvas => { canvas.width = canvas.height = 0; });
+  for (const page of batch.proxies) {
+    if (!pageProxies.includes(page) && !pendingBatch?.proxies.includes(page)) page.cleanup();
+  }
 }
 
-async function renderPages() {
+function cancelRender(all = false) {
+  paperTurn.finish();
+  const pending = pendingBatch;
+  pendingBatch = null;
+  disposeBatch(pending);
+  if (all) {
+    textLayers.forEach(layer => layer.cancel());
+    textLayers = [];
+    const previous = pageProxies;
+    pageProxies = [];
+    previous.forEach(page => page.cleanup());
+  }
+}
+
+async function renderPages(turn = false) {
   if (!pdf) return;
   clearTimeout(resizeTimer);
   const token = ++rendering;
-  renderReady = false;
-  $('capture-region').disabled = true;
   const currentPdf = pdf;
+  const target = { ...state };
   cancelRender();
+  renderReady = false;
   setCapture(false);
   selectionToolbar.hidden = true;
   $('reader-status').hidden = true;
-  busy('ページを描画しています…');
-  $('pages').replaceChildren();
-  const numbers = visiblePages(state.page, pdf.numPages, state.mode);
+  $('reader').dataset.loading = 'true';
+  syncControls();
+  const loading = setTimeout(() => {
+    if (token === rendering) busy('次のページを準備しています…');
+  }, 180);
+  const node = document.createElement('div');
+  node.className = 'pages staging-pages';
+  node.dataset.direction = target.direction;
+  node.inert = true;
+  node.setAttribute('aria-hidden', 'true');
+  $('reader').append(node);
+  const batch = { node, proxies: [], tasks: [], layers: [] };
+  pendingBatch = batch;
+  let committed = false;
   try {
-    const proxies = await Promise.all(numbers.map(page => currentPdf.getPage(page)));
+    const numbers = visiblePages(target.page, currentPdf.numPages, target.mode);
+    batch.proxies = await Promise.all(numbers.map(page => currentPdf.getPage(page)));
     if (token !== rendering) return;
-    pageProxies = proxies;
-    const base = proxies.map(page => page.getViewport({ scale: 1 }));
+    const base = batch.proxies.map(page => page.getViewport({ scale: 1 }));
     const reader = $('reader');
     const style = getComputedStyle(reader);
     const availableWidth = reader.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - (numbers.length - 1) * 18;
     const availableHeight = reader.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
     const fitWidth = availableWidth / base.reduce((sum, page) => sum + page.width, 0);
     const fitHeight = availableHeight / Math.max(...base.map(page => page.height));
-    if (state.fit !== 'custom') state.zoom = clamp(state.fit === 'width' ? fitWidth : Math.min(fitWidth, fitHeight), .1, 3);
-    syncControls();
-    $('capture-region').disabled = true;
-    await Promise.all(proxies.map(async (page, index) => {
-      const viewport = page.getViewport({ scale: state.zoom });
+    if (target.fit !== 'custom') target.zoom = clamp(target.fit === 'width' ? fitWidth : Math.min(fitWidth, fitHeight), .1, 3);
+    await Promise.all(batch.proxies.map(async (page, index) => {
+      const viewport = page.getViewport({ scale: target.zoom });
       const wrapper = document.createElement('div');
       wrapper.className = 'pdf-page';
       wrapper.dataset.pageNumber = numbers[index];
@@ -317,7 +351,6 @@ async function renderPages() {
       wrapper.style.height = `${viewport.height}px`;
       wrapper.style.setProperty('--total-scale-factor', viewport.scale);
       const canvas = document.createElement('canvas');
-      // Large zooms must not allocate unbounded Retina backing stores.
       const outputScale = Math.min(devicePixelRatio || 1, 2, Math.sqrt(14_000_000 / (viewport.width * viewport.height)));
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
@@ -326,44 +359,69 @@ async function renderPages() {
       const layerDiv = document.createElement('div');
       layerDiv.className = 'textLayer';
       wrapper.append(canvas, layerDiv);
-      $('pages').append(wrapper);
-      const renderTask = page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] });
-      renderTasks.push(renderTask);
-      await renderTask.promise;
+      node.append(wrapper);
+      const task = page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] });
+      batch.tasks.push(task);
+      await task.promise;
       if (token !== rendering) return;
       const content = await page.getTextContent();
       if (token !== rendering) return;
       cacheText(numbers[index], pageText(content));
-      const textLayer = new pdfjs.TextLayer({ textContentSource: content, container: layerDiv, viewport });
-      textLayer.sumiSegments = textSegments(content);
-      textLayers.push(textLayer);
-      await textLayer.render();
+      const layer = new pdfjs.TextLayer({ textContentSource: content, container: layerDiv, viewport });
+      layer.sumiSegments = textSegments(content);
+      batch.layers.push(layer);
+      await layer.render();
     }));
     if (token !== rendering) return;
-    renderReady = true;
-    $('capture-region').disabled = false;
+    clearTimeout(loading);
+    busy(null);
+    const previous = { node: $('pages'), tasks: [], layers: textLayers, proxies: pageProxies };
+    const direction = turn && displayedMode === target.mode && Math.abs(target.page - displayedPage) === (target.mode === 'spread' ? 2 : 1)
+      ? Math.sign(target.page - displayedPage) * (target.direction === 'rtl' ? -1 : 1) : 0;
+    // Capture old geometry before the atomic swap. Neither an empty canvas nor half a spread is ever shown.
+    const animation = paperTurn.play(previous.node, node, direction);
+    previous.node.replaceWith(node);
+    node.id = 'pages';
+    node.classList.remove('staging-pages');
+    node.removeAttribute('aria-hidden');
+    if (!direction) node.inert = false;
+    pendingBatch = null;
+    pageProxies = batch.proxies;
+    textLayers = batch.layers;
+    committed = true;
+    displayedPage = target.page;
+    displayedMode = target.mode;
+    state.zoom = target.zoom;
     reader.scrollTop = 0;
-    reader.scrollLeft = state.direction === 'rtl' ? reader.scrollWidth : 0;
+    reader.scrollLeft = target.direction === 'rtl' ? reader.scrollWidth : 0;
     highlightSearch();
+    await animation;
+    disposeBatch(previous);
+    if (token !== rendering) return;
+    renderReady = true;
+    syncControls();
+    renderSidebar();
     persist();
   } catch (error) {
     if (token !== rendering || error.name === 'RenderingCancelledException' || error.name === 'AbortException') return;
+    state.page = displayedPage || 1;
+    syncControls();
     console.error('Page render failed', error);
-    showError('このページを表示できませんでした。ページを移動するか、PDFを開き直してください。');
+    showError('このページを表示できませんでした。もう一度めくるか、PDFを開き直してください。');
   } finally {
-    if (token === rendering) busy(null);
+    clearTimeout(loading);
+    if (!committed) { if (pendingBatch === batch) pendingBatch = null; disposeBatch(batch); }
+    if (token === rendering) { busy(null); delete $('reader').dataset.loading; }
   }
 }
 
 async function navigate(page) {
   if (!pdf) return;
   const next = clamp(Math.floor(Number(page)) || 1, 1, pdf.numPages);
-  if (next === state.page) return;
+  if (next === state.page && renderReady) return;
   state.page = next;
   syncControls();
-  renderSidebar();
-  persist();
-  await renderPages();
+  await renderPages(true);
 }
 
 function step(delta) { return navigate(state.page + delta * (state.mode === 'spread' ? 2 : 1)); }
@@ -379,7 +437,7 @@ async function getText(page, currentPdf = pdf) {
   const proxy = await currentPdf.getPage(page);
   const text = pageText(await proxy.getTextContent());
   if (currentPdf === pdf) cacheText(page, text);
-  if (!pageProxies.includes(proxy)) proxy.cleanup();
+  if (!pageProxies.includes(proxy) && !pendingBatch?.proxies.includes(proxy)) proxy.cleanup();
   return text;
 }
 
@@ -702,6 +760,7 @@ document.addEventListener('keydown', event => {
   else if (event.key === '?' || event.key === 'h') $('help-dialog').showModal();
 });
 
+if (desktop?.native !== 'tauri') {
 let dragDepth = 0;
 document.addEventListener('dragenter', event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); dragDepth++; $('drop-overlay').hidden = false; } });
 document.addEventListener('dragover', event => { if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } });
@@ -712,6 +771,8 @@ document.addEventListener('drop', event => {
   if (!file) return toast('PDFファイルをドロップしてください', true);
   action($('open-file'), async () => openDocument(await desktop.openDroppedPdf(file)));
 });
+
+}
 
 let resizeTimer;
 let lastSize = '';
@@ -728,11 +789,13 @@ if (desktop) {
   desktop.onOpenPdf(openDocument);
   desktop.onOpenError(message => { busy(null); toast(message, true); });
   desktop.onCommand(command => {
-    if (command === 'find') toggleSearch(true);
+    if (command === 'open') $('open-file').click();
+    else if (command === 'find') toggleSearch(true);
     else if (command === 'focus') focusMode();
     else if (command === 'capture') setCapture(!captureMode);
   });
-  refreshLibrary().then(async data => {
+  desktop.onFileDrag?.(dragging => { $('drop-overlay').hidden = !dragging; });
+  (async () => { await desktop.ready?.(); return refreshLibrary(); })().then(async data => {
     if (data.lastOpenedId && !opening) {
       try {
         const last = await desktop.reopenPdf(data.lastOpenedId);

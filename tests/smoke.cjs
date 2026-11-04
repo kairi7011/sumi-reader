@@ -39,8 +39,8 @@ async function run(window) {
   const select = (selector, value) => js(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('change', { bubbles: true })); })()`);
   const check = (label, condition) => { assert.ok(condition, label); checks.push(label); console.log(`PASS ${label}`); };
   const readyPage = async page => {
-    try { return await waitFor(`render page ${page}`, () => js(`document.querySelector('#page-input').value === '${page}' && document.querySelectorAll('#pages canvas').length > 0 && [...document.querySelectorAll('#pages canvas')].every(c => c.width > 0) && document.querySelector('#busy').hidden`)); }
-    catch (error) { console.error('Reader state:', await js(`({page: document.querySelector('#page-input').value, pages: [...document.querySelectorAll('.pdf-page')].map(p => p.dataset.pageNumber), canvas: document.querySelectorAll('#pages canvas').length, busy: document.querySelector('#busy').hidden, status: document.querySelector('#reader-status').textContent})`)); throw error; }
+    try { return await waitFor(`render page ${page}`, () => js(`document.querySelector('#page-input').value === '${page}' && document.querySelectorAll('#pages canvas').length > 0 && [...document.querySelectorAll('#pages canvas')].every(c => c.width > 0) && document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning`)); }
+    catch (error) { console.error('Reader state:', await js(`({page: document.querySelector('#page-input').value, pages: [...document.querySelectorAll('.pdf-page')].map(p => p.dataset.pageNumber), canvas: document.querySelectorAll('#pages canvas').length, busy: document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning, status: document.querySelector('#reader-status').textContent})`)); throw error; }
   };
 
   await waitFor('renderer API', () => js(`Boolean(window.desktop && document.querySelector('#welcome'))`));
@@ -78,8 +78,15 @@ async function run(window) {
   check('PDF text has a selectable text layer', true);
   fs.writeFileSync(path.join(artifacts, 'reader.png'), (await contents.capturePage()).toPNG());
 
+  await js(`window.frameSamples = []; window.monitorEnd = performance.now() + 1200; (function sample() { window.frameSamples.push({ present: document.querySelectorAll('#pages canvas').length > 0, valid: [...document.querySelectorAll('#pages canvas')].every(c => c.width > 0), turning: !!document.querySelector('.paper-turn') }); if (performance.now() < window.monitorEnd) requestAnimationFrame(sample); })();`);
   await click('#next-page');
+  await waitFor('paper turn begins', () => js(`Boolean(document.querySelector('.paper-turn'))`));
+  for (let frame = 0; frame < 3; frame++) {
+    await sleep(75);
+    fs.writeFileSync(path.join(artifacts, `turn-${frame}.png`), (await contents.capturePage()).toPNG());
+  }
   await readyPage(2);
+  check('every observed turn frame retains a fully rendered page', await js(`frameSamples.every(f => f.present && f.valid) && frameSamples.some(f => f.turning)`));
   check('next-page control turns the page', true);
   await click('#copy-page');
   await waitFor('page text clipboard', async () => (await clipboard.readText()).includes('curiosity'));
@@ -111,11 +118,11 @@ async function run(window) {
   fs.writeFileSync(path.join(artifacts, 'capture.png'), capture.toPNG());
 
   await select('#layout-select', 'spread');
-  await waitFor('two-page spread', () => js(`document.querySelectorAll('#pages canvas').length === 2 && document.querySelector('#busy').hidden`));
+  await waitFor('two-page spread', () => js(`document.querySelectorAll('#pages canvas').length === 2 && document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning`));
   check('spread renders two pages', true);
   fs.writeFileSync(path.join(artifacts, 'spread.png'), (await contents.capturePage()).toPNG());
   await select('#layout-select', 'single');
-  await waitFor('single-page render', () => js(`document.querySelectorAll('#pages canvas').length === 1 && document.querySelector('#busy').hidden`));
+  await waitFor('single-page render', () => js(`document.querySelectorAll('#pages canvas').length === 1 && document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning`));
 
   await click('#search-toggle');
   await js(`(() => { const input = document.querySelector('#search-input'); input.value = 'curiosity'; input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
@@ -148,7 +155,7 @@ async function run(window) {
   await waitFor('clip collected', () => js(`document.querySelectorAll('#clips-list .clip-card').length > 0`));
   if (await js(`document.querySelector('#clips-panel').hidden`)) await click('#clips-toggle');
   window.setSize(900, 650);
-  await waitFor('compact window', () => js(`innerWidth === 900 && document.querySelector('#busy').hidden`));
+  await waitFor('compact window', () => js(`innerWidth === 900 && document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning`));
   await sleep(350);
   fs.writeFileSync(path.join(artifacts, 'compact-reader-clips.png'), (await contents.capturePage()).toPNG());
   check('compact reader with clips keeps page navigation reachable', await js(`(() => { const r = document.querySelector('#next-page').getBoundingClientRect(); return !document.querySelector('#clips-panel').hidden && r.x >= 0 && r.right <= innerWidth && r.y >= 0 && r.bottom <= innerHeight; })()`));
@@ -199,7 +206,7 @@ async function run(window) {
   app.emit('open-file', { preventDefault() {} }, passwordFixture);
   await waitFor('password dialog again', () => js(`document.querySelector('#password-dialog').open`));
   await click('#password-cancel');
-  await waitFor('password cancel completes', () => js(`!document.querySelector('#password-dialog').open && document.querySelector('#busy').hidden`));
+  await waitFor('password cancel completes', () => js(`!document.querySelector('#password-dialog').open && document.querySelector('#busy').hidden && !document.querySelector('#reader').dataset.loading && !document.querySelector('#reading-area').dataset.turning`));
   check('password dialog can be cancelled', await js(`!document.querySelector('#welcome').hidden`));
 
   app.emit('open-file', { preventDefault() {} }, passwordFixture);
