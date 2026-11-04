@@ -6,45 +6,55 @@
     <title>Sumi</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./pdf-layer.css" />
+    <link rel="stylesheet" href="./page-map.css" />
+    <link rel="stylesheet" href="./magnifier.css" />
   </head>
   <body data-theme="paper" data-focus="false">
     <div id="app">
       <header class="titlebar" data-tauri-drag-region>
         <div class="titlebar-leading">
-          <button id="toggle-sidebar" class="icon-button" aria-label="サイドバー" title="サイドバー" aria-pressed="true"><span data-icon="sidebar"></span></button>
+          <button id="toggle-sidebar" class="icon-button" aria-label="本棚・目次・しおり" title="本棚・目次・しおり" aria-pressed="false" aria-controls="sidebar"><span data-icon="sidebar"></span></button>
           <span class="brand-small">sumi<span class="brand-dot">.</span></span>
         </div>
         <div class="document-heading" data-tauri-drag-region><h1 data-tauri-drag-region id="document-title">Sumi</h1><span data-tauri-drag-region id="document-meta">あなたのための読書室</span></div>
         <div class="titlebar-trailing">
-          <button id="focus-toggle" class="icon-button" aria-label="集中モード" title="集中モード · ⌘⇧F" aria-pressed="false"><span data-icon="focus"></span></button>
-          <button id="clips-toggle" class="icon-button" aria-label="切り抜き" title="切り抜き" aria-pressed="false"><span data-icon="clips"></span></button>
-          <button id="help-toggle" class="icon-button" aria-label="キーボード操作" title="キーボード操作 · ?"><span data-icon="help"></span></button>
+          <button id="magnify-toggle" class="icon-button" data-needs-document aria-label="部分拡大" title="部分拡大" aria-pressed="false" disabled><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M7.5 10.5h6m-3-3v6"/></svg></button>
+          <button id="search-toggle" class="icon-button" data-needs-document aria-label="本文を検索" title="本文を検索 · ⌘F" aria-pressed="false" disabled><span data-icon="search"></span></button>
+          <button id="tools-toggle" class="icon-button" aria-label="読書ツール" title="読書ツール" aria-expanded="false" aria-controls="reader-tools"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h7m5 0h4M4 17h3m5 0h8"/><circle cx="13.5" cy="7" r="2.5"/><circle cx="9.5" cy="17" r="2.5"/></svg></button>
         </div>
       </header>
 
-      <nav class="toolbar" aria-label="読書ツール">
-        <div class="toolbar-group open-group">
-          <button id="open-file" class="text-button"><span data-icon="folder"></span><span>開く</span><kbd>⌘O</kbd></button>
-          <button id="search-toggle" class="icon-button" data-needs-document aria-label="本文を検索" title="本文を検索 · ⌘F" aria-pressed="false" disabled><span data-icon="search"></span></button>
-        </div>
-        <div class="toolbar-group view-group" aria-label="表示倍率">
+      <section id="reader-tools" class="reader-tools" role="dialog" aria-label="読書ツール" hidden>
+        <div class="tools-heading"><h2>読書ツール</h2><span>Esc で閉じる</span></div>
+        <div class="tools-section">
+          <p class="tools-label">部分拡大</p>
+          <div class="toolbar-group view-group" aria-label="表示倍率">
           <button id="zoom-out" class="icon-button compact" data-needs-document aria-label="縮小" title="縮小 · ⌘−" disabled><span data-icon="minus"></span></button>
           <span id="zoom-value" class="zoom-value" aria-live="polite">100%</span>
           <button id="zoom-in" class="icon-button compact" data-needs-document aria-label="拡大" title="拡大 · ⌘+" disabled><span data-icon="plus"></span></button>
           <span class="toolbar-divider"></span>
-          <button id="fit-width" class="icon-button" data-needs-document aria-label="幅に合わせる" title="幅に合わせる" aria-pressed="false" disabled><span data-icon="fit-width"></span></button>
+          <button id="fit-width" class="icon-button" data-needs-document aria-label="幅に合わせる" title="幅に合わせる" aria-pressed="false" disabled hidden><span data-icon="fit-width"></span></button>
           <button id="fit-page" class="icon-button" data-needs-document aria-label="ページ全体を表示" title="ページ全体を表示 · ⌘0" aria-pressed="true" disabled><span data-icon="fit-page"></span></button>
-          <label class="select-control" title="ページの表示"><span class="sr-only">ページの表示</span><select id="layout-select"><option value="single">1ページ</option><option value="spread">見開き</option></select><span data-icon="chevron-down"></span></label>
-          <label class="select-control direction-control" title="ページを読む方向"><span class="sr-only">ページを読む方向</span><select id="direction-select"><option value="ltr">左 → 右</option><option value="rtl">右 → 左</option></select><span data-icon="chevron-down"></span></label>
+          </div>
+          <p class="tools-hint">小さい文字や図を、一時的に大きく。</p>
         </div>
-        <div class="toolbar-group tools-group">
-          <label class="select-control theme-control"><span data-icon="sun"></span><span class="sr-only">配色</span><select id="theme-select"><option value="paper">紙色</option><option value="white">白</option><option value="night">夜</option></select><span data-icon="chevron-down"></span></label>
-          <span class="toolbar-divider"></span>
-          <button id="bookmark-toggle" class="icon-button" data-needs-document aria-label="しおりを付ける" title="しおり · ⌘D" aria-pressed="false" disabled><span data-icon="bookmark"></span></button>
-          <button id="copy-page" class="icon-button" data-needs-document aria-label="ページの文章をコピー" title="ページの文章をコピー" disabled><span data-icon="copy"></span></button>
-          <button id="capture-region" class="text-button capture-button" data-needs-document title="範囲を画像で切り抜く · ⌘⇧X" aria-pressed="false" disabled><span data-icon="crop"></span><span>切り抜く</span></button>
+        <div class="tools-section tools-options">
+          <label class="tool-option"><span>ページ表示</span><span class="select-control"><select id="layout-select"><option value="single">1ページ</option><option value="spread">見開き</option></select><span data-icon="chevron-down"></span></span></label>
+          <label class="tool-option"><span>読む方向</span><span class="select-control direction-control"><select id="direction-select"><option value="ltr">左 → 右</option><option value="rtl">右 → 左</option></select><span data-icon="chevron-down"></span></span></label>
+          <label class="tool-option"><span>配色</span><span class="select-control theme-control"><select id="theme-select"><option value="paper">紙色</option><option value="white">白</option><option value="night">夜</option></select><span data-icon="chevron-down"></span></span></label>
         </div>
-      </nav>
+        <div class="tools-section tools-actions">
+          <button id="bookmark-toggle" class="text-button" data-needs-document aria-label="しおりを付ける" title="しおり · ⌘D" aria-pressed="false" disabled><span data-icon="bookmark"></span><span>しおりを付ける</span><kbd>⌘D</kbd></button>
+          <button id="copy-page" class="text-button" data-needs-document aria-label="ページの文章をコピー" title="ページの文章をコピー" disabled><span data-icon="copy"></span><span>ページの文章をコピー</span></button>
+          <button id="capture-region" class="text-button capture-button" data-needs-document title="範囲を画像で切り抜く · ⌘⇧X" aria-pressed="false" disabled><span data-icon="crop"></span><span>図を切り抜く</span><kbd>⌘⇧X</kbd></button>
+          <button id="clips-toggle" class="text-button" aria-label="切り抜きを見る" title="切り抜きを見る" aria-pressed="false" aria-controls="clips-panel"><span data-icon="clips"></span><span>切り抜きを見る</span></button>
+        </div>
+        <div class="tools-section tools-actions">
+          <button id="open-file" class="text-button"><span data-icon="folder"></span><span>別のPDFを開く</span><kbd>⌘O</kbd></button>
+          <button id="focus-toggle" class="text-button" aria-label="集中モード" title="集中モード · ⌘⇧F" aria-pressed="false"><span data-icon="focus"></span><span>集中モード</span><kbd>⌘⇧F</kbd></button>
+          <button id="help-toggle" class="text-button" aria-label="キーボード操作" title="キーボード操作 · ?"><span data-icon="help"></span><span>操作のヒント</span><kbd>?</kbd></button>
+        </div>
+      </section>
 
       <section id="search-panel" class="search-panel" aria-label="本文検索" hidden>
         <span data-icon="search"></span>
@@ -56,7 +66,7 @@
       </section>
 
       <div class="workspace">
-        <aside id="sidebar" class="sidebar" aria-label="本のナビゲーション">
+        <aside id="sidebar" class="sidebar" aria-label="本のナビゲーション" hidden>
           <div class="sidebar-tabs" role="tablist" aria-label="サイドバーの内容">
             <button data-sidebar-tab="library" role="tab" aria-selected="true" aria-controls="sidebar-content">本棚</button>
             <button data-sidebar-tab="outline" role="tab" aria-selected="false" aria-controls="sidebar-content">目次</button>
@@ -98,14 +108,16 @@
         </aside>
       </div>
 
-      <footer class="reader-footer">
-        <div class="footer-leading"><span class="status-dot"></span><span id="footer-status">PDFを開いて読み始める</span></div>
+      <footer class="reader-footer" aria-label="読書ナビゲーション">
+        <span id="footer-status" class="sr-only">PDFを開いて読み始める</span>
         <div class="page-navigation" aria-label="ページ移動">
+          <button id="page-map-toggle" class="icon-button compact" data-needs-document aria-label="ページ一覧" title="ページ一覧 · G / ⌘G" aria-expanded="false" disabled><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="8" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/></svg></button>
+          <span class="navigation-divider" aria-hidden="true"></span>
           <button id="prev-page" class="icon-button compact" data-needs-document aria-label="前のページ" title="前のページ · ←" disabled><span data-icon="chevron-left"></span></button>
           <div class="page-number"><label class="sr-only" for="page-input">ページ番号</label><input id="page-input" type="number" min="1" value="1" inputmode="numeric" data-needs-document disabled /><span class="page-slash">/</span><span id="page-count">—</span></div>
           <button id="next-page" class="icon-button compact" data-needs-document aria-label="次のページ" title="次のページ · →" disabled><span data-icon="chevron-right"></span></button>
         </div>
-        <div class="footer-trailing"><span id="progress-label">0%</span><progress id="page-progress" max="100" value="0" aria-label="読書の進み具合"></progress></div>
+        <span id="progress-label" class="sr-only">0%</span><progress id="page-progress" max="100" value="0" aria-label="読書の進み具合"></progress>
       </footer>
     </div>
 
@@ -122,7 +134,7 @@
     </dialog>
     <dialog id="help-dialog" class="modal help-modal">
       <div class="modal-title"><div><p class="panel-eyebrow">AT YOUR FINGERTIPS</p><h2>キーボードで、もっと軽く。</h2></div><button id="help-close" class="icon-button" aria-label="閉じる"><span data-icon="close"></span></button></div>
-      <dl class="shortcut-list"><div><dt>PDFを開く</dt><dd><kbd>⌘</kbd><kbd>O</kbd></dd></div><div><dt>本文を検索</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div><div><dt>前・次のページ</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div><div><dt>しおりを付ける</dt><dd><kbd>⌘</kbd><kbd>D</kbd></dd></div><div><dt>拡大・縮小</dt><dd><kbd>⌘</kbd><kbd>＋ / −</kbd></dd></div><div><dt>ページ全体を表示</dt><dd><kbd>⌘</kbd><kbd>0</kbd></dd></div><div><dt>集中モード</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></dd></div><div><dt>範囲を切り抜く</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></dd></div><div><dt>選んだ文章をコピー</dt><dd><kbd>⌘</kbd><kbd>C</kbd></dd></div><div><dt>操作を取り消す</dt><dd><kbd>esc</kbd></dd></div></dl>
+      <dl class="shortcut-list"><div><dt>PDFを開く</dt><dd><kbd>⌘</kbd><kbd>O</kbd></dd></div><div><dt>本文を検索</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div><div><dt>ページ一覧から移動</dt><dd><kbd>G</kbd><span> / </span><kbd>⌘G</kbd></dd></div><div><dt>前・次のページ</dt><dd><kbd>←</kbd><kbd>→</kbd><kbd>Space</kbd></dd></div><div><dt>しおりを付ける</dt><dd><kbd>⌘</kbd><kbd>D</kbd></dd></div><div><dt>部分拡大の倍率</dt><dd><kbd>⌘</kbd><kbd>＋ / −</kbd></dd></div><div><dt>ページ全体を表示</dt><dd><kbd>⌘</kbd><kbd>0</kbd></dd></div><div><dt>集中モード</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></dd></div><div><dt>範囲を切り抜く</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></dd></div><div><dt>選んだ文章をコピー</dt><dd><kbd>⌘</kbd><kbd>C</kbd></dd></div><div><dt>操作を取り消す</dt><dd><kbd>esc</kbd></dd></div></dl><p class="gesture-hint">ページの角をドラッグしても、めくれます。</p>
     </dialog>
     <script type="module" src="./app.js"></script>
   </body>
