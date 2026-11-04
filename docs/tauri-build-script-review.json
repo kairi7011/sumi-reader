@@ -1,0 +1,270 @@
+{
+  "reviewedAt": "2026-11-04",
+  "target": "aarch64-apple-darwin",
+  "scripts": [
+    {
+      "name": "anyhow",
+      "version": "1.0.104",
+      "script": "build.rs",
+      "sha256": "89d1baedcff59822ed692d3a33f131c211a213bdec33c83f68b54110d9c64223"
+    },
+    {
+      "name": "camino",
+      "version": "1.2.6",
+      "script": "build.rs",
+      "sha256": "5bc29910c9644c320a7cceed121474915f7e832f484f1bf694dec80a45182aa0"
+    },
+    {
+      "name": "cookie",
+      "version": "0.18.2",
+      "script": "build.rs",
+      "sha256": "75c45e6b8566ca721dd5759b6ef16e365d5cb201660eee5ec04e278f9d1eefe2"
+    },
+    {
+      "name": "crc32fast",
+      "version": "1.5.3",
+      "script": "build.rs",
+      "sha256": "deb6052c4a586e8875ef677fe2d9e9dcfafebfa949803455ea8eff6e7dbde436"
+    },
+    {
+      "name": "crossbeam-utils",
+      "version": "0.8.23",
+      "script": "build.rs",
+      "sha256": "79cc5363313f77ab76e2de4779e384c672a747fbcd4b96647a79286568714807"
+    },
+    {
+      "name": "defmt",
+      "version": "1.2.0",
+      "script": "build.rs",
+      "sha256": "9477326f9231bbbbb894499e9c3b28f70f06bc37ce08527def13d7fc634db1c7"
+    },
+    {
+      "name": "defmt-macros",
+      "version": "1.2.0",
+      "script": "build.rs",
+      "sha256": "e95adebcba8785d938de75f1555c0baf2ab7a7bf527c01fb9a5f36380fc4a2aa"
+    },
+    {
+      "name": "erased-serde",
+      "version": "0.4.11",
+      "script": "build.rs",
+      "sha256": "cc81259cd7861fc7c4b054656fc50bc381b5e96f22501e1c77f045ca93d41f77"
+    },
+    {
+      "name": "generic-array",
+      "version": "0.14.7",
+      "script": "build.rs",
+      "sha256": "08fa30c4a2c1ad24fe5f987e721dfb20131f45ea5b5dc3e836dcf88a8e33248c"
+    },
+    {
+      "name": "getrandom",
+      "version": "0.3.4",
+      "script": "build.rs",
+      "sha256": "d542c9c3bbc2f64a26c758eac8af16178aab52464bdd8bf0b9a767ba87665021"
+    },
+    {
+      "name": "getrandom",
+      "version": "0.4.3",
+      "script": "build.rs",
+      "sha256": "662faa06d7b2a9c5bea2c17a127a90e00b9f9b31105b0360da516e47cf816e95"
+    },
+    {
+      "name": "icu_normalizer_data",
+      "version": "2.4.0",
+      "script": "build.rs",
+      "sha256": "c2d446772e3d766a804963dbf36e51729f910920f91f4b68c0c199fe6ca0853e"
+    },
+    {
+      "name": "icu_properties_data",
+      "version": "2.4.0",
+      "script": "build.rs",
+      "sha256": "c2d446772e3d766a804963dbf36e51729f910920f91f4b68c0c199fe6ca0853e"
+    },
+    {
+      "name": "indexmap",
+      "version": "1.9.3",
+      "script": "build.rs",
+      "sha256": "558b4d0b9e9b3a44f7e1a2b69f7a7567ea721cd45cb54f4e458e850bf702f35c"
+    },
+    {
+      "name": "libc",
+      "version": "0.2.191",
+      "script": "build.rs",
+      "sha256": "e70593206df4d2a3138eab463567e0ae8f91c1bea565da4ab5370ea8986840ac"
+    },
+    {
+      "name": "muda",
+      "version": "0.20.0",
+      "script": "build.rs",
+      "sha256": "087095c740ca659aba359144353dd34a592aea3f39cb5bc8524db36b925b0448"
+    },
+    {
+      "name": "num-traits",
+      "version": "0.2.19",
+      "script": "build.rs",
+      "sha256": "d3969209fc1c9d201c66ed11820d0b328600d75b3971f8ceebeab04900bc0587"
+    },
+    {
+      "name": "objc2",
+      "version": "0.6.5",
+      "script": "build.rs",
+      "sha256": "f13d2effabc1cfa07fa5018c78eadc645914d676c034adf78acb24b8b419ce7a"
+    },
+    {
+      "name": "objc2-exception-helper",
+      "version": "0.1.1",
+      "script": "build.rs",
+      "sha256": "6c338b9ad9f2d47c6c9d4e3d9d604334828da36dfda4bc4d999b99aab005ceba"
+    },
+    {
+      "name": "parking_lot_core",
+      "version": "0.9.12",
+      "script": "build.rs",
+      "sha256": "3698c936b75f8332d9b6b30a8a6838ea116c1ff0a819a025c9ea9696e4d8ce72"
+    },
+    {
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "script": "build.rs",
+      "sha256": "baeb20b52f6b536be8657a566591a507bb2e34a45cf8baa42b135510a0c3c729"
+    },
+    {
+      "name": "quote",
+      "version": "1.0.47",
+      "script": "build.rs",
+      "sha256": "cd6808c02e476b09a520105e2c6f6d325cccb1ecd542cbbcc836a0ae6f6fb0f1"
+    },
+    {
+      "name": "ref-cast",
+      "version": "1.0.27",
+      "script": "build.rs",
+      "sha256": "095bc1870b75dd5c80a68bddaae03d2de9f817e134b026ebf3f63e0ff81cf5ca"
+    },
+    {
+      "name": "rfd",
+      "version": "0.17.2",
+      "script": "build.rs",
+      "sha256": "22f189f7d408928cd8273c11002d84a2024a0299df96bd5e625d9a968df3201f"
+    },
+    {
+      "name": "schemars",
+      "version": "0.8.22",
+      "script": "build.rs",
+      "sha256": "5ef3c87640a839e95aa892c4dbc9557d8b6437caa697b53a598954cf471e2303"
+    },
+    {
+      "name": "selectors",
+      "version": "0.38.0",
+      "script": "build.rs",
+      "sha256": "36ba09a8d2089d0cae8e310829ecf0e94bcbaa87e775a6578c7d2f0459a5b6ca"
+    },
+    {
+      "name": "serde",
+      "version": "1.0.229",
+      "script": "build.rs",
+      "sha256": "e2ea6a7a82f5404c3e28cb055883c737ee7903367a10206fbb47b75c009f0eb3"
+    },
+    {
+      "name": "serde_core",
+      "version": "1.0.229",
+      "script": "build.rs",
+      "sha256": "7bc6b1eec8913ff4cd8e4b9b92cd04a82a4f38beb30a0b73a64c1e6e49f07b5f"
+    },
+    {
+      "name": "serde_json",
+      "version": "1.0.154",
+      "script": "build.rs",
+      "sha256": "a681e754be844c7dbef957f5d2d00b01f37c5dca160ef1055a8d8f975697a881"
+    },
+    {
+      "name": "swift-rs",
+      "version": "1.0.9",
+      "script": "test-build.rs",
+      "sha256": "82941bdb037e5479003967346ae2f1932391770c8515f4b10cc90569a9b171a1"
+    },
+    {
+      "name": "tauri",
+      "version": "2.12.5",
+      "script": "build.rs",
+      "sha256": "98109a67415599af635edd9c041ccdd9b92525556d012369e59cb4b4df25ca29"
+    },
+    {
+      "name": "tauri-plugin-clipboard-manager",
+      "version": "2.5.0",
+      "script": "build.rs",
+      "sha256": "29508a709aa59083b5103d0a63eab80a7d333ab7d4f2bfa4d177ae15ca27d354"
+    },
+    {
+      "name": "tauri-plugin-dialog",
+      "version": "2.8.4",
+      "script": "build.rs",
+      "sha256": "b594fd5cc1b16d07bba031dfb1f2a32c33200e9baaa84ffe996efffaf1359948"
+    },
+    {
+      "name": "tauri-plugin-fs",
+      "version": "2.7.1",
+      "script": "build.rs",
+      "sha256": "99fb340c1a809d474ccb77a1713d0d019aa6f2fd2a19f20d05d8d515298ddc56"
+    },
+    {
+      "name": "tauri-runtime",
+      "version": "2.12.2",
+      "script": "build.rs",
+      "sha256": "68b2727346e58a9963803a75ac29695b500aaa7d0673e18551465502b60cbf11"
+    },
+    {
+      "name": "tauri-runtime-wry",
+      "version": "2.12.3",
+      "script": "build.rs",
+      "sha256": "68b2727346e58a9963803a75ac29695b500aaa7d0673e18551465502b60cbf11"
+    },
+    {
+      "name": "tauri-utils",
+      "version": "2.10.2",
+      "script": "build.rs",
+      "sha256": "ef0fdc09ec8dcad507f38db5083f9695bb3d6e01f051ab1c7e57396c4f81f831"
+    },
+    {
+      "name": "thiserror",
+      "version": "2.0.21",
+      "script": "build.rs",
+      "sha256": "ccc38283604f99237ad2333bbe395259e29fdf2ff4e04a60a95de9e4499c09a3"
+    },
+    {
+      "name": "tray-icon",
+      "version": "0.25.1",
+      "script": "build.rs",
+      "sha256": "7409f0deb6373b7353c170fa6747165873227ffe19ae6b628cca90d077c1815c"
+    },
+    {
+      "name": "typeid",
+      "version": "1.0.3",
+      "script": "build.rs",
+      "sha256": "688afbcaa398ea159c3481b26d74fde6ce3a675d48364d772557c8e91100de46"
+    },
+    {
+      "name": "web_atoms",
+      "version": "0.2.6",
+      "script": "build.rs",
+      "sha256": "8b50922bbb295e90a26edc3e2ab34f068fee930cefd73ae03cca210cf08f9d89"
+    },
+    {
+      "name": "wry",
+      "version": "0.57.1",
+      "script": "build.rs",
+      "sha256": "689c618b57d95f2d9e4578744c8126615d93c5624d9b3747af20650e577ccb1b"
+    },
+    {
+      "name": "zerocopy",
+      "version": "0.8.63",
+      "script": "build.rs",
+      "sha256": "075d31f4f99cf4e42132e9c3652c846de832576e2f18be281b16405235644fcd"
+    },
+    {
+      "name": "zmij",
+      "version": "1.0.23",
+      "script": "build.rs",
+      "sha256": "ad320bc635887879bdbbf1b9322da4a157ec2c5a4243bd7c2cf9b6884a3b2a41"
+    }
+  ]
+}
