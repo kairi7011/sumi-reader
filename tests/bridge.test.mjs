@@ -52,3 +52,15 @@ test('startup installs event listeners before asking native code to drain queued
   assert.ok(listeners.has('pdf-opened') && listeners.has('pdf-error') && listeners.has('app-command'));
   assert.deepEqual(calls, ['frontend_ready']);
 });
+
+test('background title reads do not supersede the book the user is opening', async () => {
+  const { api, reads, calls } = bridge();
+  const opening = api.reopenPdf('chosen');
+  await new Promise(setImmediate);
+  const background = api.readBookBytes('metadata-only');
+  reads.get('metadata-only')(new ArrayBuffer(7));
+  assert.equal((await background).byteLength, 7);
+  reads.get('chosen')(new ArrayBuffer(3));
+  assert.equal((await opening).id, 'chosen');
+  assert.equal(calls.filter(command => command === 'reopen_pdf').length, 1);
+});

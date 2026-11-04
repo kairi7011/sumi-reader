@@ -3,7 +3,7 @@ mod library;
 #[cfg(debug_assertions)]
 mod smoke;
 
-use library::{Document, PublicLibrary, Store};
+use library::{Document, PublicLibrary, ReaderPreferences, Store};
 use serde_json::Value;
 use std::{path::PathBuf, sync::atomic::Ordering};
 use tauri::{
@@ -70,6 +70,18 @@ fn save_reading_state(app: AppHandle, window: WebviewWindow, id: String, state: 
     trusted(&window)?;
     // Complete the small atomic write before acknowledging so close/quit cannot discard a queued save.
     app.state::<Store>().save_state(&id, &state)
+}
+
+#[tauri::command]
+fn save_preferences(app: AppHandle, window: WebviewWindow, preferences: Value) -> Result<ReaderPreferences, String> {
+    trusted(&window)?;
+    app.state::<Store>().save_preferences(&preferences)
+}
+
+#[tauri::command]
+fn set_book_title(app: AppHandle, window: WebviewWindow, id: String, title: String) -> Result<(), String> {
+    trusted(&window)?;
+    app.state::<Store>().set_book_title(&id, &title)
 }
 
 #[tauri::command]
@@ -230,9 +242,9 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init());
     #[cfg(not(debug_assertions))]
-    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready]);
+    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, save_preferences, set_book_title, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready]);
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_resize_window, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
+    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, save_preferences, set_book_title, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_resize_window, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
     let application = builder
         .setup(|app| {
             let mut data = app.path().app_data_dir()?.join("library.json");
