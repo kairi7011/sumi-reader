@@ -5,3 +5,9 @@ dist/
 coverage/
 test-artifacts/
 
+dist-tauri/
+src-tauri/target/
+*.sqlite3
+*.sqlite3-*
+*.pdf
+__pycache__/
