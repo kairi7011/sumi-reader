@@ -1,5 +1,7 @@
 import './desktop.js';
 import { PaperTurn } from './page-turn.js';
+import { PageMap } from './page-map.js';
+import { Magnifier } from './magnifier.js';
 import { readPageText } from './pdf-text.js';
 import * as pdfjs from '../node_modules/pdfjs-dist/legacy/build/pdf.mjs';
 import { renderIcons, icon } from './icons.js';
@@ -32,6 +34,10 @@ let searchResults = [];
 let resultIndex = -1;
 let captureMode = false;
 let renderReady = false;
+let turnGesture = null;
+let lastReadingPoint = null;
+const pageMap = new PageMap({ getDocument: () => pdf, getPage: () => displayedPage || state.page, onNavigate: page => navigate(page) });
+const magnifier = new Magnifier({ getDocument: () => pdf, copyImage: image => desktop.copyImage(image), notify: toast, onChange: syncControls });
 let clips = [];
 let selectedExcerpt = null;
 const textCache = new Map();
@@ -81,7 +87,7 @@ async function action(button, task, success) {
 function persist() {
   if (!book || !pdf) return;
   const id = book.id;
-  const snapshot = structuredClone(state);
+  const snapshot = { ...structuredClone(state), zoom: 1 };
   desktop.saveReadingState(id, snapshot).catch(() => toast('読書位置を保存できませんでした。', true));
   const recent = library.find(item => item.id === id);
   if (recent) recent.state = snapshot;
@@ -96,14 +102,17 @@ function syncControls() {
   $('page-count').textContent = pdf?.numPages || '—';
   $('page-progress').value = pdf ? Math.round(state.page / pdf.numPages * 100) : 0;
   $('progress-label').textContent = `${$('page-progress').value}%`;
-  $('zoom-value').textContent = `${Math.round(state.zoom * 100)}%`;
-  $('zoom-out').disabled = !pdf || state.zoom <= .35;
-  $('zoom-in').disabled = !pdf || state.zoom >= 3;
+  $('zoom-value').textContent = `${magnifier.factor}×`;
+  $('zoom-out').disabled = !renderReady || magnifier.factor <= 1.5;
+  $('zoom-in').disabled = !renderReady || magnifier.factor >= 5;
+  $('magnify-toggle').disabled = !renderReady;
+  $('magnify-toggle').setAttribute('aria-pressed', String(magnifier.isOpen));
+  $('page-map-toggle').disabled = !pdf;
   $('capture-region').disabled = !pdf || !renderReady;
   $('copy-page').disabled = !pdf || !renderReady;
   $('bookmark-toggle').disabled = !pdf || !renderReady;
   $('fit-width').setAttribute('aria-pressed', String(state.fit === 'width'));
-  $('fit-page').setAttribute('aria-pressed', String(state.fit === 'page'));
+  $('fit-page').setAttribute('aria-pressed', String(!magnifier.isOpen));
   const marked = state.bookmarks.includes(state.page);
   $('bookmark-toggle').setAttribute('aria-pressed', String(marked));
   $('bookmark-toggle').setAttribute('aria-label', marked ? 'しおりを外す' : 'しおりを付ける');
@@ -211,6 +220,10 @@ function askPassword(updatePassword, reason) {
 async function openDocument(document) {
   if (!document) return;
   const token = ++opening;
+  pageMap.reset();
+  magnifier.close();
+  lastReadingPoint = null;
+  closePanels();
   $('password-dialog').close();
   $('password-form').onsubmit = null;
   $('password-input').value = '';
@@ -219,7 +232,7 @@ async function openDocument(document) {
   renderReady = false;
   setCapture(false);
   selectionToolbar.hidden = true;
-  if (book && pdf) await desktop.saveReadingState(book.id, state).catch(() => {});
+  if (book && pdf) await desktop.saveReadingState(book.id, { ...state, zoom: 1 }).catch(() => {});
   if (token !== opening) return;
   cancelRender(true);
   displayedPage = 0;
@@ -259,6 +272,7 @@ async function openDocument(document) {
     pdf = loaded;
     book = { id: document.id, name: document.name };
     state = normalizeState(document.state, pdf.numPages);
+    state.fit = 'page';
     $('welcome').hidden = true;
     $('reader').hidden = false;
     syncControls();
@@ -292,8 +306,17 @@ function disposeBatch(batch) {
   }
 }
 
-function cancelRender(all = false) {
+function clearTurnGesture(gesture) {
+  if (!gesture || turnGesture !== gesture) return;
+  const reader = $('reader');
+  if (reader.hasPointerCapture(gesture.pointerId)) reader.releasePointerCapture(gesture.pointerId);
+  turnGesture = null;
+  delete reader.dataset.grabbing;
+}
+
+function cancelRender(all = false, keepGesture = null) {
   paperTurn.finish();
+  if (turnGesture !== keepGesture) clearTurnGesture(turnGesture);
   const pending = pendingBatch;
   pendingBatch = null;
   disposeBatch(pending);
@@ -306,13 +329,15 @@ function cancelRender(all = false) {
   }
 }
 
-async function renderPages(turn = false) {
+async function renderPages(turn = false, gesture = null) {
   if (!pdf) return;
   clearTimeout(resizeTimer);
   const token = ++rendering;
   const currentPdf = pdf;
+  state.fit = 'page';
   const target = { ...state };
-  cancelRender();
+  cancelRender(false, gesture);
+  magnifier.close();
   renderReady = false;
   setCapture(false);
   selectionToolbar.hidden = true;
@@ -345,7 +370,7 @@ async function renderPages(turn = false) {
     const availableHeight = reader.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
     const fitWidth = availableWidth / base.reduce((sum, page) => sum + page.width, 0);
     const fitHeight = availableHeight / Math.max(...base.map(page => page.height));
-    if (target.fit !== 'custom') target.zoom = clamp(target.fit === 'width' ? fitWidth : Math.min(fitWidth, fitHeight), .1, 3);
+    target.zoom = Math.max(Number.EPSILON, Math.min(fitWidth, fitHeight, 3));
     await Promise.all(batch.proxies.map(async (page, index) => {
       const viewport = page.getViewport({ scale: target.zoom });
       const wrapper = document.createElement('div');
@@ -380,11 +405,18 @@ async function renderPages(turn = false) {
     if (token !== rendering) return;
     clearTimeout(loading);
     busy(null);
+    const previousState = { page: displayedPage, mode: displayedMode, zoom: displayedZoom };
     const previous = { node: $('pages'), tasks: [], layers: textLayers, proxies: pageProxies };
     const direction = turn && displayedMode === target.mode && Math.abs(target.page - displayedPage) === (target.mode === 'spread' ? 2 : 1)
       ? Math.sign(target.page - displayedPage) * (target.direction === 'rtl' ? -1 : 1) : 0;
     // Capture old geometry before the atomic swap. Neither an empty canvas nor half a spread is ever shown.
-    const animation = paperTurn.play(previous.node, node, direction);
+    let animation;
+    if (gesture && direction) {
+      gesture.session = paperTurn.createSession(previous.node, node, direction, { cornerY: gesture.cornerY });
+      gesture.session.update(gesture.progress, gesture.vertical);
+      if (gesture.released) gesture.session.settle(gesture.commit, gesture.velocity);
+      animation = gesture.session.finished;
+    } else animation = paperTurn.play(previous.node, node, direction).then(() => true);
     previous.node.replaceWith(node);
     node.id = 'pages';
     node.classList.remove('staging-pages');
@@ -401,10 +433,21 @@ async function renderPages(turn = false) {
     reader.scrollTop = 0;
     reader.scrollLeft = target.direction === 'rtl' ? reader.scrollWidth : 0;
     highlightSearch();
-    await animation;
-    disposeBatch(previous);
+    const accepted = await animation;
+    if (!accepted && token === rendering) {
+      node.replaceWith(previous.node);
+      previous.node.inert = false;
+      pageProxies = previous.proxies;
+      textLayers = previous.layers;
+      displayedPage = state.page = previousState.page;
+      displayedMode = state.mode = previousState.mode;
+      displayedZoom = state.zoom = previousState.zoom;
+      disposeBatch(batch);
+    } else disposeBatch(previous);
+    clearTurnGesture(gesture);
     if (token !== rendering) return;
     renderReady = true;
+    installPageCorners();
     syncControls();
     persist();
     renderSidebar();
@@ -419,18 +462,19 @@ async function renderPages(turn = false) {
     showError('このページを表示できませんでした。もう一度めくるか、PDFを開き直してください。');
   } finally {
     clearTimeout(loading);
+    clearTurnGesture(gesture);
     if (!committed) { if (pendingBatch === batch) pendingBatch = null; disposeBatch(batch); }
     if (token === rendering) { busy(null); delete $('reader').dataset.loading; }
   }
 }
 
-async function navigate(page) {
+async function navigate(page, gesture = null) {
   if (!pdf) return;
   const next = clamp(Math.floor(Number(page)) || 1, 1, pdf.numPages);
   if (next === state.page && renderReady) return;
   state.page = next;
   syncControls();
-  await renderPages(true);
+  await renderPages(true, gesture);
 }
 
 function step(delta) { return navigate(state.page + delta * (state.mode === 'spread' ? 2 : 1)); }
@@ -451,6 +495,7 @@ async function getText(page, currentPdf = pdf) {
 }
 
 function setPanel(id, show) {
+  if (show) { closePanels(); magnifier.close(); }
   $(id).hidden = !show;
   $(id === 'sidebar' ? 'toggle-sidebar' : 'clips-toggle').setAttribute('aria-pressed', String(show));
 }
@@ -654,12 +699,114 @@ function focusMode() {
   toast(focused ? '集中モード · Escで戻る' : '通常表示に戻りました');
 }
 
-function zoom(delta) {
-  if (!pdf) return;
-  state.zoom = clamp(Math.round((state.zoom + delta) * 100) / 100, .35, 3);
-  state.fit = 'custom';
-  renderPages();
+function closeTools() {
+  $('reader-tools').hidden = true;
+  $('tools-toggle').setAttribute('aria-expanded', 'false');
 }
+
+function closePanels() {
+  for (const id of ['sidebar', 'clips-panel']) {
+    $(id).hidden = true;
+    $(id === 'sidebar' ? 'toggle-sidebar' : 'clips-toggle').setAttribute('aria-pressed', 'false');
+  }
+  closeTools();
+}
+
+function showPageMap() {
+  if (!pdf) return;
+  magnifier.close(); closePanels();
+  pageMap.open();
+  $('page-map-toggle').setAttribute('aria-expanded', String(pageMap.dialog.open));
+}
+
+function showMagnifier(point = lastReadingPoint) {
+  if (!pdf || !renderReady) return;
+  closePanels(); setCapture(false);
+  selectionToolbar.hidden = true;
+  const pages = [...$('pages').querySelectorAll('.pdf-page')];
+  const wrapper = point && pages.find(page => {
+    const rect = page.getBoundingClientRect();
+    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+  }) || pages[0];
+  magnifier.open(wrapper, wrapper === pages[0] && !point ? null : point);
+}
+
+function zoom(delta) {
+  if (!pdf || !renderReady) return;
+  magnifier.zoom(delta);
+  if (!magnifier.isOpen) showMagnifier();
+}
+
+function installPageCorners() {
+  $('pages').querySelectorAll('.page-corner').forEach(corner => corner.remove());
+  const pages = [...$('pages').querySelectorAll('.pdf-page')].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+  for (const [index, side] of [[0, 'left'], [pages.length - 1, 'right']]) {
+    const delta = (side === 'right' ? 1 : -1) * (state.direction === 'rtl' ? -1 : 1);
+    const next = state.page + delta * (state.mode === 'spread' ? 2 : 1);
+    if (!pages[index] || next < 1 || next > pdf.numPages) continue;
+    const corner = document.createElement('button');
+    corner.className = `page-corner ${side}`;
+    corner.dataset.delta = delta;
+    corner.setAttribute('aria-label', delta > 0 ? '紙の端をつかんで次のページへ' : '紙の端をつかんで前のページへ');
+    corner.title = 'ドラッグでめくる · 離すと確定、戻すと取り消し';
+    corner.addEventListener('click', event => { if (event.detail === 0) step(delta); });
+    pages[index].append(corner);
+  }
+}
+
+$('reader').addEventListener('pointerdown', event => {
+  const corner = event.target.closest('.page-corner');
+  if (!corner || event.button !== 0 || !renderReady || captureMode || magnifier.isOpen) return;
+  event.preventDefault();
+  const rect = corner.closest('.pdf-page').getBoundingClientRect();
+  const delta = Number(corner.dataset.delta);
+  const side = corner.classList.contains('right') ? 1 : -1;
+  const gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, lastTime: performance.now(), width: rect.width, side, delta, cornerY: (event.clientY - rect.top) / rect.height, progress: 0, vertical: 0, velocity: 0, excursion: 0, released: false, commit: false };
+  $('reader').setPointerCapture(event.pointerId);
+  $('reader').dataset.grabbing = 'true';
+  turnGesture = gesture;
+  navigate(state.page + delta * (state.mode === 'spread' ? 2 : 1), gesture);
+});
+$('reader').addEventListener('pointermove', event => {
+  lastReadingPoint = { x: event.clientX, y: event.clientY };
+  const gesture = turnGesture;
+  if (!gesture || gesture.pointerId !== event.pointerId || gesture.released) return;
+  event.preventDefault();
+  const now = performance.now();
+  gesture.progress = clamp((gesture.x - event.clientX) * gesture.side / gesture.width, 0, 1);
+  gesture.vertical = event.clientY - gesture.y;
+  gesture.excursion = Math.max(gesture.excursion, Math.hypot(event.clientX - gesture.x, gesture.vertical));
+  gesture.velocity = (gesture.lastX - event.clientX) * gesture.side / gesture.width * 1000 / Math.max(1, now - gesture.lastTime);
+  gesture.lastX = event.clientX; gesture.lastTime = now;
+  gesture.session?.update(gesture.progress, gesture.vertical);
+});
+function releasePaper(event) {
+  const gesture = turnGesture;
+  if (!gesture || gesture.pointerId !== event.pointerId || gesture.released) return;
+  const click = Math.max(gesture.excursion, Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y)) < 5;
+  gesture.velocity *= Math.max(0, 1 - (performance.now() - gesture.lastTime) / 120);
+  gesture.released = true;
+  gesture.commit = event.type !== 'pointercancel' && (click || gesture.progress > .28 || gesture.velocity > .8);
+  if ($('reader').hasPointerCapture(event.pointerId)) $('reader').releasePointerCapture(event.pointerId);
+  if (gesture.session) gesture.session.settle(gesture.commit, gesture.velocity);
+  else if (!gesture.commit) {
+    ++rendering;
+    cancelRender();
+    state.page = displayedPage;
+    renderReady = true;
+    busy(null); delete $('reader').dataset.loading;
+    syncControls();
+  }
+}
+$('reader').addEventListener('pointerup', releasePaper);
+$('reader').addEventListener('pointercancel', releasePaper);
+$('reader').addEventListener('click', event => {
+  if (event.target.closest('.page-corner')) return;
+  if (event.altKey && event.target.closest('.pdf-page') && !captureMode) {
+    event.preventDefault();
+    showMagnifier({ x: event.clientX, y: event.clientY });
+  }
+});
 
 renderIcons();
 syncControls();
@@ -670,9 +817,21 @@ $('prev-page').addEventListener('click', () => step(-1));
 $('next-page').addEventListener('click', () => step(1));
 $('page-input').addEventListener('change', () => navigate($('page-input').value));
 $('page-input').addEventListener('keydown', event => { if (event.key === 'Enter') { navigate($('page-input').value); $('reader').focus(); } });
-$('zoom-out').addEventListener('click', () => zoom(-.15));
-$('zoom-in').addEventListener('click', () => zoom(.15));
-for (const fit of ['width', 'page']) $(`fit-${fit}`).addEventListener('click', () => { state.fit = fit; renderPages(); });
+$('zoom-out').addEventListener('click', () => zoom(-.5));
+$('zoom-in').addEventListener('click', () => zoom(.5));
+for (const fit of ['width', 'page']) $(`fit-${fit}`).addEventListener('click', () => magnifier.close());
+$('magnify-toggle').addEventListener('click', () => magnifier.isOpen ? magnifier.close() : showMagnifier());
+$('page-map-toggle').addEventListener('click', showPageMap);
+pageMap.dialog.addEventListener('close', () => $('page-map-toggle').setAttribute('aria-expanded', 'false'));
+$('tools-toggle').addEventListener('click', () => {
+  const show = $('reader-tools').hidden;
+  closePanels();
+  $('reader-tools').hidden = !show;
+  $('tools-toggle').setAttribute('aria-expanded', String(show));
+});
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('#reader-tools, #tools-toggle, #sidebar, #clips-panel, #toggle-sidebar, #clips-toggle')) closePanels();
+});
 $('theme-select').addEventListener('change', event => { state.theme = event.target.value; syncControls(); persist(); });
 $('layout-select').addEventListener('change', event => { state.mode = event.target.value; syncControls(); renderPages(); persist(); });
 $('direction-select').addEventListener('change', event => { state.direction = event.target.value; syncControls(); renderPages(); persist(); });
@@ -694,7 +853,7 @@ $('copy-page').addEventListener('click', () => {
   });
 });
 $('copy-all-clips').addEventListener('click', () => action($('copy-all-clips'), () => desktop.copyText(clips.filter(clip => clip.text).map(clip => citation(clip.name, clip.page, clip.text)).join('\n\n---\n\n')), '文章をまとめてコピーしました'));
-$('capture-region').addEventListener('click', () => setCapture(!captureMode));
+$('capture-region').addEventListener('click', () => { magnifier.close(); closeTools(); setCapture(!captureMode); });
 $('search-toggle').addEventListener('click', () => toggleSearch());
 $('search-input').addEventListener('input', () => { ++searchToken; clearTimeout(searchTimer); searchTimer = setTimeout(search, 230); });
 $('search-input').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); visitResult(event.shiftKey ? -1 : 1); } });
@@ -741,9 +900,18 @@ document.addEventListener('copy', event => {
 });
 
 document.addEventListener('keydown', event => {
+  if (event.defaultPrevented) return;
+  if (document.querySelector('dialog[open]')) return;
   const typing = /INPUT|TEXTAREA|SELECT/.test(event.target.tagName);
   const command = event.metaKey || event.ctrlKey;
   if (event.key === 'Escape') {
+    if (turnGesture && !turnGesture.released) {
+      event.preventDefault();
+      releasePaper({ type: 'pointercancel', pointerId: turnGesture.pointerId, clientX: turnGesture.lastX, clientY: turnGesture.y + turnGesture.vertical });
+      return;
+    }
+    if (magnifier.isOpen) { magnifier.close(); return; }
+    if (!$('reader-tools').hidden || !$('sidebar').hidden || !$('clips-panel').hidden) { closePanels(); return; }
     if (captureMode) { setCapture(false); toast('切り抜きをキャンセルしました'); }
     else if (!$('search-panel').hidden) toggleSearch(false);
     else if (document.body.dataset.focus === 'true') focusMode();
@@ -755,10 +923,13 @@ document.addEventListener('keydown', event => {
   if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); bookmark(); return; }
   if (command && ['+', '=', '-', '0'].includes(event.key)) {
     event.preventDefault();
-    if (event.key === '0') { state.fit = 'page'; renderPages(); } else zoom(event.key === '-' ? -.15 : .15);
+    if (event.key === '0') magnifier.close(); else zoom(event.key === '-' ? -.5 : .5);
     return;
   }
-  if (typing || command || document.querySelector('dialog[open]')) return;
+  if ((!typing || command) && event.key.toLowerCase() === 'g') { event.preventDefault(); showPageMap(); return; }
+  if (typing || command || event.target.closest('#magnifier')) return;
+  if (event.key.toLowerCase() === 'z') { event.preventDefault(); magnifier.isOpen ? magnifier.close() : showMagnifier(); return; }
+  if (event.key === ' ') { event.preventDefault(); step(event.shiftKey ? -1 : 1); return; }
   if (['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp'].includes(event.key)) {
     event.preventDefault();
     let delta = ['ArrowRight', 'PageDown'].includes(event.key) ? 1 : -1;
@@ -791,7 +962,7 @@ new ResizeObserver(entries => {
   if (size === lastSize) return;
   lastSize = size;
   clearTimeout(resizeTimer);
-  if (pdf && state.fit !== 'custom') resizeTimer = setTimeout(renderPages, 110);
+  if (pdf) resizeTimer = setTimeout(renderPages, 110);
 }).observe($('reader'));
 
 if (desktop) {
