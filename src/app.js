@@ -1,6 +1,6 @@
 import * as pdfjs from '../node_modules/pdfjs-dist/build/pdf.mjs';
 import { renderIcons, icon } from './icons.js';
-import { clamp, normalizeState, visiblePages, cropRect, pageText, citation, searchMatches } from './model.js';
+import { clamp, normalizeState, visiblePages, cropRect, pageText, textSegments, matchingSegments, citation, searchMatches } from './model.js';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('../node_modules/pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 const $ = id => document.getElementById(id);
@@ -24,6 +24,7 @@ let searchToken = 0;
 let searchResults = [];
 let resultIndex = -1;
 let captureMode = false;
+let renderReady = false;
 let clips = [];
 let selectedExcerpt = null;
 const textCache = new Map();
@@ -91,6 +92,7 @@ function syncControls() {
   $('zoom-value').textContent = `${Math.round(state.zoom * 100)}%`;
   $('zoom-out').disabled = !pdf || state.zoom <= .35;
   $('zoom-in').disabled = !pdf || state.zoom >= 3;
+  $('capture-region').disabled = !pdf || !renderReady;
   $('fit-width').setAttribute('aria-pressed', String(state.fit === 'width'));
   $('fit-page').setAttribute('aria-pressed', String(state.fit === 'page'));
   const marked = state.bookmarks.includes(state.page);
@@ -100,6 +102,7 @@ function syncControls() {
   $('direction-select').value = state.direction;
   $('theme-select').value = state.theme;
   document.body.dataset.theme = state.theme;
+  document.body.dataset.direction = state.direction;
   $('pages').dataset.direction = state.direction;
   $('footer-status').textContent = pdf ? '読書位置を自動保存' : 'PDFを開いて読み始める';
   $('document-title').textContent = book?.name || 'Sumi';
@@ -199,8 +202,12 @@ function askPassword(updatePassword, reason) {
 async function openDocument(document) {
   if (!document) return;
   const token = ++opening;
+  $('password-dialog').close();
+  $('password-form').onsubmit = null;
+  $('password-input').value = '';
   ++searchToken;
   ++rendering;
+  renderReady = false;
   setCapture(false);
   selectionToolbar.hidden = true;
   if (book && pdf) await desktop.saveReadingState(book.id, state).catch(() => {});
@@ -274,7 +281,10 @@ function cancelRender() {
 
 async function renderPages() {
   if (!pdf) return;
+  clearTimeout(resizeTimer);
   const token = ++rendering;
+  renderReady = false;
+  $('capture-region').disabled = true;
   const currentPdf = pdf;
   cancelRender();
   setCapture(false);
@@ -325,10 +335,12 @@ async function renderPages() {
       if (token !== rendering) return;
       cacheText(numbers[index], pageText(content));
       const textLayer = new pdfjs.TextLayer({ textContentSource: content, container: layerDiv, viewport });
+      textLayer.sumiSegments = textSegments(content);
       textLayers.push(textLayer);
       await textLayer.render();
     }));
     if (token !== rendering) return;
+    renderReady = true;
     $('capture-region').disabled = false;
     reader.scrollTop = 0;
     reader.scrollLeft = state.direction === 'rtl' ? reader.scrollWidth : 0;
@@ -377,9 +389,15 @@ function setPanel(id, show) {
 }
 
 function addClip(clip) {
-  // Session-only bounded collection avoids retaining many full-resolution bitmaps.
   clips.unshift({ ...clip, id: crypto.randomUUID() });
   clips = clips.slice(0, 24);
+  let bytes = 0;
+  let pixels = 0;
+  clips = clips.filter(item => {
+    bytes += item.image?.length || item.text?.length || 0;
+    pixels += item.pixels || 0;
+    return bytes <= 32_000_000 && pixels <= 24_000_000;
+  });
   renderClips();
 }
 
@@ -399,7 +417,7 @@ function renderClips() {
     meta.append(source);
     const preview = document.createElement(clip.image ? 'img' : 'p');
     preview.className = clip.image ? 'clip-preview' : 'clip-text';
-    if (clip.image) { preview.src = clip.image; preview.alt = `${clip.name} ${clip.page}ページの切り抜き`; }
+    if (clip.image) { preview.src = clip.thumbnail; preview.alt = `${clip.name} ${clip.page}ページの切り抜き`; }
     else preview.textContent = clip.text;
     const actions = document.createElement('div');
     actions.className = 'clip-actions';
@@ -435,6 +453,7 @@ async function copyExcerpt(text, page, button, name = book?.name) {
 }
 
 function setCapture(enabled) {
+  if (enabled && !renderReady) { toast('ページの描画が終わってから切り抜けます'); return; }
   captureMode = Boolean(enabled && pdf);
   document.body.dataset.capturing = String(captureMode);
   $('capture-region').setAttribute('aria-pressed', String(captureMode));
@@ -480,11 +499,17 @@ function setCapture(enabled) {
       const ratioX = source.width / overlay.clientWidth;
       const ratioY = source.height / overlay.clientHeight;
       const result = document.createElement('canvas');
-      result.width = Math.max(1, Math.round(current.width * ratioX));
-      result.height = Math.max(1, Math.round(current.height * ratioY));
+      const scale = Math.min(1, Math.sqrt(6_000_000 / (current.width * ratioX * current.height * ratioY)));
+      result.width = Math.max(1, Math.floor(current.width * ratioX * scale));
+      result.height = Math.max(1, Math.floor(current.height * ratioY * scale));
       result.getContext('2d').drawImage(source, current.x * ratioX, current.y * ratioY, current.width * ratioX, current.height * ratioY, 0, 0, result.width, result.height);
       const image = result.toDataURL('image/png');
-      const clip = { image, page: Number(wrapper.dataset.pageNumber), name: book.name };
+      const thumbnail = document.createElement('canvas');
+      const thumbnailScale = Math.min(1, 440 / Math.max(result.width, result.height));
+      thumbnail.width = Math.max(1, Math.round(result.width * thumbnailScale));
+      thumbnail.height = Math.max(1, Math.round(result.height * thumbnailScale));
+      thumbnail.getContext('2d').drawImage(result, 0, 0, thumbnail.width, thumbnail.height);
+      const clip = { image, thumbnail: thumbnail.toDataURL('image/png'), pixels: result.width * result.height, page: Number(wrapper.dataset.pageNumber), name: book.name };
       setCapture(false);
       addClip(clip);
       setPanel('clips-panel', true);
@@ -498,10 +523,11 @@ function toggleSearch(show = $('search-panel').hidden) {
   $('search-panel').hidden = !show;
   $('search-toggle').setAttribute('aria-pressed', String(show));
   if (show) { $('search-input').focus(); $('search-input').select(); }
-  else { ++searchToken; highlightSearch(); }
+  else { ++searchToken; clearTimeout(searchTimer); highlightSearch(); }
 }
 
 async function search() {
+  if ($('search-panel').hidden) return;
   const query = $('search-input').value.trim();
   const token = ++searchToken;
   const currentPdf = pdf;
@@ -539,10 +565,11 @@ async function visitResult(delta) {
 }
 
 function highlightSearch() {
-  const query = $('search-panel').hidden ? '' : $('search-input').value.trim().normalize('NFKC').toLocaleLowerCase();
-  document.querySelectorAll('.textLayer span').forEach(span => {
-    span.classList.toggle('search-hit', Boolean(query && span.textContent.normalize('NFKC').toLocaleLowerCase().includes(query)));
-  });
+  const query = $('search-panel').hidden ? '' : $('search-input').value;
+  for (const layer of textLayers) {
+    const selected = matchingSegments(layer.sumiSegments || [], query);
+    layer.textDivs.forEach((span, index) => span.classList.toggle('search-hit', selected.has(index)));
+  }
 }
 
 function bookmark() {

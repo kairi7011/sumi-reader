@@ -24,3 +24,5 @@
 .clip-text { white-space: pre-wrap; }
 .search-result-list { margin: 10px 0; }
 body[data-capturing="true"] .reader { user-select: none; }
+body[data-direction="rtl"] .page-navigation { flex-direction: row-reverse; }
+body[data-direction="rtl"] .page-navigation .icon { transform: rotate(180deg); }

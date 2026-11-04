@@ -25,15 +25,30 @@ export function cropRect(start, end, width, height) {
   return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
 }
 
-export function pageText(content) {
-  let result = '';
+export function textSegments(content) {
+  const segments = [];
+  let previous = null;
   for (const item of content.items) {
     if (!('str' in item)) continue;
-    result += item.str;
-    if (item.hasEOL) result += '\n';
-    else if (item.str && !/\s$/.test(item.str)) result += ' ';
+    let segment = '';
+    if (previous && !previous.hasEOL && !/\s$/.test(previous.str) && !/^\s/.test(item.str)) {
+      const positioned = previous.transform && item.transform && Number.isFinite(previous.width);
+      const gap = positioned ? item.transform[4] - previous.transform[4] - previous.width : 0;
+      const wordBoundary = positioned
+        ? gap > Math.max(1, Math.abs(item.transform[3]) * .12)
+        : /[a-zA-Z0-9]$/.test(previous.str) && /^[a-zA-Z0-9]/.test(item.str);
+      if (wordBoundary && !previous.vertical && !item.vertical) segment += ' ';
+    }
+    segment += item.str;
+    if (item.hasEOL) segment += '\n';
+    segments.push(segment);
+    previous = item;
   }
-  return result.replace(/[ \t]+\n/g, '\n').trim();
+  return segments;
+}
+
+export function pageText(content) {
+  return textSegments(content).join('').replace(/[ \t]+\n/g, '\n').trim();
 }
 
 export function citation(name, page, text) {
@@ -41,8 +56,8 @@ export function citation(name, page, text) {
 }
 
 export function searchMatches(text, query) {
-  const haystack = text.normalize('NFKC').toLocaleLowerCase();
-  const needle = query.trim().normalize('NFKC').toLocaleLowerCase();
+  const haystack = normalizeSearchText(text);
+  const needle = normalizeSearchText(query.trim());
   if (!needle) return [];
   const matches = [];
   let offset = 0;
@@ -51,4 +66,24 @@ export function searchMatches(text, query) {
     offset += needle.length;
   }
   return matches;
+}
+
+const normalizeSearchText = text => text.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ');
+
+export function matchingSegments(segments, query) {
+  const normalized = segments.map(normalizeSearchText);
+  const haystack = normalized.join('');
+  const needle = normalizeSearchText(query.trim());
+  const selected = new Set();
+  if (!needle) return selected;
+  const bounds = [];
+  let offset = 0;
+  for (const text of normalized) { bounds.push([offset, offset + text.length]); offset += text.length; }
+  let start = 0;
+  let count = 0;
+  while ((start = haystack.indexOf(needle, start)) >= 0 && count++ < 500) {
+    bounds.forEach(([from, to], index) => { if (to > start && from < start + needle.length) selected.add(index); });
+    start += needle.length;
+  }
+  return selected;
 }
