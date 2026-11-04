@@ -52,7 +52,9 @@ The sha2 release has no individual `published_by` entry because it used trusted 
 
 After the complete graph passed age, yanked-state, registry, and checksum checks, `cargo fetch --locked --target aarch64-apple-darwin` downloaded 267 archives. Their SHA-256 hashes were independently recomputed and all matched Cargo.lock. No Git dependency or unofficial registry is present. Cargo metadata for this target contains those 267 external packages plus Sumi.
 
-Reviewed Cargo.lock SHA-256: `d4b1b30dd89a345d314ba6c1bebf85d237a53a7831db5f16099d95f76ee64d17`.
+Current Cargo.lock SHA-256: `40d7b945c914dc77f847ada69bc4a5627f894ee6557f63a059bca974b19ad299`.
+
+The 0.3.0 release changes only the local Sumi version in Cargo.toml and Cargo.lock. Byte comparison confirmed that all other manifest content and lockfile entries remain unchanged. The audit and advisory scope bindings were updated with their previous hashes recorded; the original dependency review remains the evidence for the unchanged graph. No new dependency was resolved or downloaded.
 
 ## Advisories and target scope
 

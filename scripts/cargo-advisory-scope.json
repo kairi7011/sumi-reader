@@ -1,7 +1,7 @@
 {
   "target": "aarch64-apple-darwin",
-  "lockSha256": "d4b1b30dd89a345d314ba6c1bebf85d237a53a7831db5f16099d95f76ee64d17",
-  "manifestSha256": "136ab106c2050b4c9f3ff165e81420b5253f5345332cc53210e2cf2b6bd0b95d",
+  "lockSha256": "40d7b945c914dc77f847ada69bc4a5627f894ee6557f63a059bca974b19ad299",
+  "manifestSha256": "e71f1f570311c68c735cec5277203cae0b13aab734d2f51eac17768536f5e8a3",
   "reviewedAt": "2026-11-04",
   "exclusions": [
     {
@@ -21,5 +21,13 @@
       ],
       "reason": "Unmaintained crate only reachable through glib-macros and gtk3-macros, both excluded from macOS. Absent from aarch64-apple-darwin cargo metadata and cargo tree; not fetched or compiled."
     }
-  ]
+  ],
+  "bindingUpdate": {
+    "date": "2026-11-04",
+    "reason": "Only the local Sumi package version changed from 0.2.0 to 0.3.0. All other manifest bytes and lockfile entries match the reviewed inputs. No dependency resolution, download, or new advisory review was performed.",
+    "previous": {
+      "lockSha256": "d4b1b30dd89a345d314ba6c1bebf85d237a53a7831db5f16099d95f76ee64d17",
+      "manifestSha256": "136ab106c2050b4c9f3ff165e81420b5253f5345332cc53210e2cf2b6bd0b95d"
+    }
+  }
 }
