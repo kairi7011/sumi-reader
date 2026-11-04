@@ -1,5 +1,6 @@
 import './desktop.js';
 import { PaperTurn } from './page-turn.js';
+import { readPageText } from './pdf-text.js';
 import * as pdfjs from '../node_modules/pdfjs-dist/legacy/build/pdf.mjs';
 import { renderIcons, icon } from './icons.js';
 import { clamp, normalizeState, visiblePages, cropRect, pageText, textSegments, matchingSegments, citation, searchMatches } from './model.js';
@@ -20,6 +21,7 @@ let loadingTask = null;
 let pendingBatch = null;
 let displayedPage = 0;
 let displayedMode = null;
+let displayedZoom = 1;
 const paperTurn = new PaperTurn(document.getElementById('reading-area'));
 let pageProxies = [];
 let textLayers = [];
@@ -111,7 +113,7 @@ function syncControls() {
   document.body.dataset.theme = state.theme;
   document.body.dataset.direction = state.direction;
   $('pages').dataset.direction = state.direction;
-  $('footer-status').textContent = pdf ? '読書位置を自動保存' : 'PDFを開いて読み始める';
+  $('footer-status').textContent = pdf ? (renderReady ? '読書位置を自動保存' : `${state.page}ページを準備`) : 'PDFを開いて読み始める';
   $('document-title').textContent = book?.name || 'Sumi';
   $('document-meta').textContent = pdf ? `${pdf.numPages} ページ · このMacで読む` : 'あなたのための読書室';
 }
@@ -332,7 +334,10 @@ async function renderPages(turn = false) {
   try {
     const numbers = visiblePages(target.page, currentPdf.numPages, target.mode);
     batch.proxies = await Promise.all(numbers.map(page => currentPdf.getPage(page)));
-    if (token !== rendering) return;
+    if (token !== rendering) {
+      batch.proxies.forEach(page => { if (!pageProxies.includes(page) && !pendingBatch?.proxies.includes(page)) page.cleanup(); });
+      return;
+    }
     const base = batch.proxies.map(page => page.getViewport({ scale: 1 }));
     const reader = $('reader');
     const style = getComputedStyle(reader);
@@ -364,7 +369,7 @@ async function renderPages(turn = false) {
       batch.tasks.push(task);
       await task.promise;
       if (token !== rendering) return;
-      const content = await page.getTextContent();
+      const content = await readPageText(page);
       if (token !== rendering) return;
       cacheText(numbers[index], pageText(content));
       const layer = new pdfjs.TextLayer({ textContentSource: content, container: layerDiv, viewport });
@@ -391,6 +396,7 @@ async function renderPages(turn = false) {
     committed = true;
     displayedPage = target.page;
     displayedMode = target.mode;
+    displayedZoom = target.zoom;
     state.zoom = target.zoom;
     reader.scrollTop = 0;
     reader.scrollLeft = target.direction === 'rtl' ? reader.scrollWidth : 0;
@@ -405,6 +411,9 @@ async function renderPages(turn = false) {
   } catch (error) {
     if (token !== rendering || error.name === 'RenderingCancelledException' || error.name === 'AbortException') return;
     state.page = displayedPage || 1;
+    state.mode = displayedMode || state.mode;
+    state.zoom = displayedZoom;
+    renderReady = Boolean(displayedPage && $('pages').querySelector('canvas')?.width);
     syncControls();
     console.error('Page render failed', error);
     showError('このページを表示できませんでした。もう一度めくるか、PDFを開き直してください。');
@@ -435,7 +444,7 @@ function cacheText(page, text) {
 async function getText(page, currentPdf = pdf) {
   if (currentPdf === pdf && textCache.has(page)) return textCache.get(page);
   const proxy = await currentPdf.getPage(page);
-  const text = pageText(await proxy.getTextContent());
+  const text = pageText(await readPageText(proxy));
   if (currentPdf === pdf) cacheText(page, text);
   if (!pageProxies.includes(proxy) && !pendingBatch?.proxies.includes(proxy)) proxy.cleanup();
   return text;
@@ -631,7 +640,7 @@ function highlightSearch() {
 }
 
 function bookmark() {
-  if (!pdf) return;
+  if (!pdf || !renderReady) return;
   const exists = state.bookmarks.includes(state.page);
   state.bookmarks = exists ? state.bookmarks.filter(page => page !== state.page) : [...state.bookmarks, state.page].sort((a, b) => a - b);
   syncControls(); renderSidebar(); persist();
@@ -796,7 +805,7 @@ if (desktop) {
   });
   desktop.onFileDrag?.(dragging => { $('drop-overlay').hidden = !dragging; });
   (async () => { await desktop.ready?.(); return refreshLibrary(); })().then(async data => {
-    if (data.lastOpenedId && !opening) {
+    if (data.lastOpenedId && !opening && !desktop.hasPendingOpen) {
       try {
         const last = await desktop.reopenPdf(data.lastOpenedId);
         if (!opening) await openDocument(last);
