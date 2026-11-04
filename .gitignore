@@ -11,3 +11,4 @@ src-tauri/target/
 *.sqlite3-*
 *.pdf
 __pycache__/
+src-tauri/gen/

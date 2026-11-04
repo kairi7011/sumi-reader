@@ -1,3 +1,5 @@
+> Historical Electron 0.1.0 verification. The retained PDF.js package is unchanged. For the current native graph, see [Tauri dependency review](dependency-review-tauri.md).
+
 # Dependency review — 2026-11-04
 
 Sumi uses Electron 45.2.1 for the macOS shell and Mozilla PDF.js 6.4.299 for rendering, text selection, and extraction. These are the only direct packages. Both are pinned exactly in package.json; package-lock.json pins and records registry integrity for the complete graph. No rendering framework or packaging dependency is required.

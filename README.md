@@ -6,16 +6,19 @@ Private project owned by **kairi7011**. Documents stay on your Mac. There is no 
 
 ## Development
 
-Requires an Apple Silicon Mac and Node.js 22.13 or newer. Dependency installation is deliberately script-free; consult `docs/dependency-review.md` before installing or updating dependencies. Runtime setup checks the official release age and pinned SHA-256 before extraction. Starting the app never downloads code.
+Sumi 0.2 uses Tauri 2 and the macOS system WebKit. It does not bundle Electron or Chromium. PDF.js uses its compatibility build for WebKit.
+
+Requires an Apple Silicon Mac, Apple's command line tools, Node.js 22.13+, and the verified Rust toolchain. Dependency installation is script-free. Read [dependency verification](docs/dependency-review-tauri.md) before fetching Rust crates or updating either lockfile. The build itself is locked and offline; it never downloads code.
 
 ```sh
 npm ci --ignore-scripts --omit=optional
-npm run setup:runtime
 npm start
 npm test
-npm run test:smoke
+npm run test:native
 npm run package:mac
 ```
+
+`SUMI_RUST_BIN` can point at the directory containing the verified `rustc` and `cargo`. The build script also recognizes the workspace toolchain in `../toolchains/rust-1.99.1/bin` and its `../cargo` cache.
 
 ## Reading
 
@@ -34,7 +37,7 @@ The clipping tray is temporary: save images or copy excerpts before quitting. Te
 
 ## Local packaging
 
-`npm run package:mac` produces `dist/Sumi.app` using the installed Electron runtime. This personal build is ad-hoc signed, not notarized. Building on Apple Silicon produces an Apple Silicon app.
+`npm run package:mac` produces `dist/Sumi.app` with the Rust shell and embedded local frontend. This personal build is ad-hoc signed, not notarized. Building on Apple Silicon produces an Apple Silicon app.
 
 ## Keyboard shortcuts
 
@@ -51,10 +54,14 @@ The clipping tray is temporary: save images or copy excerpts before quitting. Te
 | Copy selected text with source | Command C |
 | Cancel capture / leave focus mode | Escape |
 
+## Local books for AI agents
+
+The optional [local book library](docs/local-library.md) indexes personally owned PDFs with macOS PDFKit and SQLite. Its read-only stdio MCP server lets an agent search Japanese keywords, inspect a table of contents, and retrieve a few cited pages. It needs no API key, embedding model, network service, or Python packages. Client configuration is explicit; the app does not alter Codex or Claude settings.
+
 ## Verification and limits
 
-The initial build passed ten unit tests and thirty-two checks in a real Electron window, including native text/PNG clipboard, reading-state restoration, Japanese PDFs, password handling, repeated open requests, and compact layouts. The smoke test creates original fixtures, isolates its reading history, and restores clipboard contents. It requires the macOS command line tools for the Japanese PDF fixture.
+See [verification notes](docs/verification.md) for the native WebKit and real-book results. PDFs are limited to 250 MiB. The reader keeps the current page visible while it renders the next page offscreen, then curls the existing pixels over the prepared page. Rapid requests cancel older preparation. Reduced motion uses an immediate complete-page replacement.
 
-See [verification notes](docs/verification.md) for evidence and limits. This version supports PDFs up to 250 MiB. It renders at most two pages, caps each canvas backing store at 14 million pixels, and retains a bounded session clipping collection. It does not include OCR, annotation editing, continuous scrolling, cloud sync, or direct AI integration. PDF extraction follows the source document's text order; complex multicolumn documents can need cleanup after copying.
+Steady-state rendering holds at most two pages, each capped at 14 million pixels. Preparation temporarily adds the next one or two pages; the paper animation uses one temporary canvas capped at 6 million pixels. Old canvases are released after each turn. Clippings and extracted-page caches are also bounded.
 
-Electron's bundled browser has a substantial disk and memory cost. These rendering limits keep document work bounded; they do not make Electron as small as a system-WebView application.
+OCR, annotation editing, continuous scrolling, and cloud sync are not included. PDF extraction follows the source document's text order; complex multicolumn pages can need cleanup after copying. This personal macOS build is ad-hoc signed and has not been notarized.

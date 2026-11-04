@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Sumi",
+  "version": "0.2.0",
+  "identifier": "com.kairi7011.sumi",
+  "build": {
+    "frontendDist": "../dist-tauri"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
+      "capabilities": ["main"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "category": "Productivity",
+    "icon": ["../assets/app-icon.png", "../assets/app-icon.icns"],
+    "macOS": { "minimumSystemVersion": "13.0" },
+    "fileAssociations": [{ "ext": ["pdf"], "name": "PDF document", "role": "Viewer", "mimeType": "application/pdf" }]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "identifier": "main",
+  "description": "The local reader can receive native events; file and clipboard operations are restricted by Sumi commands.",
+  "windows": ["main"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-start-dragging", "core:window:allow-toggle-maximize"]
+}

@@ -64,6 +64,14 @@ print(json.dumps({'mcpServers': {'sumi-books': {
 PY
 ```
 
+For Codex, the official [MCP configuration guide](https://developers.openai.com/codex/mcp) supports a local stdio command:
+
+```sh
+codex mcp add sumi-books -- python3 /absolute/path/to/sumi-reader/tools/library/sumi_library.py serve
+```
+
+The packaged app also contains the script at `Sumi.app/Contents/Resources/library/sumi_library.py`. Use the final installed path if you move the app. Once configured, ask the agent to search the book library when a design question arises, and retain book/page citations in its answer.
+
 Add the resulting server entry through your MCP client's configuration mechanism. The tool does not edit global client settings. For a custom index directory, use arguments `[script, "--index-dir", "/absolute/index/path", "serve"]`.
 
 The server supports modern MCP `2026-07-28` discovery and per-request metadata, as well as the `initialize` handshake for `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05`. It uses UTF-8 newline-delimited JSON-RPC on stdin/stdout; diagnostics go to stderr. Closing stdin ends the process. Protocol details follow the official [stdio specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio), [discovery specification](https://modelcontextprotocol.io/specification/2026-07-28/server/discover), and [legacy lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle).
