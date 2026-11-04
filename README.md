@@ -6,11 +6,11 @@ Private project owned by **kairi7011**. Documents stay on your Mac. There is no 
 
 ## Development
 
-Requires macOS and Node.js 22.13 or newer. Dependency installation is deliberately script-free; consult `docs/dependency-review.md` before installing or updating dependencies.
+Requires an Apple Silicon Mac and Node.js 22.13 or newer. Dependency installation is deliberately script-free; consult `docs/dependency-review.md` before installing or updating dependencies. Runtime setup checks the official release age and pinned SHA-256 before extraction. Starting the app never downloads code.
 
 ```sh
 npm ci --ignore-scripts --omit=optional
-# Install the verified Electron runtime as documented in docs/dependency-review.md.
+npm run setup:runtime
 npm start
 npm test
 npm run package:mac
