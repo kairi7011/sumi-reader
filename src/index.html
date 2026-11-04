@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sumi</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./pdf-layer.css" />
+  </head>
+  <body data-theme="paper" data-focus="false">
+    <div id="app">
+      <header class="titlebar">
+        <div class="titlebar-leading">
+          <button id="toggle-sidebar" class="icon-button" aria-label="サイドバー" title="サイドバー" aria-pressed="true"><span data-icon="sidebar"></span></button>
+          <span class="brand-small">sumi<span class="brand-dot">.</span></span>
+        </div>
+        <div class="document-heading"><h1 id="document-title">Sumi</h1><span id="document-meta">あなたのための読書室</span></div>
+        <div class="titlebar-trailing">
+          <button id="focus-toggle" class="icon-button" aria-label="集中モード" title="集中モード · ⌘⇧F" aria-pressed="false"><span data-icon="focus"></span></button>
+          <button id="clips-toggle" class="icon-button" aria-label="切り抜き" title="切り抜き" aria-pressed="false"><span data-icon="clips"></span></button>
+          <button id="help-toggle" class="icon-button" aria-label="キーボード操作" title="キーボード操作 · ?"><span data-icon="help"></span></button>
+        </div>
+      </header>
+
+      <nav class="toolbar" aria-label="読書ツール">
+        <div class="toolbar-group open-group">
+          <button id="open-file" class="text-button"><span data-icon="folder"></span><span>開く</span><kbd>⌘O</kbd></button>
+          <button id="search-toggle" class="icon-button" data-needs-document aria-label="本文を検索" title="本文を検索 · ⌘F" aria-pressed="false" disabled><span data-icon="search"></span></button>
+        </div>
+        <div class="toolbar-group view-group" aria-label="表示倍率">
+          <button id="zoom-out" class="icon-button compact" data-needs-document aria-label="縮小" title="縮小 · ⌘−" disabled><span data-icon="minus"></span></button>
+          <span id="zoom-value" class="zoom-value" aria-live="polite">100%</span>
+          <button id="zoom-in" class="icon-button compact" data-needs-document aria-label="拡大" title="拡大 · ⌘+" disabled><span data-icon="plus"></span></button>
+          <span class="toolbar-divider"></span>
+          <button id="fit-width" class="icon-button" data-needs-document aria-label="幅に合わせる" title="幅に合わせる" aria-pressed="false" disabled><span data-icon="fit-width"></span></button>
+          <button id="fit-page" class="icon-button" data-needs-document aria-label="ページ全体を表示" title="ページ全体を表示 · ⌘0" aria-pressed="true" disabled><span data-icon="fit-page"></span></button>
+          <label class="select-control" title="ページの表示"><span class="sr-only">ページの表示</span><select id="layout-select"><option value="single">1ページ</option><option value="spread">見開き</option></select><span data-icon="chevron-down"></span></label>
+          <label class="select-control direction-control" title="ページを読む方向"><span class="sr-only">ページを読む方向</span><select id="direction-select"><option value="ltr">左 → 右</option><option value="rtl">右 → 左</option></select><span data-icon="chevron-down"></span></label>
+        </div>
+        <div class="toolbar-group tools-group">
+          <label class="select-control theme-control"><span data-icon="sun"></span><span class="sr-only">配色</span><select id="theme-select"><option value="paper">紙色</option><option value="white">白</option><option value="night">夜</option></select><span data-icon="chevron-down"></span></label>
+          <span class="toolbar-divider"></span>
+          <button id="bookmark-toggle" class="icon-button" data-needs-document aria-label="しおりを付ける" title="しおり · ⌘D" aria-pressed="false" disabled><span data-icon="bookmark"></span></button>
+          <button id="copy-page" class="icon-button" data-needs-document aria-label="ページの文章をコピー" title="ページの文章をコピー" disabled><span data-icon="copy"></span></button>
+          <button id="capture-region" class="text-button capture-button" data-needs-document title="範囲を画像で切り抜く · ⌘⇧X" aria-pressed="false" disabled><span data-icon="crop"></span><span>切り抜く</span></button>
+        </div>
+      </nav>
+
+      <section id="search-panel" class="search-panel" aria-label="本文検索" hidden>
+        <span data-icon="search"></span>
+        <input id="search-input" type="search" placeholder="この本の中を検索" autocomplete="off" spellcheck="false" aria-label="検索する言葉" />
+        <span id="search-status" role="status"></span>
+        <button id="search-prev" class="icon-button compact" aria-label="前の検索結果" title="前の検索結果" disabled><span data-icon="chevron-up"></span></button>
+        <button id="search-next" class="icon-button compact" aria-label="次の検索結果" title="次の検索結果" disabled><span data-icon="chevron-down"></span></button>
+        <span class="search-hint">Esc で閉じる</span>
+      </section>
+
+      <div class="workspace">
+        <aside id="sidebar" class="sidebar" aria-label="本のナビゲーション">
+          <div class="sidebar-tabs" role="tablist" aria-label="サイドバーの内容">
+            <button data-sidebar-tab="library" role="tab" aria-selected="true" aria-controls="sidebar-content">本棚</button>
+            <button data-sidebar-tab="outline" role="tab" aria-selected="false" aria-controls="sidebar-content">目次</button>
+            <button data-sidebar-tab="bookmarks" role="tab" aria-selected="false" aria-controls="sidebar-content">しおり</button>
+          </div>
+          <div id="sidebar-content" class="sidebar-content" role="tabpanel"><p class="sidebar-eyebrow">最近読んだ本</p><div class="sidebar-empty"><span data-icon="book-open"></span><p>開いた本が<br />ここに並びます。</p></div></div>
+          <div class="sidebar-footnote"><span class="local-dot"></span>このMacに保存</div>
+        </aside>
+
+        <main id="reading-area" class="reading-area">
+          <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+            <div class="welcome-card">
+              <div class="book-symbol" aria-hidden="true"><div class="book-symbol-back"></div><div class="book-symbol-cover"><span class="book-symbol-line"></span><span class="book-symbol-mark">s.</span><span class="book-symbol-caption">A PLACE TO READ</span></div></div>
+              <p class="welcome-eyebrow">YOUR READING ROOM</p>
+              <h2 id="welcome-title">読む時間を、心地よく。</h2>
+              <p class="welcome-description">本を開いて、続きを読もう。<br />気になる文章や図は、そのまま手元に。</p>
+              <button id="open-file-empty" class="primary-button"><span data-icon="folder"></span>PDFを開く<span class="button-shortcut">⌘O</span></button>
+              <p class="drop-hint">または、ここにPDFをドロップ</p>
+              <div class="welcome-features"><span><span data-icon="type"></span>文章をコピー</span><span class="feature-dot">·</span><span><span data-icon="crop"></span>図を切り抜く</span><span class="feature-dot">·</span><span><span data-icon="bookmark"></span>続きを記録</span></div>
+            </div>
+            <div class="welcome-footer"><span class="welcome-wordmark">sumi<span>.</span></span><span>A quieter way to read.</span></div>
+          </section>
+
+          <section id="reader" class="reader" aria-label="PDF本文" tabindex="0" hidden>
+            <div id="pages" class="pages"></div>
+          </section>
+          <div id="reader-status" class="reader-status" role="status" hidden></div>
+          <div id="busy" class="busy-indicator" role="status" hidden><span class="spinner" aria-hidden="true"></span><span id="busy-label">本を開いています…</span></div>
+          <div id="drop-overlay" class="drop-overlay" hidden><span data-icon="file-plus"></span><strong>ここにPDFをドロップ</strong><span>読んでいた場所から再開できます</span></div>
+        </main>
+
+        <aside id="clips-panel" class="clips-panel" aria-label="切り抜き" hidden>
+          <div class="panel-heading"><div><p class="panel-eyebrow">COLLECTION</p><h2>切り抜き <span id="clips-count" class="clips-count">0</span></h2></div><span data-icon="clips"></span></div>
+          <p class="panel-description">文章や図をコピーして、<br />AIとの会話にも。</p>
+          <div id="clips-list" class="clips-list"></div>
+          <div id="clips-empty" class="clips-empty"><span data-icon="crop"></span><p>気になるところを<br />残しておこう。</p><span>「切り抜く」で範囲を選択</span></div>
+          <button id="copy-all-clips" class="text-button copy-all-clips" disabled><span data-icon="copy"></span>文章をまとめてコピー</button>
+          <p class="clips-note">切り抜きは、この起動中だけ保持します。</p>
+        </aside>
+      </div>
+
+      <footer class="reader-footer">
+        <div class="footer-leading"><span class="status-dot"></span><span id="footer-status">PDFを開いて読み始める</span></div>
+        <div class="page-navigation" aria-label="ページ移動">
+          <button id="prev-page" class="icon-button compact" data-needs-document aria-label="前のページ" title="前のページ · ←" disabled><span data-icon="chevron-left"></span></button>
+          <div class="page-number"><label class="sr-only" for="page-input">ページ番号</label><input id="page-input" type="number" min="1" value="1" inputmode="numeric" data-needs-document disabled /><span class="page-slash">/</span><span id="page-count">—</span></div>
+          <button id="next-page" class="icon-button compact" data-needs-document aria-label="次のページ" title="次のページ · →" disabled><span data-icon="chevron-right"></span></button>
+        </div>
+        <div class="footer-trailing"><span id="progress-label">0%</span><progress id="page-progress" max="100" value="0" aria-label="読書の進み具合"></progress></div>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <dialog id="password-dialog" class="modal">
+      <form id="password-form">
+        <span class="modal-icon" data-icon="lock"></span>
+        <h2>パスワードが必要な本です</h2><p>このPDFのパスワードを入力してください。</p>
+        <label for="password-input" class="sr-only">PDFのパスワード</label><input id="password-input" type="password" placeholder="パスワード" autocomplete="off" required />
+        <p id="password-error" class="field-error" role="alert" hidden></p>
+        <div class="modal-actions"><button id="password-cancel" type="button" class="text-button">キャンセル</button><button type="submit" class="primary-button">開く</button></div>
+      </form>
+    </dialog>
+    <dialog id="help-dialog" class="modal help-modal">
+      <div class="modal-title"><div><p class="panel-eyebrow">AT YOUR FINGERTIPS</p><h2>キーボードで、もっと軽く。</h2></div><button id="help-close" class="icon-button" aria-label="閉じる"><span data-icon="close"></span></button></div>
+      <dl class="shortcut-list"><div><dt>PDFを開く</dt><dd><kbd>⌘</kbd><kbd>O</kbd></dd></div><div><dt>本文を検索</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div><div><dt>前・次のページ</dt><dd><kbd>←</kbd><kbd>→</kbd></dd></div><div><dt>しおりを付ける</dt><dd><kbd>⌘</kbd><kbd>D</kbd></dd></div><div><dt>拡大・縮小</dt><dd><kbd>⌘</kbd><kbd>＋ / −</kbd></dd></div><div><dt>ページ全体を表示</dt><dd><kbd>⌘</kbd><kbd>0</kbd></dd></div><div><dt>集中モード</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></dd></div><div><dt>範囲を切り抜く</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></dd></div><div><dt>選んだ文章をコピー</dt><dd><kbd>⌘</kbd><kbd>C</kbd></dd></div><div><dt>操作を取り消す</dt><dd><kbd>esc</kbd></dd></div></dl>
+    </dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+/* Layout properties consumed by the public PDF.js TextLayer API. */
+.textLayer {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  letter-spacing: normal;
+  word-spacing: normal;
+  color-scheme: only light;
+}
+.textLayer :is(span, br) { user-select: text; }
+.textLayer > :not(.markedContent), .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.textLayer .markedContent { display: contents; }
+.textLayer .search-hit { background: #d6b24266; }
+.pdf-page { --scale-round-x: 1px; --scale-round-y: 1px; }
+.pages[data-direction="rtl"] { flex-direction: row-reverse; }
+.clip-meta { display: flex; justify-content: space-between; gap: 10px; }
+.clip-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clip-text { white-space: pre-wrap; }
+.search-result-list { margin: 10px 0; }
+body[data-capturing="true"] .reader { user-select: none; }
