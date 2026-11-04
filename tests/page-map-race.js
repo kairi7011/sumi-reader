@@ -3,11 +3,11 @@
   const $ = selector => document.querySelector(selector);
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const traces = [], checks = [], observations = {};
-  let animationFrames = 0; const watchFrames = () => { animationFrames++; requestAnimationFrame(watchFrames); }; requestAnimationFrame(watchFrames);
+  let animationFrames = 0, lastAnimationFrame = performance.now(); const watchFrames = () => { animationFrames++; lastAnimationFrame = performance.now(); requestAnimationFrame(watchFrames); }; requestAnimationFrame(watchFrames);
   const pages = new Map();
   const started = performance.now();
   const trace = (phase, details = {}) => { traces.push({ ms: Math.round(performance.now() - started), phase, ...details }); if (traces.length > 1400) traces.shift(); };
-  const state = () => ({ animationFrames, visibility: document.visibilityState, tasks: [...pages].map(([number, page]) => ({ page: number, intents: [...page._intentStates.values()].map(intent => ({ last: intent.operatorList?.lastChunk, stream: Boolean(intent.streamReader), tasks: [...(intent.renderTasks || [])].map(task => ({ index: task.operatorListIdx, nextOp: task.operatorList?.fnArray?.[task.operatorListIdx], ready: task.graphicsReady, running: task.running, cancelled: task.cancelled })) })) })), requested: $('#page-input')?.value, visible: [...document.querySelectorAll('#pages .pdf-page')].map(node => node.dataset.pageNumber), staging: [...document.querySelectorAll('.staging-pages .pdf-page')].map(node => ({ page: node.dataset.pageNumber, canvas: node.querySelector('canvas')?.width, text: node.querySelector('.textLayer')?.childElementCount })), loading: $('#reader')?.dataset.loading, busy: $('#busy-label')?.textContent });
+  const state = () => ({ animationFrames, lastAnimationFrameAgoMs: Math.round(performance.now() - lastAnimationFrame), visibility: document.visibilityState, tasks: [...pages].map(([number, page]) => ({ page: number, intents: [...(page._intentStates?.values() || [])].map(intent => ({ last: intent.operatorList?.lastChunk, stream: Boolean(intent.streamReader), tasks: [...(intent.renderTasks || [])].map(task => ({ index: task.operatorListIdx, nextOp: task.operatorList?.fnArray?.[task.operatorListIdx], ready: task.graphicsReady, running: task.running, cancelled: task.cancelled })) })) })), requested: $('#page-input')?.value, visible: [...document.querySelectorAll('#pages .pdf-page')].map(node => node.dataset.pageNumber), staging: [...document.querySelectorAll('.staging-pages .pdf-page')].map(node => ({ page: node.dataset.pageNumber, canvas: node.querySelector('canvas')?.width, text: node.querySelector('.textLayer')?.childElementCount })), loading: $('#reader')?.dataset.loading, busy: $('#busy-label')?.textContent });
   const wait = async (label, test, limit = 10000) => { const end = performance.now() + limit; while (performance.now() < end) { if (test()) return; await sleep(25); } throw new Error(`${label}: ${JSON.stringify(state())}`); };
   const settled = page => wait(`page ${page}`, () => $('#page-input').value === String(page) && $('#pages .pdf-page')?.dataset.pageNumber === String(page) && $('#reader').dataset.loading !== 'true' && $('#reading-area').dataset.turning !== 'true' && !$('#capture-region').disabled);
   const navigate = page => { $('#page-input').value = page; $('#page-input').dispatchEvent(new Event('change', { bubbles: true })); };
@@ -28,7 +28,7 @@
         if ((number === 200 || number === 201) && !wrapped.has(page)) {
           wrapped.add(page); pages.set(number, page);
           const render = page.render.bind(page), cleanup = page.cleanup.bind(page), text = page.streamTextContent.bind(page);
-          const intents = () => [...page._intentStates.values()].map(intent => ({ tasks: intent.renderTasks?.size, last: intent.operatorList?.lastChunk, abort: Boolean(intent.streamReaderCancelTimeout), stream: Boolean(intent.streamReader) }));
+          const intents = () => [...(page._intentStates?.values() || [])].map(intent => ({ tasks: intent.renderTasks?.size, last: intent.operatorList?.lastChunk, abort: Boolean(intent.streamReaderCancelTimeout), stream: Boolean(intent.streamReader) }));
           page.render = options => {
             const owner = options.canvasContext.canvas.closest('.staging-pages') ? 'reader' : 'thumbnail';
             trace('render begin', { page: number, owner, intents: intents() });
@@ -51,17 +51,20 @@
     await wait('opened', () => $('#document-title').title.normalize('NFC') === fixture.name.normalize('NFC'));
     await settled(1);
     $('#layout-select').value = 'spread'; $('#layout-select').dispatchEvent(new Event('change', { bubbles: true })); await settled(1);
-    for (const delay of [0, 15, 50, 120, 250, 500, 1000, 2500]) {
+    for (const inputMode of ['direct', 'typed']) for (const delay of [0, 15, 50, 120, 250, 500, 1000, 2500]) {
       navigate(114); await settled(114); await sleep(100);
       if (map) { await wait('thumbnail jobs drain', () => map.jobs.size === 0); map.reset(); }
       $('#page-map-toggle').click(); await wait('map open', () => $('#page-map').open);
-      $('#page-map-input').value = '200'; $('#page-map-input').dispatchEvent(new Event('input', { bubbles: true }));
+      for (const value of inputMode === 'typed' ? ['2', '20', '200'] : ['200']) {
+        $('#page-map-input').value = value; $('#page-map-input').dispatchEvent(new InputEvent('input', { bubbles: true, data: value.at(-1), inputType: 'insertText' }));
+        if (inputMode === 'typed') await sleep(30);
+      }
       await sleep(delay);
-      trace('commit', { delay, previewLoading: $('#page-map-preview').dataset.loading, jobs: [...map.jobs.keys()] });
+      trace('commit', { inputMode, delay, previewLoading: $('#page-map-preview').dataset.loading, jobs: [...map.jobs.keys()] });
       $('#page-map-form').requestSubmit();
-      try { await settled(200); checks.push(`spread jump with ${delay}ms preview delay`); }
+      try { await settled(200); checks.push(`${inputMode} spread jump with ${delay}ms preview delay`); }
       catch (error) {
-        observations.failedDelay = delay; observations.hungState = state();
+        observations.failedInputMode = inputMode; observations.failedDelay = delay; observations.hungState = state();
         navigate(1); await settled(1); navigate(200); await settled(200);
         checks.push('direct page navigation recovers from the map hang');
         throw error;

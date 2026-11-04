@@ -84,3 +84,16 @@ test('reader pending pages remain protected even without a page-map handoff', ()
   assert.deepEqual(cleaned, [202]);
   assert.equal(map.deferredCleanup.size, 4);
 });
+
+test('the selected preview spread stays ready for a later Enter press', () => {
+  const map = Object.create(PageMap.prototype);
+  map.document = {}; map.dialog = { open: true }; map.target = 200;
+  map.getPage = () => 114;
+  const cleaned = [];
+  map.deferredCleanup = new Map([114, 115, 200, 201, 202].map(page => [page, { cleanup() { cleaned.push(page); return true; } }]));
+  map.flushCleanup();
+  assert.deepEqual(cleaned, [202]);
+  map.target = 300; map.flushCleanup();
+  assert.deepEqual(cleaned, [202, 200, 201]);
+  assert.deepEqual([...map.deferredCleanup.keys()], [114, 115]);
+});

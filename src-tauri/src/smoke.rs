@@ -40,7 +40,11 @@ pub fn start(app: &AppHandle, window: &WebviewWindow) {
     let text = app.clipboard().read_text().unwrap_or_default();
     let original_image = app.clipboard().read_image().ok().map(|image| tauri::image::Image::new_owned(image.rgba().to_vec(), image.width(), image.height()));
     *smoke.clipboard.lock().unwrap() = Some((text, original_image));
-    let script = if smoke.scenario.as_deref() == Some("page-map-race") { include_str!("../../tests/page-map-race.js") } else { include_str!("../../tests/tauri-smoke.js") };
+    let script = match smoke.scenario.as_deref() {
+        Some("page-map-race") => include_str!("../../tests/page-map-race.js"),
+        Some("visibility") => include_str!("../../tests/visibility-smoke.js"),
+        _ => include_str!("../../tests/tauri-smoke.js"),
+    };
     let _ = window.eval(script);
 }
 
@@ -87,6 +91,19 @@ pub fn debug_resize_window(app: AppHandle, window: WebviewWindow, width: u32, he
     app.try_state::<Smoke>().ok_or("Smoke mode is not active")?;
     if !(860..=2000).contains(&width) || !(620..=1400).contains(&height) { return Err("Unsupported smoke viewport".into()); }
     window.set_size(tauri::LogicalSize::new(width as f64, height as f64)).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn debug_hide_window(app: AppHandle, window: WebviewWindow, duration_ms: u64) -> Result<(), String> {
+    trusted(&window)?;
+    app.try_state::<Smoke>().ok_or("Smoke mode is not active")?;
+    if !(100..=4000).contains(&duration_ms) { return Err("Unsupported visibility test duration".into()); }
+    window.hide().map_err(|e| e.to_string())?;
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(duration_ms));
+        let _ = window.show(); let _ = window.set_focus();
+    });
+    Ok(())
 }
 
 #[tauri::command]

@@ -244,7 +244,7 @@ fn main() {
     #[cfg(not(debug_assertions))]
     let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, save_preferences, set_book_title, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready]);
     #[cfg(debug_assertions)]
-    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, save_preferences, set_book_title, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_resize_window, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
+    let builder = builder.invoke_handler(tauri::generate_handler![open_pdf, reopen_pdf, read_pdf, get_library, save_reading_state, save_preferences, set_book_title, copy_text, copy_image, save_image, toggle_fullscreen, frontend_ready, smoke::debug_smoke_info, smoke::debug_open_fixture, smoke::debug_resize_window, smoke::debug_hide_window, smoke::debug_clipboard_text, smoke::debug_clipboard_image_size, smoke::debug_smoke_report, smoke::debug_log]);
     let application = builder
         .setup(|app| {
             let mut data = app.path().app_data_dir()?.join("library.json");

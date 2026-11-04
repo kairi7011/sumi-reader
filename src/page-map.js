@@ -228,6 +228,7 @@ export class PageMap {
 
   flushCleanup() {
     const protectedPages = new Set(this.getProtectedPages?.() || [this.getPage(), this.getPage() + 1]);
+    if (this.dialog?.open && this.document) { protectedPages.add(this.target); protectedPages.add(this.target + 1); }
     if (this.handoff && this.handoff.document === this.document) for (const page of this.handoff.pages) protectedPages.add(page);
     for (const [number, page] of this.deferredCleanup) {
       if (protectedPages.has(number)) continue;

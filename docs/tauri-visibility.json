@@ -1,0 +1,25 @@
+{
+  "checks": [
+    "WebKit suspends animation frames while the native window is hidden",
+    "raising the window resumes and completes the requested page"
+  ],
+  "observations": {
+    "hidden": {
+      "frameGapMs": 501,
+      "frames": 2,
+      "renderPending": true,
+      "visibility": "hidden"
+    },
+    "restored": {
+      "elapsedMs": 2045,
+      "frameGapMs": 1,
+      "page": 200,
+      "visibility": "visible"
+    },
+    "visibilityBeforeHide": "visible",
+    "visibilityDuringHide": "hidden",
+    "pdfjsBuild": "legacy.min",
+    "backgroundThrottlingPolicy": "platform default"
+  },
+  "passed": true
+}
