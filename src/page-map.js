@@ -13,9 +13,10 @@ export function pageWindow(total, width, height, scrollTop) {
 }
 
 export class PageMap {
-  constructor({ getDocument, getPage, onNavigate }) {
+  constructor({ getDocument, getPage, getProtectedPages, onNavigate }) {
     this.getDocument = getDocument;
     this.getPage = getPage;
+    this.getProtectedPages = getProtectedPages;
     this.onNavigate = onNavigate;
     this.document = null;
     this.generation = 0;
@@ -26,6 +27,8 @@ export class PageMap {
     this.jobs = new Map();
     this.visible = new Set();
     this.failed = new Set();
+    this.deferredCleanup = new Map();
+    this.handoff = null;
     this.frame = 0;
     this.dialog = document.createElement('dialog');
     this.dialog.id = 'page-map';
@@ -106,15 +109,19 @@ export class PageMap {
     if (!this.dialog.open) return;
     this.dialog.close();
     this.generation++;
-    for (const job of this.jobs.values()) job.task?.cancel();
-    this.jobs.clear();
+    // Canceling a shared PDF.js stream can abort a reader render that starts during its 100 ms grace period.
+    this.flushCleanup();
     this.preview.width = this.preview.height = 0;
   }
 
   reset() {
     this.close();
     this.generation++;
+    for (const job of this.jobs.values()) job.task?.cancel();
+    this.jobs.clear();
     this.document = null;
+    this.handoff = null;
+    this.deferredCleanup.clear();
     this.lastOrigin = null;
     this.observer.disconnect();
     this.visible.clear();
@@ -143,9 +150,7 @@ export class PageMap {
     this.layout(scroll);
     this.showPreview();
     if (focus) this.cells.get(this.target)?.focus({ preventScroll: true });
-    for (const [number, job] of this.jobs) {
-      if (number !== this.target && !this.cells.has(number)) job.task?.cancel();
-    }
+    this.flushCleanup();
     this.pump();
   }
 
@@ -212,8 +217,23 @@ export class PageMap {
     const target = Math.max(1, Math.min(this.document.numPages, Math.round(page)));
     const origin = this.getPage();
     if (target !== origin) this.lastOrigin = origin;
+    const handoff = { document: this.document, pages: new Set([target, target + 1]) };
+    this.handoff = handoff;
     this.close();
-    Promise.resolve().then(() => this.onNavigate(target)).catch(() => {});
+    Promise.resolve().then(() => this.onNavigate(target)).catch(() => {}).finally(() => {
+      if (this.handoff === handoff) this.handoff = null;
+      this.flushCleanup();
+    });
+  }
+
+  flushCleanup() {
+    const protectedPages = new Set(this.getProtectedPages?.() || [this.getPage(), this.getPage() + 1]);
+    if (this.handoff && this.handoff.document === this.document) for (const page of this.handoff.pages) protectedPages.add(page);
+    for (const [number, page] of this.deferredCleanup) {
+      if (protectedPages.has(number)) continue;
+      try { if (page.cleanup()) this.deferredCleanup.delete(number); }
+      catch { this.deferredCleanup.delete(number); }
+    }
   }
 
   showPreview() {
@@ -266,6 +286,7 @@ export class PageMap {
     this.jobs.set(number, job);
     let page;
     let canvas;
+    let completed = false;
     try {
       page = await pdf.getPage(number);
       if (generation !== this.generation) return;
@@ -276,7 +297,8 @@ export class PageMap {
       canvas.width = Math.max(1, Math.ceil(viewport.width)); canvas.height = Math.max(1, Math.ceil(viewport.height));
       job.task = page.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport });
       await job.task.promise;
-      if (generation !== this.generation) return;
+      completed = true;
+      if (pdf !== this.document) return;
       this.cache.set(number, canvas);
       this.touch(this.target);
       canvas = null;
@@ -284,8 +306,10 @@ export class PageMap {
         const oldest = this.cache.keys().next().value;
         const evicted = this.cache.get(oldest); evicted.width = evicted.height = 0; this.cache.delete(oldest);
       }
-      this.paintCell(number);
-      if (number === this.target) this.showPreview();
+      if (this.dialog.open) {
+        this.paintCell(number);
+        if (number === this.target) this.showPreview();
+      }
     } catch (error) {
       if (generation === this.generation && error.name !== 'RenderingCancelledException' && error.name !== 'AbortException') {
         this.failed.add(number);
@@ -293,8 +317,10 @@ export class PageMap {
       }
     } finally {
       if (canvas) canvas.width = canvas.height = 0;
-      // PDF.js shares proxies with the reader; its visible spread must retain its resources.
-      if (pdf === this.document && number !== this.getPage() && number !== this.getPage() + 1) { try { page?.cleanup(); } catch { /* The document may have been closed during the render. */ } }
+      if (completed && pdf === this.document) {
+        this.deferredCleanup.set(number, page);
+        this.flushCleanup();
+      }
       if (this.jobs.get(number) === job) this.jobs.delete(number);
       this.pump();
     }

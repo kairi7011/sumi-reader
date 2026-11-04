@@ -8,6 +8,7 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 pub struct Smoke {
     pub output: PathBuf,
     files: Vec<PathBuf>,
+    scenario: Option<String>,
     started: AtomicBool,
     clipboard: Mutex<Option<(String, Option<tauri::image::Image<'static>>)>>,
 }
@@ -16,9 +17,11 @@ impl Smoke {
     pub fn from_args() -> Result<Option<Self>, String> {
         let mut args = std::env::args().skip(1);
         let mut files = vec![];
+        let mut scenario = None;
         let mut output = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../test-artifacts/tauri-smoke");
         while let Some(argument) = args.next() {
             match argument.as_str() {
+                "--smoke-scenario" => scenario = Some(args.next().ok_or("Missing scenario")?),
                 "--smoke-file" => files.push(PathBuf::from(args.next().ok_or("Missing --smoke-file path")?)),
                 "--smoke-output" => output = PathBuf::from(args.next().ok_or("Missing --smoke-output path")?),
                 _ => {}
@@ -27,7 +30,7 @@ impl Smoke {
         if files.is_empty() { return Ok(None); }
         for path in &mut files { *path = std::fs::canonicalize(&path).map_err(|e| e.to_string())?; }
         std::fs::create_dir_all(&output).map_err(|e| e.to_string())?;
-        Ok(Some(Self { output, files, started: AtomicBool::new(false), clipboard: Mutex::new(None) }))
+        Ok(Some(Self { output, files, scenario, started: AtomicBool::new(false), clipboard: Mutex::new(None) }))
     }
 }
 
@@ -37,7 +40,8 @@ pub fn start(app: &AppHandle, window: &WebviewWindow) {
     let text = app.clipboard().read_text().unwrap_or_default();
     let original_image = app.clipboard().read_image().ok().map(|image| tauri::image::Image::new_owned(image.rgba().to_vec(), image.width(), image.height()));
     *smoke.clipboard.lock().unwrap() = Some((text, original_image));
-    let _ = window.eval(include_str!("../../tests/tauri-smoke.js"));
+    let script = if smoke.scenario.as_deref() == Some("page-map-race") { include_str!("../../tests/page-map-race.js") } else { include_str!("../../tests/tauri-smoke.js") };
+    let _ = window.eval(script);
 }
 
 pub fn arm_timeout(app: &AppHandle) {

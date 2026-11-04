@@ -36,7 +36,12 @@ let resultIndex = -1;
 let captureMode = false;
 let renderReady = false;
 let turnGesture = null;
-const pageMap = new PageMap({ getDocument: () => pdf, getPage: () => displayedPage || state.page, onNavigate: page => navigate(page) });
+const pageMap = new PageMap({
+  getDocument: () => pdf,
+  getPage: () => displayedPage || state.page,
+  getProtectedPages: () => pdf ? [...visiblePages(displayedPage || state.page, pdf.numPages, displayedMode || state.mode), ...visiblePages(state.page, pdf.numPages, state.mode)] : [],
+  onNavigate: page => navigate(page),
+});
 const pageZoom = new PageZoom({ reader: $('reader'), getDocument: () => pdf, notify: toast, onChange: syncControls });
 let preferences = { theme: 'paper', mode: 'single', direction: 'ltr' };
 let preferencesReady = false;

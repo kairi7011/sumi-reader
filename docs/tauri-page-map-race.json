@@ -1,0 +1,21 @@
+{
+  "checks": [
+    "spread jump with 0ms preview delay",
+    "spread jump with 15ms preview delay",
+    "spread jump with 50ms preview delay",
+    "spread jump with 120ms preview delay",
+    "spread jump with 250ms preview delay",
+    "spread jump with 500ms preview delay",
+    "spread jump with 1000ms preview delay",
+    "spread jump with 2500ms preview delay",
+    "rapid close and reopen retains at most two thumbnail jobs",
+    "immediate jump still works after rapid reopen stress"
+  ],
+  "observations": {
+    "peakThumbnailJobs": 2,
+    "rapidReopens": 16,
+    "commitsBeforePreviewReady": 2,
+    "commitsWithTargetThumbnailInFlight": 2
+  },
+  "passed": true
+}
