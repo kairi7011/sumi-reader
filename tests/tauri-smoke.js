@@ -32,12 +32,19 @@
         assert('wrong PDF password shows feedback', true);
         $('#password-input').value = 'sumi'; $('#password-form').requestSubmit();
       }
-      await wait('document title', () => $('#document-title').textContent.normalize('NFC') === fixture.name.normalize('NFC'));
+      await wait('document identity', () => $('#document-title').title.normalize('NFC') === fixture.name.normalize('NFC') && Boolean($('#reader').dataset.documentId));
       await settled(1);
       await sleep(180); await settled(1);
+      if (index === 1) {
+        assert('appearance settings carry over when another book opens', document.body.dataset.theme === 'night' && $('#layout-select').value === 'spread' && $('#direction-select').value === 'rtl');
+        select('#theme-select', 'paper'); select('#layout-select', 'single'); select('#direction-select', 'ltr'); await settled(1);
+      }
       const total = Number($('#page-count').textContent);
       assert(`WKWebView rendered document ${index + 1}`, total > 0);
       const library = await window.desktop.getLibrary();
+      const entry = library.recent.find(item => item.id === $('#reader').dataset.documentId);
+      assert(`book title is stored separately from its filename ${index + 1}`, Boolean(entry?.title) && $('#document-title').textContent === entry.title && entry.name.normalize('NFC') === fixture.name.normalize('NFC'));
+      if (fixture.name.startsWith('oreilly-')) assert(`opaque filename is replaced by a real book title ${index + 1}`, !/^oreilly[-_]/i.test(entry.title));
       const bytes = await invoke('read_pdf', { id: library.lastOpenedId });
       assert(`raw PDF IPC response ${index + 1}`, bytes instanceof ArrayBuffer && new Uint8Array(bytes)[0] === 37);
       if (fixture.name.normalize('NFC').includes('日本語')) {
@@ -114,27 +121,51 @@
         $('#tools-toggle').click(); await sleep(100);
         assert('reading tools do not resize the page', dimensions().every((value, i) => Math.abs(value - beforePanels[i]) < 1));
         $('#tools-toggle').click();
-        $('#magnify-toggle').click();
-        await wait('magnifier renders crisp detail', () => !$('#magnifier').hidden && !$('#magnifier-copy').disabled);
-        const sourceSize = dimensions();
-        $('#magnifier-plus').click(); await wait('magnifier zoom settles', () => !$('#magnifier-copy').disabled);
-        assert('temporary magnification preserves the full-page view', dimensions().every((value, i) => Math.abs(value - sourceSize[i]) < 1));
-        const lens = $('#magnifier-canvas');
-        const lensRect = lens.getBoundingClientRect();
-        const oldCapture = lens.setPointerCapture;
-        lens.setPointerCapture = () => {};
-        const markerBefore = $('.magnifier-source').style.left;
-        lens.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 150, clientY: lensRect.top + 120 }));
-        lens.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 210, clientY: lensRect.top + 140 }));
-        lens.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 41, button: 0, clientX: lensRect.left + 210, clientY: lensRect.top + 140 }));
-        lens.setPointerCapture = oldCapture;
-        await wait('magnifier drag sharpens', () => !$('#magnifier-copy').disabled);
-        assert('dragging the magnifier moves the inspected region', $('.magnifier-source').style.left !== markerBefore && !lens.dataset.dragging);
-        const copySize = [lens.width, lens.height]; $('#magnifier-copy').click();
-        await wait('magnifier native image copy', async () => { const size = await invoke('debug_clipboard_image_size').catch(() => null); return size?.length === 2 && size.every((value, i) => value === copySize[i]); });
-        assert('magnified detail copies to the native clipboard', true);
-        $('#magnifier-close').click();
-        assert('closing the magnifier restores the unobstructed page', $('#magnifier').hidden && !$('.magnifier-source'));
+        $('#focus-toggle').click(); await sleep(250); await settled(1);
+        const focusPaper = $('#pages .pdf-page').getBoundingClientRect(); const focusReader = $('#reader').getBoundingClientRect();
+        assert('focus mode hides controls while keeping the entire page visible', getComputedStyle($('.reader-footer')).visibility === 'hidden' && focusPaper.top >= focusReader.top - 1 && focusPaper.bottom <= focusReader.bottom + 1);
+        $('#reader').dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' })); await sleep(250); await settled(1);
+        assert('Escape restores reading controls from focus mode', getComputedStyle($('.reader-footer')).visibility === 'visible');
+        const samePages = $('#pages');
+        const originalWidth = $('#pages canvas').width;
+        $('#zoom-in').click();
+        assert('zoom enlarges the existing page without opening another view', $('#pages') === samePages && $('#reader').dataset.zoomed === 'true' && Boolean(samePages.style.transform) && !$('#magnifier') && !document.querySelector('dialog[open]'));
+        await wait('zoom renders a sharper page', () => $('#reader').dataset.zoomRendering !== 'true' && $('#pages canvas').width > originalWidth);
+        assert('zoom increases canvas resolution after the immediate transform', $('#zoom-value').textContent === '125%');
+        const panReader = $('#reader');
+        const beforeWheel = samePages.style.transform;
+        panReader.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 35 }));
+        assert('the wheel pans the enlarged page', samePages.style.transform !== beforeWheel);
+        const panCapture = [panReader.setPointerCapture, panReader.hasPointerCapture, panReader.releasePointerCapture];
+        let panHeld = false;
+        panReader.setPointerCapture = () => { panHeld = true; }; panReader.hasPointerCapture = () => panHeld; panReader.releasePointerCapture = () => { panHeld = false; };
+        const beforeDrag = samePages.style.transform;
+        try {
+          panReader.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: ' ' }));
+          for (const [type, x, y] of [['pointerdown', 600, 400], ['pointermove', 620, 430], ['pointerup', 620, 430]]) panReader.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 41, button: 0, clientX: x, clientY: y }));
+          panReader.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: ' ' }));
+          assert('Space and drag pans without changing the reading page', samePages.style.transform !== beforeDrag && $('#page-input').value === '1' && !panReader.dataset.panning);
+        } finally { [panReader.setPointerCapture, panReader.hasPointerCapture, panReader.releasePointerCapture] = panCapture; }
+        panReader.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'x', metaKey: true, shiftKey: true }));
+        const overlay = $('.capture-overlay');
+        assert('capture is available on the enlarged page', Boolean(overlay) && panReader.dataset.zoomed === 'true');
+        const overlayRect = overlay.getBoundingClientRect();
+        const visible = panReader.getBoundingClientRect();
+        const x = (visible.left + visible.right) / 2 - 60, y = (visible.top + visible.bottom) / 2 - 40;
+        const source = $('#pages canvas');
+        const expectedCrop = [Math.floor(120 * source.width / overlayRect.width), Math.floor(80 * source.height / overlayRect.height)];
+        const oldOverlayCapture = overlay.setPointerCapture; overlay.setPointerCapture = () => {};
+        for (const [type, atX, atY] of [['pointerdown', x, y], ['pointermove', x + 120, y + 80], ['pointerup', x + 120, y + 80]]) overlay.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 42, button: 0, clientX: atX, clientY: atY }));
+        overlay.setPointerCapture = oldOverlayCapture;
+        await wait('zoomed region reaches native PNG clipboard', async () => { const size = await invoke('debug_clipboard_image_size').catch(() => null); return size?.length === 2 && size.every((value, i) => Math.abs(value - expectedCrop[i]) <= 1); });
+        assert('zoomed capture maps the selected area to the correct pixels', Boolean($('#clips-list .clip-card')));
+        $('#clips-toggle').click();
+        panReader.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: '0', metaKey: true }));
+        assert('Cmd0 restores the whole page in the same view', !samePages.style.transform && panReader.dataset.zoomed !== 'true' && $('#zoom-value').textContent === '100%');
+        const beforeSpace = $('#page-input').value;
+        const spaceOnButton = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: ' ', code: 'Space' });
+        $('#bookmark-toggle').focus({ preventScroll: true }); $('#bookmark-toggle').dispatchEvent(spaceOnButton);
+        assert('Space on a focused button is not consumed as a page turn', !spaceOnButton.defaultPrevented && $('#page-input').value === beforeSpace);
         const reader = $('#reader');
         const captureMethods = [reader.setPointerCapture, reader.hasPointerCapture, reader.releasePointerCapture];
         let heldPointer = false;
@@ -217,6 +248,9 @@
         await window.desktop.copyImage(small.toDataURL('image/png'));
         const [width, height] = await invoke('debug_clipboard_image_size');
         assert('native PNG clipboard receives rendered page pixels', width === 180 && height === 120);
+        select('#theme-select', 'night'); select('#layout-select', 'spread'); select('#direction-select', 'rtl'); await settled(1);
+        await wait('global preferences saved', async () => { const prefs = (await window.desktop.getLibrary()).preferences; return prefs.theme === 'night' && prefs.mode === 'spread' && prefs.direction === 'rtl'; });
+        assert('appearance is persisted globally instead of inside each book', (await window.desktop.getLibrary()).recent.every(item => Object.keys(item.state).every(key => ['page', 'bookmarks'].includes(key))));
       }
     }
     assert('no uncaught renderer errors', observations.errors.length === 0);
