@@ -87,7 +87,7 @@ impl Reader {
     pub fn focus(&self) { let state = self.state.borrow(); if let Some(window) = state.view.window() { window.makeFirstResponder(Some(&*state.view)); } }
     pub fn resize(&self, frame: NSRect) {
         if self.container.frame() == frame { return; }
-        self.state.borrow_mut().finish_intended_turn();
+        { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.pan = None; }
         self.container.setFrame(frame);
         if self.zoom_factor() <= 1.001 { self.fit(); }
     }
@@ -222,7 +222,7 @@ impl ReaderState {
         self.navigate(target, true);
     }
     fn set_zoom(&mut self, factor: f64) {
-        self.finish_intended_turn();
+        self.finish_intended_turn(); self.pan = None;
         if self.document.is_none() { return; }
         self.factor = factor.clamp(1., 4.);
         if self.factor <= 1.001 { self.fit(); return; }
@@ -294,7 +294,7 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
         if let Some(scroll) = state.scroll_view() { let clip=scroll.contentView(); state.pan = Some((event.locationInWindow(), clip.bounds().origin)); return true; }
     }
     if event_type == NSEventType::LeftMouseDragged {
-        if let Some((start, origin)) = state.pan { if let Some(scroll) = state.scroll_view() { let clip = scroll.contentView(); let position=event.locationInWindow(); let next = NSPoint::new(origin.x - position.x + start.x, origin.y + (position.y - start.y) * if clip.isFlipped() { 1. } else { -1. }); clip.scrollToPoint(next); scroll.reflectScrolledClipView(&clip); } return true; }
+        if let Some((start, origin)) = state.pan { if let Some(scroll) = state.scroll_view() { let clip = scroll.contentView(); let position=event.locationInWindow(); let next = NSPoint::new(origin.x - position.x + start.x, origin.y + (position.y - start.y) * if clip.isFlipped() { 1. } else { -1. }); let next = clip.constrainBoundsRect(NSRect::new(next, clip.bounds().size)).origin; clip.scrollToPoint(next); scroll.reflectScrolledClipView(&clip); } return true; }
     }
     if event_type == NSEventType::LeftMouseUp && state.pan.take().is_some() { return true; }
     if event_type == NSEventType::ScrollWheel && inside && state.factor <= 1.001 { return true; }
