@@ -4,7 +4,7 @@ Recorded on Apple Silicon macOS, 2026-11-05. This document covers the native Rus
 
 ## Confirmed automated checks
 
-The independently recorded native baseline passed **21 Rust tests**: 19 library/search/thumbnail tests and two reader-navigation tests. The real-book search probe is a separate opt-in test. Later UI and rendering revisions are still undergoing final release validation.
+The current native test run passed **24 Rust tests**: 22 library/search/thumbnail tests and two reader-navigation tests. The real-book search probe is a separate opt-in test. Final animation optimization and release-package measurements remain pending.
 
 - Importing 65 books alongside an existing book retains all 66 records and preserves the previous last-read book and position.
 - Recursive imports deduplicate canonical paths and file symlinks, continue after invalid or missing files, skip directory symlinks, and report traversal-depth limits.
@@ -12,10 +12,23 @@ The independently recorded native baseline passed **21 Rust tests**: 19 library/
 - Legacy preferences migrate from the last-read book once; later appearance changes remain global. Book state retains page and bookmarks independently.
 - Failed writes leave the previous in-memory and on-disk state intact. Malformed history is backed up before recovery.
 - An explicit absolute `SUMI_LIBRARY_PATH` isolates QA history without importing the user's normal library. Invalid relative, empty and directory paths are rejected.
-- Search tests cover Japanese width/case normalization, line wrapping, original-character snippet offsets, literal and bounded queries, cancellation, and stale-result rejection. The optional SQLite path is read-only, scoped to matching files, and rejects changed sources.
+- Search tests cover Japanese width/case normalization, line wrapping, original-character snippet offsets, normalized PDF highlight ranges, literal and bounded queries, cancellation, and stale-result rejection. The optional SQLite path is read-only, scoped to matching files, and rejects changed sources.
 - Thumbnail tests keep distant targets in a bounded 24-page window and avoid invalid pages. Reader tests cover cover/spread navigation and corner-drag cancellation versus a click.
 
 The **14 Python local-library/MCP tests** were rerun successfully on 2026-11-05. Native debug builds and initial bundle signing have succeeded. Final release-package checks remain pending below.
+
+## Native reader and manual QA
+
+The [sanitized reader smoke report](native-reader-smoke.json) records **72 checks across nine real books, with zero failures**. An internal debug driver checks body-page navigation, next/previous single pages, switching into and out of spreads while preserving the selected page, advancing a spread, 125% inline zoom, and fitting the complete page again. No external UI automation queries were issued during animations. These checks validate completed reader states; they are not frame-timing or texture-quality measurements.
+
+Manual native QA confirmed:
+
+- Command F opens search; Escape and clicking outside an empty field close it. Enter moved between results on pages 6 and 8, and Shift Enter returned to page 6. A full-width Latin query highlighted the matching PDF text.
+- Command K finds book titles and actions. The page navigator displayed its 24-thumbnail grid. A corner drag moved page 80 to 81, and 125% zoom returned to complete-page fit.
+- Importing the nine-book set added eight books, reported one duplicate, and reported no errors. Importing the authored recursive fixture added 45 PDFs and reported its one invalid file, with no duplicates; the current reader stayed on page 6 and the additions persisted.
+- The password-protected authored PDF imported and unlocked with its fixture password. A captured rectangle was saved as PNG; its private QA artifact is excluded from Git.
+
+Shifted-shortcut handling and decomposed-Unicode title matching received subsequent fixes. Final release validation will use the rebuilt application; the baseline smoke report does not claim coverage of later animation optimization.
 
 ## Nine-book search sample
 
@@ -29,13 +42,13 @@ The native graph contains 31 previously audited registry packages. Cached archiv
 
 The default library file is `~/Library/Application Support/com.kairi7011.sumi/library.json`. `~/Library/Application Support/Sumi/library.json` is a legacy migration source. Source PDFs stay at their original locations.
 
-## Pending final release evidence
+## Release evidence status
 
 | Check | Status |
 | --- | --- |
-| Final native GUI smoke and real-book reading pass | Pending |
+| Native reader baseline and manual feature QA | 72 checks passed; manual checks above confirmed |
 | Page-turn visual quality and animation timing | Pending |
 | Native process RSS sample and its measurement conditions | Pending |
 | Final release signing, bundle/ZIP size and artifact checksum | Pending |
 
-Original English, Japanese, password-protected, internal-link and recursive-import fixtures are prepared for the final smoke pass. Fixture preparation alone is not a passed GUI check.
+The remaining release checks must be recorded against the final packaged build. Internal-link and other prepared fixtures are not counted as passed manual checks unless listed above.
