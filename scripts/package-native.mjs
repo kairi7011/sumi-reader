@@ -41,6 +41,7 @@ try {
   await fs.copyFile(path.join(root, 'assets/app-icon.icns'), path.join(contents, 'Resources/sumi.icns'));
   await fs.cp(path.join(root, 'tools/library'), path.join(contents, 'Resources/library'), { recursive: true, filter: source => !source.includes('__pycache__') && !source.endsWith('.pyc') });
   await fs.copyFile(path.join(root, 'docs/native-dependency-audit.json'), path.join(contents, 'Resources/native-dependency-audit.json'));
+  await fs.cp(path.join(root, 'assets/icons/lucide'), path.join(contents, 'Resources/icons/lucide'), { recursive: true });
   const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const properties = {
     CFBundleName: displayName, CFBundleDisplayName: displayName, CFBundleExecutable: 'Sumi', CFBundleIdentifier: bundleId,

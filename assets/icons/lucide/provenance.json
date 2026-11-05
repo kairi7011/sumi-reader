@@ -1,0 +1,49 @@
+{
+  "source": "https://github.com/lucide-icons/lucide",
+  "version": "0.468.0",
+  "commit": "f12b0de177fbc2a6795e99be065887e72b237123",
+  "published_at": "2024-12-05T12:19:10Z",
+  "reviewed_on": "2026-11-05",
+  "minimum_age_hours": 72,
+  "age_gate": "passed",
+  "license": "ISC; Feather-derived search and x also covered by MIT",
+  "review": "All retained SVG and license sources read in full. Static paths/circle only; no scripts, references, executable code, runtime dependencies, lifecycle hooks or package resolution. Git blob hashes verified before retaining. Native paths are compiled into template NSImages.",
+  "advisories": "GitHub repository security-advisories API returned an empty list on 2026-11-05. No package ecosystem artifacts are installed.",
+  "reason": "Consistent library/import/search/close icons without a new GUI or icon runtime.",
+  "files": [
+    {
+      "file": "library.svg",
+      "git_blob_sha1": "bb6f673089b13c9206aecec3db821bd670a42d99",
+      "sha256": "892ba1bd1ee2e5bba320eea1c30c83ed83055ded5a0a0c0e7e4ee5fb06c307a5"
+    },
+    {
+      "file": "folder-input.svg",
+      "git_blob_sha1": "b3e342cc40631d6a43cfe642e850af0f41c6ffe5",
+      "sha256": "422afd22efd4b7474ee50fcdc42c37cdee1c170a81a2eb339df7ecd0d0dc3578"
+    },
+    {
+      "file": "search.svg",
+      "git_blob_sha1": "64bcc7250adaf8c2f39621237d6e10b56114fbc7",
+      "sha256": "9322d964b61cf729b3a81210568d5a97eaf4a1f3239f25a056fda3013bf35611"
+    },
+    {
+      "file": "x.svg",
+      "git_blob_sha1": "e31794349d3eecea1b3ae8e974b68bb8f4becda7",
+      "sha256": "4a9cdab38fbb96162e7dace28e33f4ca0e49d8963a6162abc3d4691b7d675117"
+    },
+    {
+      "file": "LICENSE",
+      "git_blob_sha1": "325e8ff0aae2dde3134c1ceed780a11d7bd8f544",
+      "sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc"
+    }
+  ],
+  "supplemental_license": {
+    "file": "FEATHER-LICENSE",
+    "source": "https://lucide.dev/license",
+    "applies_to": [
+      "search.svg",
+      "x.svg"
+    ],
+    "sha256": "7c441e7e972218abb971c20f649f4147eeb3c528b2925efafad65801725db965"
+  }
+}
