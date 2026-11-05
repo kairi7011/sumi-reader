@@ -464,6 +464,11 @@ fn fold(text: &str) -> String {
     output
 }
 
+pub fn matches_query(text: &str, query: &str) -> bool {
+    let query = fold(&display_text(query));
+    query.is_empty() || fold(&display_text(text)).contains(&query)
+}
+
 /// Returns a bounded, case-preserving snippet and character-based highlight range.
 pub fn snippet_for_query(text: &str, query: &str) -> Option<(String, usize, usize)> {
     let query = fold(&display_text(query));
@@ -568,6 +573,16 @@ mod tests {
         assert_eq!(snippet.chars().skip(start).take(length).collect::<String>(), "認知負荷とAI Design");
         assert!(snippet_for_query("インター\nフェース", "インターフェース").is_some());
         assert!(snippet_for_query("ﾌｨｰﾄﾞﾊﾞｯｸ", "フィードバック").is_some(), "normalized {:?} / {:?}", display_text("ﾌｨｰﾄﾞﾊﾞｯｸ"), display_text("フィードバック"));
+    }
+
+    #[test]
+    fn library_queries_match_decomposed_filenames_width_and_case() {
+        assert!(matches_query("パスワード付き.pdf", "パスワード"));
+        assert!(matches_query("パスワード付き.pdf", "パスワード"));
+        assert!(matches_query("ＡＩ Ｄｅｓｉｇｎ入門", "ai design"));
+        assert!(!matches_query("ＡＩ Ｄｅｓｉｇｎ入門", "ai designs"));
+        assert!(matches_query("パスワード付き.pdf", ""));
+        assert!(matches_query("パスワード付き.pdf", "  \n"));
     }
 
     #[test]
