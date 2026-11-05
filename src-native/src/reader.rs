@@ -331,6 +331,8 @@ impl ReaderState {
         if old.is_empty() { return false; }
         let moving = old.remove(if direction > 0. { old.len()-1 } else {0});
         if moving.2.size.width < 2. || moving.2.size.height < 2. { return false; }
+        #[cfg(debug_assertions)]
+        animation::debug_begin(&mut self.visual.borrow_mut());
         let front = self.snapshot(&moving.1,moving.2);
         let companion = old.first().map(|(_,page,rect)|self.snapshot(page,*rect));
         let gutter = companion.as_ref().map(|other| (front.rect.origin.x-other.rect.origin.x).abs()-front.rect.size.width).unwrap_or(0.).max(0.);
@@ -346,7 +348,7 @@ impl ReaderState {
             self.visual.borrow_mut().curl.as_mut().unwrap().back=Some(image);
         }
         self.view.displayIfNeeded();
-        #[cfg(debug_assertions)] { self.debug_samples = 0; }
+        #[cfg(debug_assertions)] { self.debug_samples = 0; animation::debug_prepared(&mut self.visual.borrow_mut()); }
         self.turn=Some(Turn {old:old_page,target,settle:None,start,last:start,sample:Instant::now(),velocity:0.,excursion:0.});
         self.overlay.repaint(); true
     }
@@ -385,7 +387,7 @@ impl ReaderState {
         {let mut visual=self.visual.borrow_mut();if let Some(curl)=visual.curl.as_mut(){curl.progress=settle.from+(settle.to-settle.from)*eased;curl.vertical=settle.vertical*(1.-smooth);}}
         let commit=settle.to>0.5;
         #[cfg(debug_assertions)]
-        if commit { if let Some(directory)=std::env::var_os("SUMI_CAPTURE_TURNS") {
+        if commit && animation::debug_pngs_enabled() { if let Some(directory)=std::env::var_os("SUMI_CAPTURE_TURNS") {
             for (index,threshold) in [0.25,0.5,0.75].into_iter().enumerate() {
                 let mask=1<<index;
                 if self.debug_samples & mask == 0 && self.visual.borrow().curl.as_ref().is_some_and(|curl|curl.progress>=threshold) {
@@ -402,6 +404,8 @@ impl ReaderState {
     }
     fn finish_turn(&mut self, commit: bool) {
         let Some(turn)=self.turn.take()else{return;};
+        #[cfg(debug_assertions)]
+        animation::debug_finish(&mut self.visual.borrow_mut(), turn.old, turn.target, commit);
         let target=if commit{turn.target}else{turn.old};
         if !commit {if let Some(page)=self.document.as_ref().and_then(|doc|doc.page(target-1)){unsafe{let _:()=msg_send![&*self.view,goToPage:&*page];}self.fit();}}
         self.view.displayIfNeeded();self.current=target;self.visual.borrow_mut().curl=None;self.overlay.repaint();crate::enqueue("reader-page",target);

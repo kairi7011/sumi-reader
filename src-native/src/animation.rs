@@ -19,7 +19,11 @@ pub struct Curl {
     pub gutter: f64,
 }
 #[derive(Default)]
-pub struct Visual { pub curl: Option<Curl>, pub capture: Option<NSRect>, pub capture_mode: bool }
+pub struct Visual {
+    pub curl: Option<Curl>, pub capture: Option<NSRect>, pub capture_mode: bool,
+    #[cfg(debug_assertions)]
+    debug: Option<DebugMetrics>,
+}
 pub struct OverlayIvars { visual: Rc<RefCell<Visual>> }
 define_class!(
     #[unsafe(super = NSView)]
@@ -36,7 +40,11 @@ define_class!(
         fn draw_rect(&self, _rect: NSRect) {
             let Some(context) = NSGraphicsContext::currentContext() else { return; };
             let cg = context.CGContext();
+            #[cfg(debug_assertions)]
+            let started = std::time::Instant::now();
             let visual = self.ivars().visual.borrow();
+            #[cfg(debug_assertions)]
+            let progress = visual.curl.as_ref().map(|curl|curl.progress);
             if let Some(curl) = &visual.curl { draw_curl(&cg, curl); }
             if visual.capture_mode {
                 if let Some(rect) = visual.capture {
@@ -45,6 +53,14 @@ define_class!(
                     CGContext::set_rgb_stroke_color(Some(&cg), 0.21, 0.39, 0.32, 0.95);
                     CGContext::set_line_width(Some(&cg), 1.5);
                     CGContext::stroke_rect(Some(&cg), rect);
+                }
+            }
+            #[cfg(debug_assertions)]
+            {
+                let elapsed = started.elapsed().as_secs_f64() * 1000.;
+                drop(visual);
+                if let Some(progress) = progress {
+                    if let Some(debug) = self.ivars().visual.borrow_mut().debug.as_mut() { debug.record(started, elapsed, progress); }
                 }
             }
         }
@@ -185,4 +201,60 @@ pub fn debug_frame(view: &NSView, visual: &Visual, path: &std::path::Path) {
     let properties:Retained<NSDictionary<NSString,AnyObject>>=NSDictionary::new();
     let data:Option<Retained<NSData>>=unsafe{msg_send![&*bitmap,representationUsingType:4usize,properties:&*properties]};
     if let Some(data)=data { if let Some(parent)=path.parent(){let _=std::fs::create_dir_all(parent);}let _=std::fs::write(path,data.to_vec()); }
+}
+
+#[cfg(debug_assertions)]
+struct DebugMetrics {
+    start: std::time::Instant,
+    preparation_ms: f64,
+    first_draw_ms: Option<f64>,
+    last_draw: Option<std::time::Instant>,
+    draws: Vec<(f64, f64)>,
+    intervals: Vec<f64>,
+}
+#[cfg(debug_assertions)]
+impl DebugMetrics {
+    fn record(&mut self, start: std::time::Instant, elapsed: f64, progress: f64) {
+        if self.draws.len() >= 600 { return; }
+        self.first_draw_ms.get_or_insert(start.duration_since(self.start).as_secs_f64() * 1000.);
+        if let Some(last) = self.last_draw { self.intervals.push(start.duration_since(last).as_secs_f64() * 1000.); }
+        self.last_draw = Some(start);
+        self.draws.push((progress, elapsed));
+    }
+}
+#[cfg(debug_assertions)]
+pub fn debug_pngs_enabled() -> bool { std::env::var("SUMI_CAPTURE_TURN_PNGS").as_deref() != Ok("0") }
+#[cfg(debug_assertions)]
+pub fn debug_begin(visual: &mut Visual) {
+    visual.debug = std::env::var_os("SUMI_CAPTURE_TURNS").map(|_| DebugMetrics { start: std::time::Instant::now(), preparation_ms: 0., first_draw_ms: None, last_draw: None, draws: Vec::with_capacity(40), intervals: Vec::with_capacity(40) });
+}
+#[cfg(debug_assertions)]
+pub fn debug_prepared(visual: &mut Visual) {
+    if let Some(debug) = visual.debug.as_mut() { debug.preparation_ms = debug.start.elapsed().as_secs_f64() * 1000.; }
+}
+#[cfg(debug_assertions)]
+pub fn debug_finish(visual: &mut Visual, from: usize, target: usize, committed: bool) {
+    let Some(debug) = visual.debug.take() else { return; };
+    let Some(directory) = std::env::var_os("SUMI_CAPTURE_TURNS") else { return; };
+    fn summary(values: impl Iterator<Item=f64>) -> serde_json::Value {
+        let mut values: Vec<f64> = values.collect(); values.sort_by(f64::total_cmp);
+        let quantile = |p:f64| if values.is_empty() { 0. } else { values[((values.len() as f64 * p).ceil() as usize).saturating_sub(1).min(values.len()-1)] };
+        serde_json::json!({"p50":quantile(0.5),"p95":quantile(0.95),"max":values.last().copied().unwrap_or(0.)})
+    }
+    let mut pixels=Vec::new();
+    if let Some(curl)=&visual.curl {
+        for texture in [Some(&curl.front.image),curl.companion.as_ref().map(|page|&page.image),curl.back.as_ref()].into_iter().flatten() {
+            if let Some(image)=image_ref(texture) {pixels.push((CGImage::width(Some(&image)),CGImage::height(Some(&image))));}
+        }
+    }
+    let result=serde_json::json!({
+        "from_page":from,"target_page":target,"committed":committed,"png_capture_enabled":debug_pngs_enabled(),
+        "preparation_ms":debug.preparation_ms,"first_draw_ms":debug.first_draw_ms,"elapsed_ms":debug.start.elapsed().as_secs_f64()*1000.,
+        "frame_count":debug.draws.len(),"draw_ms":summary(debug.draws.iter().map(|(_,time)|*time)),"frame_interval_ms":summary(debug.intervals.iter().copied()),
+        "snapshot_dimensions":pixels,"snapshot_total_pixels":pixels.iter().map(|(w,h)|w*h).sum::<usize>(),
+        "draw_samples":debug.draws.iter().map(|(progress,ms)|serde_json::json!({"progress":progress,"ms":ms})).collect::<Vec<_>>()
+    });
+    let directory=std::path::PathBuf::from(directory);let _=std::fs::create_dir_all(&directory);
+    let stamp=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_micros();
+    if let Ok(bytes)=serde_json::to_vec_pretty(&result) {let _=std::fs::write(directory.join(format!("turn-{stamp}-{from}-{target}.json")),bytes);}
 }
