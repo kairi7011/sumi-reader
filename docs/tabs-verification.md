@@ -1,6 +1,6 @@
 # Sumi 0.6 tabs and page-picker validation
 
-Recorded on Apple Silicon macOS, 2026-11-05. The pinned Home tab, book tabs, compact controls and continuous page picker are integrated and checked in the packaged 0.6 debug app. Release packaging and delivered-release checks remain pending. The [0.5 bookshelf report](bookshelf-verification.md) is historical evidence; its measurements are not relabeled as 0.6 results.
+Recorded on Apple Silicon macOS, 2026-11-05. The pinned Home tab, book tabs, compact controls and continuous page picker are integrated and checked in the packaged 0.6 debug app. Release packaging and delivered-application checks have completed. The [0.5 bookshelf report](bookshelf-verification.md) is historical evidence; its measurements are not relabeled as 0.6 results.
 
 ## Automated checks
 
@@ -22,11 +22,18 @@ Each book also exercises Escape staying on Home, reopening without duplicate tab
 
 The reviewed transitions settle the current page turn before saving on Home, tab switch or tab close. A failed save prevents those transitions, keeps the current document state and schedules a retry. Replacing Find with another panel retains its query. Book-title matches are capped before app commands are appended, so a large shelf cannot displace every command. These are code-review observations, not fault-injection GUI results.
 
-## Verification limits and remaining release work
+## Delivered release
+
+The [0.6 release manifest](tabs-release.json) records the ARM64 build from `43ca21a56832af140efc6ab13fb26ae45b0d23d4`. Application files total **1,110,941 bytes**; the ZIP is **525,067 bytes**. Deep strict signature verification passed for both the built bundle and the delivered copy, and ZIP integrity verification passed. Signing is ad-hoc; no notarization was performed. The executable uses system frameworks without WebKit. The Lucide source assets and ISC/Feather MIT licenses are bundled.
+
+Delivered artifacts are `outputs/Sumi.app` and `outputs/Sumi-0.6.0-mac-arm64.zip`. ZIP SHA-256: `9edd60930a2fec592f468511299ed0792b26f27f9d828e10bc3531c4fefbe6e8`.
+
+Before replacement, the running 0.5 app was at the user's current page **124 of 384**. Quitting preserved that position. The delivered 0.6 app opened on its 10-book shelf with Home selected, and opening that book created a tab at page 124. Command 1 returned to Home; Escape stayed there. Existing positions of **32 of 333** and **2 of 400** were also observed before any change. These were the normal user-library records; QA reading positions were not copied into them.
+
+## Verification limits
 
 | Area | Status |
 | --- | --- |
-| Release artifacts | Pending: source revision, signed ARM64 bundle, ZIP integrity, sizes/hash and delivered-build checks. |
 | Physical scrolling | No physical trackpad or coordinate-wheel input was verified. Native accessibility scrolling passed. The coordinate-wheel tool returned `noWindowsAvailable`, including after a reset. |
 | Scrollbar dragging | Common-mode UI timer scheduling is implemented, but physically dragging the thumb during thumbnail rendering was not verified. |
 | Broader GUI regression | This run does not establish full keyboard/focus traversal, Japanese IME composition, minimum-window layout, import/capture, missing-file relink, password cancellation or save-failure behavior for 0.6. Earlier reports remain version-specific. |
