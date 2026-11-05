@@ -87,7 +87,7 @@ impl Reader {
     pub fn focus(&self) { let state = self.state.borrow(); if let Some(window) = state.view.window() { window.makeFirstResponder(Some(&*state.view)); } }
     pub fn resize(&self, frame: NSRect) {
         if self.container.frame() == frame { return; }
-        { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.pan = None; }
+        { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.pan = None; state.update_cursor(); }
         self.container.setFrame(frame);
         if self.zoom_factor() <= 1.001 { self.fit(); }
     }
@@ -129,7 +129,7 @@ impl Reader {
         unsafe { let _: () = msg_send![&*self.state.borrow().view, setBackgroundColor: &*color]; }
     }
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
-    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.fit(); }
+    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.fit(); state.update_cursor(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.document().map(|document| document.outline()).unwrap_or_default() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }
     pub fn highlight(&self, query: &str) -> bool {
@@ -168,7 +168,7 @@ impl Reader {
     pub fn begin_capture(&self) {
         let mut state = self.state.borrow_mut(); state.finish_intended_turn();
         if state.document.is_none() { return; }
-        state.visual.borrow_mut().capture_mode = true; state.capture_start = None; state.pan = None;
+        state.visual.borrow_mut().capture_mode = true; state.capture_start = None; state.pan = None; state.space = false;
         NSCursor::crosshairCursor().set(); state.overlay.repaint();
     }
     pub fn take_capture(&self) -> Option<Retained<NSImage>> { self.state.borrow_mut().captured.take() }
@@ -176,7 +176,7 @@ impl Reader {
         let mut state = self.state.borrow_mut();
         if state.turn.is_some() { state.settle_turn(false); return true; }
         if state.visual.borrow().capture_mode { state.cancel_capture(); return true; }
-        let active = state.pan.is_some() || state.space; state.pan = None; state.space = false; active
+        let active = state.pan.is_some() || state.space; state.pan = None; state.space = false; state.update_cursor(); active
     }
     pub fn tick(&self) {
         let mut state = self.state.borrow_mut();
@@ -212,7 +212,7 @@ impl ReaderState {
         let target = target.clamp(1, document.page_count());
         if let Some(page) = document.page(target - 1) {
             unsafe { let _: () = msg_send![&*self.view, goToPage: &*page]; }
-            self.current = target; self.fit();
+            self.current = target; self.fit(); self.update_cursor();
             crate::enqueue("reader-page", target);
         }
     }
@@ -225,8 +225,9 @@ impl ReaderState {
         self.finish_intended_turn(); self.pan = None;
         if self.document.is_none() { return; }
         self.factor = factor.clamp(1., 4.);
-        if self.factor <= 1.001 { self.fit(); return; }
+        if self.factor <= 1.001 { self.fit(); self.update_cursor(); return; }
         unsafe { let _: () = msg_send![&*self.view, setAutoScales: false]; let _: () = msg_send![&*self.view, setScaleFactor: self.fit_scale * self.factor]; }
+        self.update_cursor();
         crate::enqueue("reader-zoom", (self.factor * 100.).round() as usize);
     }
     fn scroll_view(&self) -> Option<Retained<NSScrollView>> {
@@ -254,19 +255,20 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
     if event_type == NSEventType::LeftMouseDown && inside { crate::enqueue("reader-click", 0); }
     let responder = window.firstResponder();
     let reader_focused = responder.as_ref().and_then(|responder| responder.downcast_ref::<NSView>()).is_some_and(|view| view.isDescendantOf(&state.view));
-    if event_type == NSEventType::KeyUp && event.keyCode() == 49 { state.space = false; state.pan = None; return false; }
+    if event_type == NSEventType::KeyUp && event.keyCode() == 49 { state.space = false; state.pan = None; state.update_cursor(); return false; }
+    if inside && (event_type == NSEventType::MouseMoved || event_type == NSEventType::CursorUpdate) && (state.space || state.visual.borrow().capture_mode) { state.update_cursor(); return true; }
     if event_type == NSEventType::KeyDown && reader_focused {
         let modifiers = event.modifierFlags();
         let text = event.charactersIgnoringModifiers().map(|s| s.to_string()).unwrap_or_default();
         if modifiers.contains(NSEventModifierFlags::Command) {
             if event.keyCode() == 24 { let factor = state.factor * 1.25; state.set_zoom(factor); return true; }
             if event.keyCode() == 27 { let factor = state.factor / 1.25; state.set_zoom(factor); return true; }
-            if event.keyCode() == 29 { state.finish_intended_turn(); state.fit(); return true; }
-            match text.as_str() { "+" | "=" => { let factor = state.factor * 1.25; state.set_zoom(factor); return true; }, "-" => { let factor = state.factor / 1.25; state.set_zoom(factor); return true; }, "0" => { state.fit(); return true; }, _ => return false }
+            if event.keyCode() == 29 { state.finish_intended_turn(); state.fit(); state.update_cursor(); return true; }
+            match text.as_str() { "+" | "=" => { let factor = state.factor * 1.25; state.set_zoom(factor); return true; }, "-" => { let factor = state.factor / 1.25; state.set_zoom(factor); return true; }, "0" => { state.finish_intended_turn(); state.fit(); state.update_cursor(); return true; }, _ => return false }
         }
         if modifiers.intersects(NSEventModifierFlags::Control | NSEventModifierFlags::Option) { return false; }
         match event.keyCode() {
-            49 if state.factor > 1.001 => { state.space = true; return true; },
+            49 if state.factor > 1.001 => { state.space = true; state.update_cursor(); return true; },
             49 | 124 | 121 => { let delta = if event.keyCode() == 124 && state.rtl || event.keyCode() == 49 && modifiers.contains(NSEventModifierFlags::Shift) { -1 } else { 1 }; state.step(delta); return true; },
             123 | 116 => { let delta = if event.keyCode() == 123 && state.rtl { 1 } else { -1 }; state.step(delta); return true; },
             115 => { state.go_to(1); return true; },
@@ -291,12 +293,12 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
     }
     if event_type == NSEventType::Magnify && inside { let factor = state.factor * (1. + event.magnification()); state.set_zoom(factor); return true; }
     if event_type == NSEventType::LeftMouseDown && inside && state.space && state.factor > 1. {
-        if let Some(scroll) = state.scroll_view() { let clip=scroll.contentView(); state.pan = Some((event.locationInWindow(), clip.bounds().origin)); return true; }
+        if let Some(scroll) = state.scroll_view() { let clip=scroll.contentView(); state.pan = Some((event.locationInWindow(), clip.bounds().origin)); state.update_cursor(); return true; }
     }
     if event_type == NSEventType::LeftMouseDragged {
         if let Some((start, origin)) = state.pan { if let Some(scroll) = state.scroll_view() { let clip = scroll.contentView(); let position=event.locationInWindow(); let next = NSPoint::new(origin.x - position.x + start.x, origin.y + (position.y - start.y) * if clip.isFlipped() { 1. } else { -1. }); let next = clip.constrainBoundsRect(NSRect::new(next, clip.bounds().size)).origin; clip.scrollToPoint(next); scroll.reflectScrolledClipView(&clip); } return true; }
     }
-    if event_type == NSEventType::LeftMouseUp && state.pan.take().is_some() { return true; }
+    if event_type == NSEventType::LeftMouseUp && state.pan.take().is_some() { state.update_cursor(); return true; }
     if event_type == NSEventType::ScrollWheel && inside && state.factor <= 1.001 { return true; }
     false
 }
@@ -364,7 +366,8 @@ impl ReaderState {
         let target=step_target(self.current,self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1),self.spread,if forward{1}else{-1});
         let reduce:bool=unsafe{msg_send![&*NSWorkspace::sharedWorkspace(),accessibilityDisplayShouldReduceMotion]};
         if reduce { self.navigate(target,false); return true; }
-        if !self.begin_turn(target,if top{0.1}else{0.9},point){return false;}
+        NSCursor::closedHandCursor().set();
+        if !self.begin_turn(target,if top{0.1}else{0.9},point){self.update_cursor();return false;}
         self.visual.borrow_mut().curl.as_mut().unwrap().progress=0.015;self.overlay.repaint();true
     }
     fn drag_turn(&mut self, point: NSPoint) {
@@ -380,6 +383,7 @@ impl ReaderState {
         let target=if commit{1.}else{0.};let travel=target-curl.progress;
         let duration=(travel.abs()*0.5/(1.+turn.velocity.abs()*0.12)).clamp(0.16,0.54);
         turn.settle=Some(Settle{start:Instant::now(),duration:Duration::from_secs_f64(duration),from:curl.progress,to:target,vertical:curl.vertical,tangent:if travel.abs()<0.001{0.}else{(turn.velocity*duration/travel).clamp(0.,2.4)}});
+        drop(visual); self.update_cursor();
     }
     fn advance_turn(&mut self) {
         let Some(turn)=self.turn.as_ref()else{return;};let Some(settle)=turn.settle.as_ref()else{return;};
@@ -408,7 +412,13 @@ impl ReaderState {
         animation::debug_finish(&mut self.visual.borrow_mut(), turn.old, turn.target, commit);
         let target=if commit{turn.target}else{turn.old};
         if !commit {if let Some(page)=self.document.as_ref().and_then(|doc|doc.page(target-1)){unsafe{let _:()=msg_send![&*self.view,goToPage:&*page];}self.fit();}}
-        self.view.displayIfNeeded();self.current=target;self.visual.borrow_mut().curl=None;self.overlay.repaint();crate::enqueue("reader-page",target);
+        self.view.displayIfNeeded();self.current=target;self.visual.borrow_mut().curl=None;self.update_cursor();self.overlay.repaint();crate::enqueue("reader-page",target);
+    }
+    fn update_cursor(&self) {
+        if self.visual.borrow().capture_mode { NSCursor::crosshairCursor().set(); }
+        else if self.pan.is_some() || self.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) { NSCursor::closedHandCursor().set(); }
+        else if self.space && self.factor > 1.001 { NSCursor::openHandCursor().set(); }
+        else { NSCursor::arrowCursor().set(); }
     }
     fn cancel_capture(&mut self) {
         let mut visual=self.visual.borrow_mut();if visual.capture_mode {NSCursor::arrowCursor().set();}
