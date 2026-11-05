@@ -4,6 +4,8 @@ Reviewed 2026-11-05 for Sumi 0.4.0 on `aarch64-apple-darwin`. This build uses Ru
 
 All **31 registry packages** in `src-native/Cargo.lock` are unchanged versions from the [previous audited graph](tauri-dependency-audit.json). Resolution was offline, seeded from the previous lockfile; it downloaded no external code. Each cached archive was independently rehashed and matched its registry checksum. The audit preserves the original publisher, canonical repository, publication time, license and checksum evidence. Every release satisfies the 72-hour minimum age. The previous complete OSV/RustSec query is retained as dated evidence; neither previously reported Linux-only package exists in this smaller graph.
 
+The 0.5.0 update changes only the local application version in Cargo.toml/Cargo.lock and npm root metadata. Exact parsed comparisons confirm that all 31 external Rust package records and all npm dependency records are unchanged. No dependency resolution, download, or build was performed for this metadata update. The current native audit records the previous and updated manifest/lock hashes in `bindingUpdates`; the original artifact and advisory evidence retains its original dates.
+
 Exact direct versions:
 
 | Dependency | Version | Purpose |

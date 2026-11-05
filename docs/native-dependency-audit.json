@@ -2,8 +2,8 @@
   "checkedAt": "2026-11-05T07:05:28.374Z",
   "target": "aarch64-apple-darwin",
   "minimumAgeHours": 72,
-  "lockSha256": "29ab17efaf94f74085498b1228b727921684a00adba440a07635075b1c4cf5d4",
-  "manifestSha256": "caa3b7dd1006abb7efb54de094c727b1f3c6bbeaf59f024bb46d1b06a12e2fee",
+  "lockSha256": "5a7baffa8ecffad117f4905f0df433fd8aa752a062f9d2b495c97033707ed506",
+  "manifestSha256": "4708dd93f1cc147cef4ebe19dc39b81543c9a72667449cdb2ebf86f7e3648e4c",
   "packageCount": 31,
   "priorAudit": "docs/tauri-dependency-audit.json",
   "priorAdvisoryCheck": "2026-11-04T03:32:13.347Z",
@@ -522,6 +522,17 @@
       "errors": [],
       "archiveSha256": "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b",
       "reusedAudit": "tauri-dependency-audit.json"
+    }
+  ],
+  "bindingUpdates": [
+    {
+      "updatedAt": "2026-11-05T08:42:32.773262+00:00",
+      "reason": "Local application version only: 0.4.0 to 0.5.0; exact manifest and lock comparison confirmed all 31 external package records unchanged.",
+      "previousManifestSha256": "caa3b7dd1006abb7efb54de094c727b1f3c6bbeaf59f024bb46d1b06a12e2fee",
+      "previousLockSha256": "29ab17efaf94f74085498b1228b727921684a00adba440a07635075b1c4cf5d4",
+      "externalPackageCount": 31,
+      "dependencyResolutionPerformed": false,
+      "newDownloads": 0
     }
   ]
 }
