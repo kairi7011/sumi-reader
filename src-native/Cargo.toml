@@ -1,0 +1,23 @@
+[package]
+name = "sumi-native"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.99"
+license = "LicenseRef-Proprietary"
+
+[dependencies]
+objc2 = "=0.6.5"
+objc2-foundation = "=0.3.2"
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "bitflags", "block2", "libc", "objc2-core-foundation", "objc2-core-graphics", "AppKitDefines", "NSApplication", "NSRunningApplication", "NSWindow", "NSView", "NSResponder", "NSButton", "NSControl", "NSCell", "NSImage", "NSFont", "NSColor", "NSScrollView", "NSClipView", "NSTextField", "NSTextView", "NSMenu", "NSMenuItem", "NSAppearance", "NSBox", "NSEvent", "NSOpenPanel", "NSSavePanel", "NSPasteboard", "NSAlert", "NSSecureTextField", "NSDragging", "NSGraphicsContext", "NSBitmapImageRep", "NSWorkspace", "NSBezierPath", "NSStackView", "NSLayoutConstraint", "NSVisualEffectView", "NSImageView", "NSTableView", "NSTableColumn", "NSSplitView", "NSProgressIndicator", "NSSearchField", "NSSlider", "NSCollectionView", "NSTrackingArea", "NSAnimationContext", "NSCursor", "NSParagraphStyle", "NSText", "NSAccessibility", "NSAccessibilityProtocols", "NSPanel", "NSButtonCell", "NSGraphics"] }
+objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["std", "objc2", "CGContext", "CGImage", "CGColorSpace", "CGAffineTransform", "CGGeometry", "CGGradient", "CGBitmapContext", "CGDataProvider", "CGPath", "CGColor"] }
+block2 = "=0.6.2"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+sha2 = "=0.11.1"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "s"
+panic = "abort"
+strip = true
