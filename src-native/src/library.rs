@@ -136,12 +136,21 @@ impl ImportReport {
 
 impl Store {
     pub fn load_default() -> Result<Self, String> {
-        let home = std::env::var_os("HOME").ok_or("ユーザーフォルダが見つかりません。")?;
-        let support = PathBuf::from(home).join("Library/Application Support");
+        Self::load_environment(std::env::var_os("SUMI_LIBRARY_PATH").map(PathBuf::from), std::env::var_os("HOME").map(PathBuf::from))
+    }
+
+    fn load_environment(override_path: Option<PathBuf>, home: Option<PathBuf>) -> Result<Self, String> {
+        if let Some(path) = override_path {
+            if !path.is_absolute() { return Err("SUMI_LIBRARY_PATHには保存先の絶対パスを指定してください。".into()); }
+            // An explicit QA store must never migrate the user's real reading history.
+            return Self::load(path, None);
+        }
+        let support = home.ok_or("ユーザーフォルダが見つかりません。")?.join("Library/Application Support");
         Self::load(support.join("com.kairi7011.sumi/library.json"), Some(&support.join("Sumi/library.json")))
     }
 
     pub fn load(path: PathBuf, legacy: Option<&Path>) -> Result<Self, String> {
+        if path.exists() && !path.is_file() { return Err("本棚の保存先にはJSONファイルを指定してください。".into()); }
         let mut persist_on_load = false;
         let mut warning = None;
         let library = if path.exists() {
@@ -547,6 +556,25 @@ mod tests {
         let name = format!("folder/{}deep.pdf", "nested/".repeat(35)); fixture.pdf(&name);
         let report = store.import_paths(&[fixture.0.join("folder")]).unwrap();
         assert!(report.limited); assert_eq!(report.added.len(),1); assert_eq!(report.errors.len(),1);
+    }
+
+    #[test]
+    fn explicit_qa_library_is_isolated_from_existing_user_history() {
+        let fixture = Fixture::new();
+        let home = fixture.0.join("home");
+        let user = Store::load_environment(None, Some(home.clone())).unwrap();
+        user.open_authorized_path(&fixture.pdf("book.pdf")).unwrap();
+        let before = fs::read(&user.path).unwrap();
+        let isolated_path = fixture.0.join("qa/library.json");
+        let isolated = Store::load_environment(Some(isolated_path.clone()), Some(home)).unwrap();
+        assert_eq!(isolated.path, isolated_path);
+        assert!(isolated.snapshot().unwrap().recent.is_empty());
+        isolated.import_paths(&[fixture.pdf("qa-book.pdf")]).unwrap();
+        assert_eq!(fs::read(&user.path).unwrap(), before);
+        assert!(Store::load_environment(Some(PathBuf::from("relative.json")), None).is_err());
+        assert!(Store::load_environment(Some(PathBuf::new()), None).is_err());
+        assert!(Store::load_environment(Some(fixture.0.clone()), None).is_err());
+        assert!(fixture.0.is_dir());
     }
 
     #[test]

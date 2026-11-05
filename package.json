@@ -1,6 +1,6 @@
 {
   "name": "sumi-reader",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A quiet, local PDF reader for macOS",
   "type": "module",
@@ -10,13 +10,19 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "start": "node scripts/prepare-frontend.mjs --debug && node scripts/build-tauri.mjs --debug && node scripts/start-tauri.mjs",
-    "check": "node --check src/app.js && node --check src/desktop.js && node --check src/page-turn.js && node --check src/page-map.js && node --check src/page-zoom.js && node --check src/book-title.js && node --check scripts/prepare-frontend.mjs && node --check scripts/build-tauri.mjs && node --check scripts/package-tauri.mjs",
-    "test": "node --test tests/*.test.mjs && python3 -m unittest discover -s tests -p library_test.py",
-    "build": "node scripts/prepare-frontend.mjs && node scripts/build-tauri.mjs",
-    "test:native": "node scripts/prepare-frontend.mjs && node scripts/build-tauri.mjs --test",
-    "package:mac": "npm run build && node scripts/package-tauri.mjs",
-    "books": "python3 tools/library/sumi_library.py"
+    "start": "node scripts/build-native.mjs --debug && node scripts/start-native.mjs",
+    "check": "node --check scripts/build-native.mjs && node --check scripts/start-native.mjs && node --check scripts/package-native.mjs && node scripts/build-native.mjs --check",
+    "test": "node scripts/build-native.mjs --test && python3 -m unittest discover -s tests -p library_test.py",
+    "build": "node scripts/build-native.mjs",
+    "test:native": "node scripts/build-native.mjs --test",
+    "package:mac": "npm run build && node scripts/package-native.mjs",
+    "books": "python3 tools/library/sumi_library.py",
+    "legacy:start": "node scripts/prepare-frontend.mjs --debug && node scripts/build-tauri.mjs --debug && node scripts/start-tauri.mjs",
+    "legacy:build": "node scripts/prepare-frontend.mjs && node scripts/build-tauri.mjs",
+    "legacy:check": "node --check src/app.js && node --check src/desktop.js && node --check src/page-turn.js && node --check src/page-map.js && node --check src/page-zoom.js && node --check src/book-title.js && node --check scripts/prepare-frontend.mjs && node --check scripts/build-tauri.mjs && node --check scripts/package-tauri.mjs",
+    "legacy:test": "node --test tests/*.test.mjs && python3 -m unittest discover -s tests -p library_test.py",
+    "legacy:test:native": "node scripts/prepare-frontend.mjs && node scripts/build-tauri.mjs --test",
+    "legacy:package:mac": "npm run legacy:build && node scripts/package-tauri.mjs"
   },
   "dependencies": {
     "pdfjs-dist": "6.4.299"

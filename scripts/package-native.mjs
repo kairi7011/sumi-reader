@@ -10,6 +10,19 @@ if (outIndex >= 0 && !process.argv[outIndex + 1]) throw new Error('--out needs a
 const destination = path.resolve(outIndex < 0 ? path.join(root, 'dist/Sumi.app') : process.argv[outIndex + 1]);
 if (path.basename(destination) !== 'Sumi.app' || destination === '/Sumi.app') throw new Error('The destination must end in Sumi.app inside a build folder.');
 const profile = process.argv.includes('--debug') ? 'debug' : 'release';
+const option = (name, fallback) => {
+  const index = process.argv.indexOf(name);
+  if (index < 0) return fallback;
+  if (profile !== 'debug') throw new Error(`${name} is available only with --debug.`);
+  const value = process.argv[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(`${name} needs a value.`);
+  return value;
+};
+const bundleId = option('--bundle-id', 'com.kairi7011.sumi');
+const displayName = option('--display-name', 'Sumi');
+if (!/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(bundleId)) throw new Error('Use a reverse-DNS bundle identifier.');
+if (displayName.length > 80 || /[\r\n\x00-\x1f]/.test(displayName)) throw new Error('Use a short single-line display name.');
+
 const binary = path.join(root, `src-native/target/aarch64-apple-darwin/${profile}/sumi-native`);
 await fs.access(binary);
 const manifest = await fs.readFile(path.join(root, 'src-native/Cargo.toml'), 'utf8');
@@ -30,7 +43,7 @@ try {
   await fs.copyFile(path.join(root, 'docs/native-dependency-audit.json'), path.join(contents, 'Resources/native-dependency-audit.json'));
   const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const properties = {
-    CFBundleName: 'Sumi', CFBundleDisplayName: 'Sumi', CFBundleExecutable: 'Sumi', CFBundleIdentifier: 'com.kairi7011.sumi',
+    CFBundleName: displayName, CFBundleDisplayName: displayName, CFBundleExecutable: 'Sumi', CFBundleIdentifier: bundleId,
     CFBundlePackageType: 'APPL', CFBundleInfoDictionaryVersion: '6.0', CFBundleIconFile: 'sumi.icns',
     CFBundleShortVersionString: version, CFBundleVersion: version,
     LSMinimumSystemVersion: '13.0', LSApplicationCategoryType: 'public.app-category.productivity',
