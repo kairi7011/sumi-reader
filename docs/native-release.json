@@ -1,0 +1,17 @@
+{
+  "version": "0.4.0",
+  "date": "2026-11-05",
+  "architecture": "arm64",
+  "source_commit": "d90c38abbbaae4ffe7bec83c46dfdbdb7e2f1a62",
+  "app_file_bytes": 1031770,
+  "zip_bytes": 481441,
+  "zip_sha256": "6cb180abbb188c478c14a382850bde9142f664fd467e3bcf2e9ef0a5b6bf863b",
+  "signature": "ad-hoc; codesign --verify --deep --strict passed",
+  "runtime": "native Rust/AppKit/PDFKit; no WebView",
+  "memory_sample": {
+    "rss_kib": 168416,
+    "physical_footprint_bytes": 135120072,
+    "conditions": "Release build, two-page spread of a real technical book at PDF page 113, following zoom/fit, 8-book batch import, and opening/closing the command palette. Single local observation, not a peak or comparable baseline.",
+    "reader_process_count": 1
+  }
+}
