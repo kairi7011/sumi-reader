@@ -378,7 +378,11 @@ fn display_text(text: &str) -> String {
     let bounded: String = text.chars().take(MAX_PAGE_CHARS).collect();
     let normalized = compatibility(&bounded).replace("\r\n", "\n");
     let chars: Vec<char> = normalized.chars().collect();
-    let mut output = String::new();
+    cleaned_units(&chars).into_iter().map(|(ch, _, _)| ch).collect()
+}
+
+fn cleaned_units(chars: &[char]) -> Vec<(char, usize, usize)> {
+    let mut output = Vec::new();
     let mut index = 0;
     while index < chars.len() {
         let ch = chars[index];
@@ -391,14 +395,61 @@ fn display_text(text: &str) -> String {
             let start = index;
             while index < chars.len() && chars[index].is_whitespace() { index += 1; }
             let line_break = chars[start..index].contains(&'\n');
-            let join = line_break && output.chars().last().is_some_and(cjk) && chars.get(index).copied().is_some_and(cjk);
-            if !join && !output.is_empty() && index < chars.len() { output.push(' '); }
+            let join = line_break && output.last().is_some_and(|(ch, _, _)| cjk(*ch)) && chars.get(index).copied().is_some_and(cjk);
+            if !join && !output.is_empty() && index < chars.len() { output.push((' ', start, index)); }
             continue;
         }
-        output.push(ch);
+        output.push((ch, index, index + 1));
         index += 1;
     }
     output
+}
+
+/// Original UTF-16 location and length, suitable for PDFPage selectionForRange:.
+pub fn first_match_range(text: &str, query: &str) -> Option<(usize, usize)> {
+    let query = fold(&display_text(query).chars().take(MAX_QUERY_CHARS).collect::<String>());
+    if query.is_empty() { return None; }
+    autoreleasepool(|_| {
+        let bounded: String = text.chars().take(MAX_PAGE_CHARS).collect();
+        let source = NSString::from_str(&bounded);
+        let mut units = Vec::new();
+        let mut offset = 0;
+        while offset < source.length() {
+            let range = source.rangeOfComposedCharacterSequenceAtIndex(offset);
+            let end = range.location + range.length;
+            if end <= offset { return None; }
+            let cluster = compatibility(&source.substringWithRange(range).to_string());
+            units.extend(cluster.chars().map(|ch| (ch, range.location, end)));
+            offset = end;
+        }
+        let mut chars = Vec::with_capacity(units.len());
+        let mut origins = Vec::with_capacity(units.len());
+        let mut index = 0;
+        while index < units.len() {
+            let (ch, start, mut end) = units[index];
+            let ch = if ch == '\r' && units.get(index + 1).is_some_and(|unit| unit.0 == '\n') {
+                index += 1;
+                end = units[index].2;
+                '\n'
+            } else { ch };
+            chars.push(ch);
+            origins.push((start, end));
+            index += 1;
+        }
+        let mut folded = String::new();
+        let mut positions = Vec::new();
+        for (ch, start, end) in cleaned_units(&chars) {
+            for ch in fold(&ch.to_string()).chars() {
+                folded.push(ch);
+                positions.push((origins[start].0, origins[end - 1].1));
+            }
+        }
+        let byte = folded.find(&query)?;
+        let start = folded[..byte].chars().count();
+        let end = start + query.chars().count();
+        let from = positions[start].0;
+        Some((from, positions[end - 1].1 - from))
+    })
 }
 
 fn fold(text: &str) -> String {
@@ -524,6 +575,25 @@ mod tests {
         let (snippet, start, length) = snippet_for_query("A Straße for reading", "STRASSE").unwrap();
         assert_eq!(snippet.chars().skip(start).take(length).collect::<String>(), "Straße");
         assert!(snippet_for_query("inter-\nface", "interface").is_some());
+    }
+
+    #[test]
+    fn pdf_selection_includes_original_japanese_line_breaks_and_utf16_offsets() {
+        let text = "📖 認知\r\n負荷とＡＩの話";
+        let range = first_match_range(text, "認知負荷とai").unwrap();
+        assert_eq!(range, (3, 9));
+        let utf16: Vec<u16> = text.encode_utf16().collect();
+        assert_eq!(String::from_utf16(&utf16[range.0..range.0 + range.1]).unwrap(), "認知\r\n負荷とＡＩ");
+        assert_eq!(first_match_range("例:ﾌｨｰﾄﾞﾊﾞｯｸです", "フィードバック"), Some((2, 9)));
+    }
+
+    #[test]
+    fn pdf_selection_maps_composition_case_expansion_and_hyphenated_words() {
+        assert_eq!(first_match_range("🙂ｃａｆｅ\u{301} Straße", "CAFÉ"), Some((2, 5)));
+        assert_eq!(first_match_range("🙂ｃａｆｅ\u{301} Straße", "STRASSE"), Some((8, 6)));
+        assert_eq!(first_match_range("🧭 inter-\nface", "interface"), Some((3, 11)));
+        assert_eq!(first_match_range("本文", "  "), None);
+        assert_eq!(first_match_range("本文", "^.*$"), None);
     }
 
     #[test]
