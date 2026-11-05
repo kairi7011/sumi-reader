@@ -26,7 +26,7 @@ The build uses `--locked --offline` and downloads no code. Set `SUMI_RUST_BIN` t
 
 Sumi starts on its pinned Home tab, showing the bookshelf covers. Click a cover to read, or move the selection with the arrow keys and press Enter. Open books appear in the tab strip alongside Home. Select a book tab to switch reading context; select Home or press Command L to return to the shelf. Escape dismisses an open panel while keeping Home selected.
 
-The compact **+** icon imports books; the search icon opens the combined book-and-action palette. The shelf uses this palette for search, through the icon, Command K or Command F. The empty shelf also accepts dropped PDFs or folders.
+The compact import icon adds books; the search icon opens the combined book-and-action palette. The shelf uses this palette for search, through the icon, Command K or Command F. The empty shelf also accepts dropped PDFs or folders.
 
 Use Command O to select multiple PDFs or folders, or drop them onto the window. Folder import includes PDFs in nested folders and reports files it cannot read. Import records their locations; it does not move, copy, or modify the originals. Repeated paths and aliases are deduplicated. Separate copies at different paths remain separate library entries. Bulk import keeps you on the shelf so you can choose what to read. Opening a PDF explicitly from Finder opens that book, including one already imported.
 
@@ -42,7 +42,7 @@ The top bar holds the pinned Home tab, open-book tabs and compact import/search 
 - Turn pages with the arrow keys, Space, a click at the page edge or outer margin, or a horizontal two-finger trackpad gesture. The corner can also follow a drag and return to its starting position. Reduced Motion skips the animation.
 - Press G or Command G, or click the page counter, to open the page picker. Scroll vertically through thumbnails for every page, enter a page number for a direct jump, or select a thumbnail. The picker renders the visible area and nearby previews with a bounded cache, so long books do not require rendering every thumbnail at once.
 - Zoom in place with pinch or Command + / −. Command 0 or the contextual reset button restores the complete page. Hold Space and drag to move an enlarged page; scrolling pans while zoomed.
-- Command L selects the pinned Home tab. Command Shift F hides the reader chrome for focused reading; Escape restores it after dismissing any active panel or zoom. macOS standard full-screen behavior is separate.
+- Command L, Command T or Command 1 selects the pinned Home tab. Command W closes the current book tab; Control Tab cycles through Home and open books, and Control Shift Tab cycles backward. Command Shift F hides the reader chrome for focused reading; Escape restores it after dismissing any active panel or zoom. macOS standard full-screen behavior is separate.
 - Command K offers explicit actions such as **見開きにする**, **1ページにする**, and **右から左に読む**. Appearance and reading direction are app-wide. Light, sepia and dark change the window and reading background; the PDF's paper, text and illustration colors remain unchanged.
 
 ## Search
@@ -67,7 +67,9 @@ Password-protected PDFs request a password for the current session. Passwords ar
 | --- | --- |
 | Import PDFs or folders | Command O |
 | Combined search on Home / current-book find while reading | Command F |
-| Select the pinned Home tab | Command L |
+| Select the pinned Home tab | Command L / T / 1 |
+| Close the current book tab | Command W |
+| Next / previous tab, including Home | Control Tab / Control Shift Tab |
 | Search books, text, pages, and commands | Command K |
 | Open selected search result / next result | Enter |
 | Previous current-book search result | Shift Enter |
@@ -85,6 +87,8 @@ Password-protected PDFs request a password for the current session. Passwords ar
 ## Packaging and local data
 
 `npm run package:mac` produces `dist/Sumi.app` with the native executable, app icon, and optional local-library tools. It is an Apple Silicon build, ad-hoc signed and not notarized. Node.js is needed for development scripts, not for running the packaged reader.
+
+The library, import, search and close icons use four pinned Lucide 0.468.0 assets, drawn as native vectors without an icon runtime or npm dependency. Their [source and provenance](assets/icons/lucide/provenance.json), [ISC license](assets/icons/lucide/LICENSE), and [Feather MIT license](assets/icons/lucide/FEATHER-LICENSE) are retained in `assets/icons/lucide` and included in the app bundle.
 
 Library records and app preferences are stored in `~/Library/Application Support/com.kairi7011.sumi/library.json`. Existing history in `~/Library/Application Support/Sumi/library.json` is migrated when the current library does not yet exist. PDFs remain at their original locations and are not added to the app bundle or Git.
 
