@@ -1,0 +1,12 @@
+{
+  "version": "0.5.0",
+  "date": "2026-11-05",
+  "source_commit": "05c8ab03b0966e566145887cf33a61efa2f74d8b",
+  "architecture": "arm64",
+  "app_bytes": 1083135,
+  "zip_bytes": 502477,
+  "zip_sha256": "d7a9c852ea5ba3b76c11ddc390c853cc4ca43347edfc0a846360533fa3d41f8a",
+  "signature": "ad-hoc, deep strict verification passed",
+  "zip_integrity": "passed",
+  "notarized": false
+}
