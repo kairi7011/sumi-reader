@@ -1,0 +1,1689 @@
+{
+  "recordedAt": "2026-11-05T09:05:32.674612+00:00",
+  "appVersion": "0.5.0",
+  "sourceCommit": "05c8ab0",
+  "scope": "Native reader navigation, shelf interaction gating, fit and synthetic phased scroll behavior",
+  "method": "Internal debug driver. Scroll phases are supplied to reader logic; no physical trackpad is operated. Checks occur after page turns settle, without external UI queries during animation.",
+  "limitations": "This report does not verify physical gesture delivery, Japanese IME composition, animation presentation timing or every bookshelf card.",
+  "sourceReportSha256": "2501a9a2841b217d400adcd607cfec97aa7d1ab33f0055c0f29db467d32c73f1",
+  "books": 9,
+  "checkCount": 126,
+  "failures": 0,
+  "externalUiQueriesDuringAnimation": false,
+  "checks": [
+    {
+      "bookOrdinal": 1,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 189,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 189,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 189,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 189,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 189,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 189,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 189,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 189,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 1,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 189,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 384,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 384,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 384,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 384,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 384,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 384,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 384,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 384,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 2,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 384,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 276,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 276,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 276,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 276,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 276,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 276,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 276,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 276,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 3,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 276,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 296,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 296,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 296,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 296,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 296,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 296,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 296,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 296,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 4,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 296,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 400,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 400,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 400,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 400,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 400,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 400,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 400,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 400,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 5,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 400,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 201,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 201,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 201,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 201,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 201,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 201,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 201,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 201,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 6,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 201,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 541,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 541,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 541,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 541,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 541,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 541,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 541,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 541,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 7,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 541,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 256,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 256,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 256,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 256,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 256,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 256,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 256,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 256,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 8,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 256,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "body_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 333,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "next_page_single",
+      "passed": true,
+      "expectedPage": 81,
+      "actualPage": 81,
+      "pageCount": 333,
+      "visiblePages": [
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "previous_page_single",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 333,
+      "visiblePages": [
+        80
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "switch_to_spread_preserves_page",
+      "passed": true,
+      "expectedPage": 80,
+      "actualPage": 80,
+      "pageCount": 333,
+      "visiblePages": [
+        80,
+        81
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "next_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 333,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "inline_zoom_125_percent",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 333,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": false,
+      "zoomFactor": 1.25
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "fit_complete_spread",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 333,
+      "visiblePages": [
+        82,
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "switch_to_single_preserves_page",
+      "passed": true,
+      "expectedPage": 82,
+      "actualPage": 82,
+      "pageCount": 333,
+      "visiblePages": [
+        82
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "synthetic_horizontal_scroll_commit",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "synthetic_momentum_and_vertical_dominance_do_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "synthetic_cancelled_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "synthetic_reversed_scroll_rolls_back",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "synthetic_scroll_while_zoomed_does_not_turn",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    },
+    {
+      "bookOrdinal": 9,
+      "phase": "reader_input_is_inactive_on_shelf",
+      "passed": true,
+      "expectedPage": 83,
+      "actualPage": 83,
+      "pageCount": 333,
+      "visiblePages": [
+        83
+      ],
+      "completePageFitted": true,
+      "zoomFactor": 1.0
+    }
+  ]
+}

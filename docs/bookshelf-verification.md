@@ -1,25 +1,38 @@
 # Sumi 0.5 bookshelf validation
 
-Draft status, 2026-11-05. Implementation is being integrated. This document records the checks required for the bookshelf and input redesign; it does not claim a completed GUI, hardware-gesture or release-package pass. The [0.4 native report](native-verification.md) remains the earlier implementation's evidence.
+Recorded on Apple Silicon macOS, 2026-11-05, for code at `05c8ab0`. The bookshelf and simplified reader are integrated. Empty-library import QA and the release build/package have completed; final delivered-artifact measurements are still being recorded. The [0.4 native report](native-verification.md) is historical evidence for the earlier implementation; its measurements are not relabeled as 0.5 results.
 
-## Confirmed metadata check
+## Automated checks
 
-The native and npm application versions are 0.5.0. Only the local package version entries changed. Exact comparisons confirm the same 31 external Rust packages and unchanged npm dependency records, with no resolution or downloads. The [native dependency audit](native-dependency-audit.json) records the previous and updated manifest/lock hashes and retains the original dependency evidence.
+**31 Rust tests**, **14 Python local-library/MCP tests**, and `npm run check` passed. The [sanitized nine-book smoke report](bookshelf-reader-smoke.json) records **126 checks with zero failures**.
 
-## Checks awaiting execution
+Each real book was checked through body-page navigation, forward/back single pages, spread changes preserving the selected page, advancing a spread, inline 125% zoom and complete-page fit. Additional internal checks exercise a committed horizontal scroll, ignored momentum/vertical-dominant input, cancelled and reversed scroll rollback, no page turn while zoomed, and an inactive reader while the shelf is visible.
 
-| Area | Required observation | Status |
-| --- | --- | --- |
-| Launch and empty shelf | Launch stays on the full-window cover shelf; an empty shelf has a visible import action and drop target. | Pending |
-| Cover shelf | Titles and reading positions remain recognizable; missing, locked and coverless files keep usable cards; filtering and scrolling do not load every PDF at once. | Pending |
-| Shelf input | Four-direction selection, Enter, Tab and Command F work; Japanese composition is not consumed as navigation; closing Command K restores shelf focus. | Pending |
-| Reading controls | Only the two labeled top actions and page-counter footer remain; zoom reset appears only while enlarged; palette actions show explicit target states. | Pending |
-| Reader/shelf transition | Command L saves the current position and restores the shelf; hidden-reader shortcuts cannot turn a book; reopening preserves page and global preferences. | Pending |
-| Import and open intent | Bulk import stays on the shelf, duplicates are reported, and explicit Finder-open selects the requested book; invalid/password-cancel cases preserve the current screen. | Pending |
-| Book maintenance | Relinking keeps identity/bookmarks; removing the last-read book from the shelf removes only its record and leaves its PDF. | Pending |
-| Keyboard and search | Reader Command F, Command K, page entry and native editing shortcuts work in their proper context; empty/nonempty search dismissal remains predictable. | Pending |
-| Pointer and trackpad | Edge/margin clicks, corner rollback and horizontal two-finger turns work; vertical scrolling and momentum do not turn unintended pages; zoomed scrolling pans. | Pending — physical trackpad verification required |
-| Focus and macOS fullscreen | Command Shift F hides reader chrome without adding a custom fullscreen transition; Escape restores controls. Standard macOS fullscreen remains usable. | Pending |
-| Packaging | Updated tests/build, signed ARM64 bundle, ZIP integrity, artifact hash and final delivery path are recorded for 0.5.0. | Pending |
+The scroll inputs are phased events supplied by the internal debug driver. **No physical trackpad was operated.** No external UI queries ran during the animated turns. The report contains only generic book ordinals, page counts/numbers, fit/zoom states and pass results; it includes no titles, filenames, private paths or book text.
 
-Synthetic gesture tests, if added, must be reported separately from physical trackpad checks. Existing 0.4 animation, search and memory measurements are historical samples and must not be relabeled as 0.5 measurements without rerunning them.
+## Confirmed GUI checks
+
+- At the default 1160 × 800 window and minimum 680 × 480 window, the shelf's first row of covers, titles and reading progress fit without overlap.
+- Command L returned from a real book to the shelf; Right changed the selection and Enter opened the next selected book. Sequential interaction restored its saved page 84 of 333.
+- The reader showed two labeled header buttons, a page-counter footer and a zoom-reset control only while enlarged. The palette displayed explicit target-state labels.
+- Reader Command F opened search; a second Command F and Escape closed it. Clicking the page body also closed an empty search field.
+- An isolated empty shelf showed its import action and drop instructions. Selecting a folder in the native file picker imported 45 authored PDFs and reported its one invalid file; the shelf stayed open with 45 cards and an import-result panel. Escape dismissed the result, and Enter opened a selected book.
+- Shelf Command F followed by pasting an authored book title narrowed the shelf to 1 of 45 books. Enter opened it; Command L retained the filter, and Escape cleared it to restore all 45. A previous Japanese filter query also returned matches, but accessibility value assignment does not establish IME-composition correctness.
+- Right-margin clicks advanced pages 83 → 84 → 85; a left-margin click returned to 84. After zooming to 125%, clicking the margin did not change the page; Escape restored fit.
+
+## Remaining verification
+
+| Area | Status |
+| --- | --- |
+| Import-flow breadth | Empty shelf, native folder import, invalid-file feedback and staying on the shelf confirmed. Duplicate feedback and explicit Finder-open behavior still lack direct GUI evidence for 0.5. |
+| Shelf keyboard and text-input breadth | Right/Enter/Command L confirmed. Full Tab/focus traversal, all four directions and Japanese marked-text composition are not yet established by GUI evidence. |
+| Book-maintenance GUI | Current backend tests cover reference/state safety; new-shelf missing-file relink, password cancellation and removing the retained last-read card still need direct GUI evidence. |
+| Physical trackpad | Not verified. Synthetic phase, cancellation, direction and shelf-gating checks passed. |
+| Focus/fullscreen GUI | No new claim: focus hides chrome; standard macOS fullscreen remains separate. |
+| Final 0.5 release package | Release build and packaging succeeded. Delivered-copy verification, ZIP integrity and artifact sizes/hash are awaiting the final recorded results. |
+
+## Dependency binding
+
+The native and npm application versions are 0.5.0. Only local package-version entries changed. Exact comparisons confirm the same 31 external Rust packages and unchanged npm dependency records, without resolution or downloads. The [native dependency audit](native-dependency-audit.json) records previous and current manifest/lock hashes and retains the original artifact/advisory evidence.
+
+The 0.4 animation, search and memory measurements remain historical samples. Synthetic input checks must not be presented as physical-trackpad validation or a guarantee of display frame rate.
