@@ -1,0 +1,4687 @@
+{
+  "books": 9,
+  "checks": [
+    {
+      "book": 1,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.82682926829585,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.82682926829585,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.82682926829585,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.3268292683001,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.5960585365927,
+              11.919687804878095,
+              489.1082536585367,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.3268292683001,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365927,
+              11.919687804878095,
+              489.1082536585367,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463414,
+              -74.85039024390244,
+              611.3853170731708,
+              867.5058780487805
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2450731707318,
+              -74.85039024390244,
+              611.3853170731707,
+              867.5058780487805
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365854,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 1,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 1,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 384,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 1,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 2,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463415,
+              -74.85039024390244,
+              611.3853170731708,
+              867.5058780487805
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2450731707318,
+              -74.85039024390244,
+              611.3853170731707,
+              867.5058780487805
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365854,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 2,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 2,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 333,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 2,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 3,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              24.435294117648937,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.8166766911784,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.435294117648937,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.8166766911784,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -112.45588235294115,
+              -76.57139501838242,
+              680.0006252757353,
+              870.5502553125
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.7708458639706,
+              -76.57139501838242,
+              680.0006252757353,
+              870.5502553125
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.43529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.4402042500001
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.8166766911764,
+              10.542883985294111,
+              544.0005002205884,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              299.935294117647,
+              10.542883985294111,
+              544.0005002205882,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.542883985294111,
+              544.0005002205882,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.542883985294111,
+              544.0005002205882,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.542883985294111,
+              544.0005002205882,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.542883985294111,
+              544.0005002205882,
+              696.4402042500001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 3,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 3,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 400,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.542883985294111,
+              544.0005002205883,
+              696.44020425
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 3,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 4,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463415,
+              -74.85039024390244,
+              611.3853170731708,
+              867.5058780487805
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2450731707318,
+              -74.85039024390244,
+              611.3853170731707,
+              867.5058780487805
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365854,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 4,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 4,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 189,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 4,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 5,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              24.435294117648937,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.8167294117666,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.435294117648937,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.8167294117666,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -112.45588235294115,
+              -76.57117095588251,
+              680.0006911764706,
+              870.5500312500001
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.7709117647059,
+              -76.57117095588251,
+              680.0006911764706,
+              870.5500312500001
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.43529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.4400250000001
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.8167294117648,
+              10.543063235294085,
+              544.0005529411765,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              299.935294117647,
+              10.543063235294085,
+              544.0005529411766,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.543063235294085,
+              544.0005529411766,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.543063235294085,
+              544.0005529411766,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.543063235294085,
+              544.0005529411766,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.543063235294085,
+              544.0005529411766,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 5,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.440025
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 5,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 276,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.543063235294085,
+              544.0005529411765,
+              696.4400250000001
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 5,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 6,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              24.435294117648937,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.7935323529432,
+              10.573641176470574,
+              543.9773558823529,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.435294117648937,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.7935323529432,
+              10.573641176470574,
+              543.9773558823529,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -112.45588235294115,
+              -76.5329485294119,
+              679.9716948529413,
+              870.5118088235295
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.7419154411766,
+              -76.5329485294119,
+              679.9716948529413,
+              870.5118088235295
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              24.43529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588236
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.7935323529413,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              299.935294117647,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.935294117647,
+              10.573641176470574,
+              543.977355882353,
+              696.4094470588236
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 6,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 6,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 296,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              299.93529411764706,
+              10.573641176470574,
+              543.9773558823531,
+              696.4094470588235
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 6,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 7,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463415,
+              -74.85039024390244,
+              611.3853170731708,
+              867.5058780487805
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2450731707318,
+              -74.85039024390244,
+              611.3853170731707,
+              867.5058780487805
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365854,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 7,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 7,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 201,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 7,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 8,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829698,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365897,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463415,
+              -74.85039024390244,
+              611.3853170731708,
+              867.5058780487805
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2450731707318,
+              -74.85039024390244,
+              611.3853170731707,
+              867.5058780487805
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.919687804878095,
+              489.1082536585365,
+              694.0047024390243
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.5960585365854,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 8,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390244
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 8,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 541,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.919687804878095,
+              489.10825365853657,
+              694.0047024390243
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 8,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    },
+    {
+      "book": 9,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 1,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 81,
+      "passed": true,
+      "phase": 2,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 81,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 81,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 3,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 80,
+      "passed": true,
+      "phase": 4,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 80,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 80,
+            "rect": [
+              78.32682926829698,
+              11.889958536585368,
+              489.1290058536585,
+              694.034431707317
+            ]
+          },
+          {
+            "page": 81,
+            "rect": [
+              575.6168107317117,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 5,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829698,
+              11.889958536585368,
+              489.1290058536585,
+              694.034431707317
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.6168107317117,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 6,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": false,
+        "page": 82,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              -45.34146341463415,
+              -74.88755182926843,
+              611.4112573170733,
+              867.5430396341465
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              576.2710134146342,
+              -74.88755182926843,
+              611.4112573170731,
+              867.5430396341465
+            ]
+          }
+        ],
+        "zoom": 1.25
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 7,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              78.32682926829268,
+              11.889958536585368,
+              489.1290058536585,
+              694.034431707317
+            ]
+          },
+          {
+            "page": 83,
+            "rect": [
+              575.6168107317073,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 82,
+      "passed": true,
+      "phase": 8,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 82,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 82,
+            "rect": [
+              326.8268292682915,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 9,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 10,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 11,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 12,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682915,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 13,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.0344317073171
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 14,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.0344317073171
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "case": "escape_keeps_home",
+      "passed": true
+    },
+    {
+      "book": 9,
+      "case": "reopen_reuses_tab",
+      "passed": true
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 15,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.0344317073171
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "case": "tab_restores_position_zoom_find",
+      "passed": true
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 16,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "case": "page_grid_reaches_last",
+      "passed": true
+    },
+    {
+      "book": 9,
+      "expected_page": 83,
+      "passed": true,
+      "phase": 17,
+      "reader": {
+        "bounds": [
+          1144.0,
+          717.0
+        ],
+        "fitted": true,
+        "page": 83,
+        "page_count": 256,
+        "visible_pages": [
+          {
+            "page": 83,
+            "rect": [
+              326.8268292682927,
+              11.889958536585368,
+              489.12900585365855,
+              694.034431707317
+            ]
+          }
+        ],
+        "zoom": 1.0
+      }
+    },
+    {
+      "book": 9,
+      "case": "close_tab_keeps_library",
+      "passed": true
+    }
+  ],
+  "external_ui_queries_during_animation": false,
+  "failures": 0
+}
