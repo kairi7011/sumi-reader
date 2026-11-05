@@ -1,3 +1,4 @@
+use crate::bookshelf::{Bookshelf, BookCard};
 use crate::{Command, COMMANDS, enqueue, reader::Reader, search::{SearchEngine, SearchBook, SearchRequest, SearchHit}};
 use objc2::{define_class, msg_send, sel, AnyThread, ClassType, MainThreadOnly, rc::Retained, runtime::{AnyObject, ProtocolObject, Sel}};
 use objc2_app_kit::*;
@@ -48,10 +49,11 @@ define_class!(
     unsafe impl NSTextFieldDelegate for Delegate {}
     unsafe impl NSControlTextEditingDelegate for Delegate {
         #[unsafe(method(controlTextDidChange:))]
-        fn changed(&self,_note:&NSNotification){enqueue("query",0);}
+        fn changed(&self,note:&NSNotification){unsafe{let object:Option<Retained<AnyObject>>=msg_send![note,object];let tag:isize=object.as_ref().map(|o|msg_send![o,tag]).unwrap_or(0);enqueue(if tag==1001{"shelf-query"}else{"query"},0);}}
         #[unsafe(method(control:textView:doCommandBySelector:))]
-        fn text_command(&self,_control:&NSControl,_view:&NSTextView,command:Sel)->bool {
-            if command==sel!(cancelOperation:) {enqueue("escape",0);true}
+        fn text_command(&self,_control:&NSControl,view:&NSTextView,command:Sel)->bool {
+            let composing:bool=unsafe{msg_send![view,hasMarkedText]};
+            if composing {false} else if command==sel!(cancelOperation:) {enqueue("escape",0);true}
             else if command==sel!(insertNewline:) {let shifted=NSApplication::sharedApplication(self.mtm()).currentEvent().is_some_and(|e|e.modifierFlags().contains(NSEventModifierFlags::Shift));enqueue(if shifted{"accept-prev"}else{"accept"},0);true}
             else if command==sel!(moveDown:) {enqueue("row-down",0);true}
             else if command==sel!(moveUp:) {enqueue("row-up",0);true}
@@ -65,10 +67,16 @@ define_class!(
                 UI.with(|state| {if let Ok(mut state)=state.try_borrow_mut(){if let Some(ui)=state.as_mut(){unsafe{ui.tick()}}}});
             });
         }
+        #[unsafe(method(validateMenuItem:))]
+        fn validate_menu(&self,item:&NSMenuItem)->bool {
+            UI.with(|state|{let Ok(state)=state.try_borrow()else{return false;};let Some(ui)=state.as_ref()else{return false;};let action=CONTROLS.get(item.tag()as usize).copied().unwrap_or("");if action=="import"{return !ui.import_busy;}ui.screen==Screen::Reader||!matches!(action,"previous"|"next"|"pages"|"fit"|"zoom-in"|"zoom-out"|"bookmark"|"capture"|"outline"|"bookmarks"|"focus")})
+        }
         #[unsafe(method(activateControl:))]
         fn action(&self,sender:&AnyObject) {let tag:isize=unsafe{msg_send![sender,tag]}; enqueue("control",tag as usize);}
         #[unsafe(method(activateRow:))]
         fn row(&self,sender:&AnyObject) {let tag:isize=unsafe{msg_send![sender,tag]};enqueue("row",tag as usize);}
+        #[unsafe(method(activateBook:))]
+        fn book(&self,sender:&AnyObject){let tag:isize=unsafe{msg_send![sender,tag]};enqueue("shelf-open",tag as usize);}
         #[unsafe(method(bookAction:))]
         fn book_action(&self,sender:&AnyObject) {
             unsafe {let action:isize=msg_send![sender,tag];let id:Retained<NSString>=msg_send![sender,representedObject];COMMANDS.with(|q|q.borrow_mut().push_back(Command::BookAction(action as usize,id.to_string())));}
@@ -100,10 +108,10 @@ define_class!(
                         let command=match key.to_lowercase().as_str(){"f" if mods.contains(NSEventModifierFlags::Shift)=>Some("focus"),"f"=>Some("find"),"k"=>Some("palette"),"o"=>Some("import"),"g"=>Some("pages"),"0"=>Some("fit"),"+"|"="=>Some("zoom-in"),"-"=>Some("zoom-out"),"d"=>Some("bookmark"),"x" if mods.contains(NSEventModifierFlags::Shift)=>Some("capture"),_=>None};
                         if let Some(command)=command {enqueue(command,0);return;}
                     }
-                    if event.keyCode()==53 {enqueue("escape",0);return;}
+                    if event.keyCode()==53 {let composing=self.firstResponder().is_some_and(|r|r.isKindOfClass(NSTextView::class())&&msg_send![&r,hasMarkedText]);if !composing{enqueue("escape",0);return;}}
                     let editing=self.firstResponder().is_some_and(|r|r.isKindOfClass(NSTextView::class()));
                     if !editing && !mods.contains(NSEventModifierFlags::Command) && !mods.contains(NSEventModifierFlags::Option) {
-                        match event.keyCode(){123=>{enqueue("left",0);return;},124=>{enqueue("right",0);return;},_=>{}}
+                        match event.keyCode(){123=>{enqueue("left",0);return;},124=>{enqueue("right",0);return;},125=>{enqueue("row-down",0);return;},126=>{enqueue("row-up",0);return;},36|76=>{enqueue("accept",0);return;},49=>{enqueue("space",usize::from(mods.contains(NSEventModifierFlags::Shift)));return;},_=>{}}
                         if key=="g" {enqueue("pages",0);return;}
                     }
                 }
@@ -140,7 +148,9 @@ define_class!(
 );
 
 #[derive(Clone,Copy,PartialEq,Eq)]
-enum Panel {None,Find,Palette,Library,Pages,Tools,Outline,Bookmarks}
+enum Panel {None,Find,Palette,Pages,Outline,Bookmarks,ImportErrors}
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum Screen { Shelf, Reader }
 #[derive(Clone)]
 enum RowAction {Command(&'static str),Book(String),Page(usize),Hit(SearchHit),None}
 #[derive(Clone)]
@@ -154,9 +164,10 @@ struct Ui {
     smoke:Option<Smoke>,
     mtm:MainThreadMarker, delegate:Retained<Delegate>, window:Retained<ReaderWindow>, root:Retained<RootView>, reader:Reader,
     store:Arc<Store>, preferences:ReaderPreferences, current:Option<Document>, password:Option<String>,
-    title:Retained<NSTextField>, status:Retained<NSTextField>, page_button:Retained<NSButton>, zoom_button:Retained<NSButton>, spread_button:Retained<NSButton>,
+    title:Retained<NSTextField>, status:Retained<NSTextField>, page_button:Retained<NSButton>, zoom_button:Retained<NSButton>, nav_button:Retained<NSButton>, command_button:Retained<NSButton>,
     top:Retained<NSView>, footer:Retained<NSView>, panel:Retained<NSView>, query:Retained<NSTextField>, panel_title:Retained<NSTextField>, panel_hint:Retained<NSTextField>, rows_scroll:Retained<NSScrollView>, rows_view:Retained<NSView>,
     thumbnails:ThumbnailGrid,page_anchor:usize,page_controls:Retained<NSView>,
+    screen:Screen, bookshelf:Bookshelf, shelf_heading:Retained<NSTextField>, shelf_caption:Retained<NSTextField>, shelf_query:Retained<NSTextField>,
     panel_kind:Panel, rows:Vec<Row>, row_buttons:Vec<Retained<NSButton>>, selected:usize, search:SearchEngine, request_id:u64, search_due:Option<Instant>, search_running:bool, text_hits:Vec<SearchHit>,
     dirty:Option<Instant>, last_page:usize,last_zoom:usize,size:NSSize,focus:bool,toast_until:Option<Instant>,
     last_capture:Option<Retained<NSImage>>,capture_name:String,last_find:String,last_find_selected:Option<usize>,
@@ -190,14 +201,16 @@ impl Ui {
         let reader=Reader::new(mtm,rect(0.,44.,1160.,714.)); root.addSubview(reader.view());
         let top=NSView::initWithFrame(NSView::alloc(mtm),rect(0.,762.,1160.,38.));root.addSubview(&top);
         let title=label(mtm,"Sumi",12.);title.setAlignment(NSTextAlignment::Center);top.addSubview(&title);
-        for (tag,x) in [(0,88.),(1,1020.),(2,1056.),(3,1092.)]{let b=button(delegate,match tag {0=>"本棚",1=>"本文を検索 · ⌘F",2=>"すべて検索 · ⌘K",_=>"表示と操作"},Some(match tag{0=>"sidebar.left",1=>"magnifyingglass",2=>"command",_=>"slider.horizontal.3"}),tag);b.setFrame(rect(x,4.,32.,30.));top.addSubview(&b);}
-        let footer=NSView::initWithFrame(NSView::alloc(mtm),rect(400.,8.,360.,34.));root.addSubview(&footer);
-        let prev=button(delegate,"前のページ",Some("chevron.left"),4);prev.setFrame(rect(8.,3.,30.,28.));footer.addSubview(&prev);
-        let page_button=button(delegate,"ページを選ぶ",None,6);page_button.setFrame(rect(40.,3.,144.,28.));footer.addSubview(&page_button);
-        let next=button(delegate,"次のページ",Some("chevron.right"),5);next.setFrame(rect(184.,3.,30.,28.));footer.addSubview(&next);
-        let spread_button=button(delegate,"見開きにする",Some("book"),7);spread_button.setFrame(rect(224.,3.,30.,28.));footer.addSubview(&spread_button);
-        let zoom_button=button(delegate,"全体表示",None,9);zoom_button.setFrame(rect(265.,3.,76.,28.));footer.addSubview(&zoom_button);
-        let status=label(mtm,"PDFやフォルダをドロップ、または⌘Oで本を取り込む",12.);status.setAlignment(NSTextAlignment::Center);root.addSubview(&status);
+        let nav_button=button(delegate,"本を追加",Some("plus"),12);nav_button.setImagePosition(NSCellImagePosition::ImageLeading);top.addSubview(&nav_button);
+        let command_button=button(delegate,"検索・操作",Some("magnifyingglass"),2);command_button.setImagePosition(NSCellImagePosition::ImageLeading);top.addSubview(&command_button);
+        let footer=NSView::initWithFrame(NSView::alloc(mtm),rect(500.,8.,160.,30.));root.addSubview(&footer);
+        let page_button=button(delegate,"ページを選ぶ",None,6);footer.addSubview(&page_button);
+        let zoom_button=button(delegate,"全体表示に戻す",None,9);footer.addSubview(&zoom_button);
+        let shelf_heading=label(mtm,"本棚",28.);shelf_heading.setFont(Some(&NSFont::boldSystemFontOfSize(28.)));root.addSubview(&shelf_heading);
+        let shelf_caption=label(mtm,"",12.);shelf_caption.setTextColor(Some(&NSColor::secondaryLabelColor()));root.addSubview(&shelf_caption);
+        let shelf_query=NSSearchField::initWithFrame(NSSearchField::alloc(mtm),rect(0.,0.,260.,30.)).into_super();shelf_query.setTag(1001);shelf_query.setPlaceholderString(Some(&s("書名で絞り込む")));shelf_query.setFont(Some(&NSFont::systemFontOfSize(13.)));shelf_query.setFocusRingType(NSFocusRingType::None);shelf_query.setDelegate(Some(ProtocolObject::from_ref(delegate)));shelf_query.setAccessibilityLabel(Some(&s("本棚を検索")));root.addSubview(&shelf_query);
+        let bookshelf=Bookshelf::new(mtm,delegate);root.addSubview(bookshelf.view());
+        let status=label(mtm,"PDFやフォルダをドロップ、または⌘Oで本を取り込む",12.);status.setAlignment(NSTextAlignment::Center);root.addSubview(&status);status.setHidden(true);
         let panel=NSView::initWithFrame(NSView::alloc(mtm),rect(300.,300.,560.,390.));root.addSubview(&panel);panel.setHidden(true);
         let panel_title=label(mtm,"すべて検索",13.);panel.addSubview(&panel_title);
         let close=button(delegate,"閉じる · Esc",Some("xmark"),11);panel.addSubview(&close);
@@ -209,12 +222,12 @@ impl Ui {
         let earlier=button(delegate,"前の24ページ",Some("chevron.left"),22);earlier.setFrame(rect(0.,0.,32.,26.));page_controls.addSubview(&earlier);
         let later=button(delegate,"次の24ページ",Some("chevron.right"),23);later.setFrame(rect(40.,0.,32.,26.));page_controls.addSubview(&later);
         let thumbnails=ThumbnailGrid::new(mtm,delegate);
-        let mut ui=Self{#[cfg(debug_assertions)]smoke:None,mtm,delegate:Retained::retain(delegate as *const Delegate as *mut Delegate).unwrap(),window,root,reader,store,preferences,current:None,password:None,title,status,page_button,zoom_button,spread_button,top,footer,panel,query,panel_title,panel_hint,rows_scroll,rows_view,thumbnails,page_anchor:1,page_controls,panel_kind:Panel::None,rows:vec![],row_buttons:vec![],selected:0,search:SearchEngine::new(),request_id:0,search_due:None,search_running:false,text_hits:vec![],dirty:None,last_page:0,last_zoom:0,size:NSSize::new(0.,0.),focus:false,toast_until:None,last_capture:None,capture_name:String::new(),last_find:String::new(),last_find_selected:None,pending_open:None,import_receiver:None,import_busy:false};
+        let mut ui=Self{#[cfg(debug_assertions)]smoke:None,mtm,delegate:Retained::retain(delegate as *const Delegate as *mut Delegate).unwrap(),window,root,reader,store,preferences,current:None,password:None,title,status,page_button,zoom_button,nav_button,command_button,top,footer,panel,query,panel_title,panel_hint,rows_scroll,rows_view,thumbnails,page_anchor:1,page_controls,screen:Screen::Shelf,bookshelf,shelf_heading,shelf_caption,shelf_query,panel_kind:Panel::None,rows:vec![],row_buttons:vec![],selected:0,search:SearchEngine::new(),request_id:0,search_due:None,search_running:false,text_hits:vec![],dirty:None,last_page:0,last_zoom:0,size:NSSize::new(0.,0.),focus:false,toast_until:None,last_capture:None,capture_name:String::new(),last_find:String::new(),last_find_selected:None,pending_open:None,import_receiver:None,import_busy:false};
         ui.apply_preferences();ui.layout();ui.window.center();ui.window.makeKeyAndOrderFront(None);
         let app=NSApplication::sharedApplication(mtm);app.setActivationPolicy(NSApplicationActivationPolicy::Regular);#[allow(deprecated)]app.activateIgnoringOtherApps(true);
         let _:Retained<NSTimer>=msg_send![NSTimer::class(),scheduledTimerWithTimeInterval:0.0166666667,target:delegate,selector:sel!(tick:),userInfo:std::ptr::null::<AnyObject>(),repeats:true];
         ui.setup_menu();
-        if let Some(id)=library.last_opened_id {ui.open_book(&id,None);}
+        ui.show_shelf();
         let args:Vec<PathBuf>=std::env::args_os().skip(1).filter(|arg| !arg.to_string_lossy().starts_with('-')).map(PathBuf::from).filter(|p|p.exists()).collect();if !args.is_empty(){ui.pending_open=args.first().filter(|p|p.is_file()).cloned();ui.import(args);}
         #[cfg(debug_assertions)]
         if let (Some(directory),Some(isolated))=(std::env::var_os("SUMI_NATIVE_SMOKE_DIR"),std::env::var_os("SUMI_LIBRARY_PATH")){
@@ -227,7 +240,7 @@ impl Ui {
     }
     unsafe fn setup_menu(&self){
         let bar=NSMenu::new(self.mtm);
-        for (name,items) in [("Sumi",vec![("Sumiを終了","quit","q")]),("ファイル",vec![("本を取り込む…","import","o"),("本棚","library","l")]),("編集",vec![("取り消す","undo","z"),("切り取り","cut","x"),("コピー","copy","c"),("ペースト","paste","v"),("すべて選択","select-all","a"),("本文を検索","find","f"),("すべて検索","palette","k")]),("表示",vec![("ページを選ぶ","pages","g"),("全体表示","fit","0"),("拡大","zoom-in","+"),("縮小","zoom-out","-"),("見開きを切り替える","spread","")])]{
+        for (name,items) in [("Sumi",vec![("Sumiを終了","quit","q")]),("ファイル",vec![("本を取り込む…","import","o"),("本棚","library","l")]),("編集",vec![("取り消す","undo","z"),("切り取り","cut","x"),("コピー","copy","c"),("ペースト","paste","v"),("すべて選択","select-all","a"),("本文を検索","find","f"),("検索・操作","palette","k")]),("表示",vec![("ページを選ぶ","pages","g"),("全体表示","fit","0"),("拡大","zoom-in","+"),("縮小","zoom-out","-"),("見開きを切り替える","spread","")])]{
             let menu=NSMenu::initWithTitle(NSMenu::alloc(self.mtm),&s(name));
             for (title,action,key) in items {
                 let item=NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(self.mtm),&s(title),Some(match action{"quit"=>sel!(terminate:),"copy"=>sel!(copy:),"cut"=>sel!(cut:),"paste"=>sel!(paste:),"select-all"=>sel!(selectAll:),"undo"=>sel!(undo:),_=>sel!(activateControl:)}),&s(key));
@@ -240,13 +253,21 @@ impl Ui {
     }
     unsafe fn layout(&mut self){
         let size=self.root.bounds().size;self.size=size;
-        let top_h=if self.focus{0.}else{38.};let bottom_h=if self.focus{0.}else{44.};
+        let shelf=self.screen==Screen::Shelf;
+        let focused=self.focus&&!shelf;
+        let top_h=if focused{0.}else{38.};let bottom_h=if focused{0.}else{40.};
         self.reader.resize(rect(8.,bottom_h,size.width-16.,size.height-top_h-bottom_h-5.));
-        self.top.setFrame(rect(0.,size.height-38.,size.width,38.));self.top.setHidden(self.focus);self.footer.setHidden(self.focus);
-        self.title.setFrame(rect(160.,9.,size.width-320.,20.));
-        let children=self.top.subviews();for(i,v)in children.iter().enumerate(){if i>=2{v.setFrame(rect(size.width-124.+((i-2) as f64)*36.,4.,32.,30.));}}
-        self.footer.setFrame(rect((size.width-350.)/2.,7.,350.,34.));
-        self.status.setFrame(rect(16.,if self.current.is_none(){size.height/2.}else{48.},size.width-32.,22.));
+        self.reader.view().setHidden(shelf);self.reader.set_interaction_enabled(!shelf&&self.panel_kind==Panel::None);
+        self.top.setFrame(rect(0.,size.height-38.,size.width,38.));self.top.setHidden(focused);self.footer.setHidden(focused||shelf);
+        self.title.setFrame(rect(218.,9.,size.width-436.,20.));
+        self.nav_button.setFrame(rect(88.,4.,116.,30.));self.command_button.setFrame(rect(size.width-132.,4.,116.,30.));
+        self.nav_button.setEnabled(!shelf||!self.import_busy);self.nav_button.setTag(if shelf{12}else{0});self.nav_button.setTitle(&s(if shelf&&self.import_busy{"取り込み中…"}else if shelf{"本を追加"}else{"本棚へ戻る"}));self.nav_button.setAccessibilityLabel(Some(&s(if shelf{"本を追加 · ⌘O"}else{"本棚へ戻る · ⌘L"})));self.nav_button.setToolTip(Some(&s(if shelf{"PDF・フォルダを追加 · ⌘O"}else{"本棚へ戻る · ⌘L"})));
+        self.nav_button.setImage(NSImage::imageWithSystemSymbolName_accessibilityDescription(&s(if shelf{"plus"}else{"chevron.left"}),None).as_deref());
+        self.layout_footer();
+        self.shelf_heading.setHidden(!shelf);self.shelf_caption.setHidden(!shelf);self.shelf_query.setHidden(!shelf);self.bookshelf.view().setHidden(!shelf);
+        self.shelf_heading.setFrame(rect(48.,size.height-99.,240.,38.));self.shelf_caption.setFrame(rect(50.,size.height-128.,size.width-100.,20.));self.shelf_query.setFrame(rect(size.width-310.,size.height-96.,260.,28.));
+        self.bookshelf.view().setFrameOrigin(NSPoint::new(24.,34.));self.bookshelf.layout(size.width-48.,(size.height-184.).max(80.));
+        self.status.setFrame(rect(16.,if shelf{10.}else{44.},size.width-32.,22.));
         let w=if self.panel_kind==Panel::Find{480.0_f64}else if self.panel_kind==Panel::Pages{660.0_f64}else{580.0_f64}.min(size.width-32.);
         let h=if self.panel_kind==Panel::Find{if self.query.stringValue().is_empty(){48.0_f64}else{340.0_f64}}else if self.panel_kind==Panel::Pages{684.0_f64}else{440.0_f64}.min(size.height-92.);
         let x=if self.panel_kind==Panel::Find{size.width-w-16.}else{(size.width-w)/2.};let y=size.height-h-52.;
@@ -258,27 +279,46 @@ impl Ui {
         self.page_controls.setHidden(self.panel_kind!=Panel::Pages);self.page_controls.setFrame(rect(w-90.,6.,78.,26.));
         self.render_rows();
     }
+    unsafe fn layout_footer(&self){
+        let enlarged=self.reader.zoom_factor()>1.01;
+        let width=if enlarged{286.}else{150.};self.footer.setFrame(rect((self.size.width-width)/2.,5.,width,30.));
+        self.page_button.setFrame(rect(6.,1.,138.,28.));self.zoom_button.setHidden(!enlarged);self.zoom_button.setFrame(rect(150.,1.,130.,28.));
+        if enlarged{self.zoom_button.setTitle(&s(&format!("{}% · 全体に戻す",(self.reader.zoom_factor()*100.).round()as usize)));}
+    }
+    unsafe fn show_shelf(&mut self){
+        self.reader.set_interaction_enabled(false);self.save();self.screen=Screen::Shelf;self.focus=false;self.close_panel();self.title.setStringValue(&s("Sumi"));self.window.setTitle(&s("本棚 — Sumi"));self.refresh_shelf();self.layout();self.window.makeFirstResponder(Some(self.bookshelf.view()));
+    }
+    unsafe fn show_reader(&mut self){
+        if let Some(book)=&self.current{self.screen=Screen::Reader;self.title.setStringValue(&s(&book.title));self.window.setTitle(&s(&format!("{} — Sumi",book.title)));self.layout();self.reader.focus();}
+    }
+    unsafe fn refresh_shelf(&mut self){
+        let query=self.shelf_query.stringValue().to_string();
+        if let Ok(library)=self.store.snapshot(){
+            let total=library.recent.len();let current=self.current.as_ref().map(|b|b.id.as_str()).or(library.last_opened_id.as_deref());
+            let cards:Vec<BookCard>=library.recent.into_iter().filter(|entry|crate::search::matches_query(&format!("{} {}",entry.document.title,entry.document.name),&query)).map(|entry|{let book=entry.document;BookCard{id:book.id.clone(),title:book.title,path:entry.path,page:book.state["page"].as_u64().unwrap_or(1)as usize,current:current==Some(book.id.as_str())}}).collect();
+            let caption=if total==0{"PDFやフォルダをドロップ、または「本を追加」からはじめる".into()}else if cards.is_empty(){"一致する本がありません".into()}else if query.trim().is_empty(){format!("{total}冊 · 表紙をクリックして読む")}else{format!("{} / {total}冊",cards.len())};self.shelf_caption.setStringValue(&s(&caption));self.bookshelf.show(&cards,self.size.width-48.,(self.size.height-184.).max(80.));
+        }
+    }
     unsafe fn apply_preferences(&mut self){
         let dark=self.preferences.theme=="night";let appearance=NSAppearance::appearanceNamed(&s(if dark{"NSAppearanceNameDarkAqua"}else{"NSAppearanceNameAqua"}));self.window.setAppearance(appearance.as_deref());
         let bg=if dark{NSColor::colorWithSRGBRed_green_blue_alpha(0.12,0.13,0.14,1.)}else{NSColor::colorWithSRGBRed_green_blue_alpha(0.92,0.92,0.90,1.)};self.window.setBackgroundColor(Some(&bg));
         let chrome=if dark{NSColor::colorWithSRGBRed_green_blue_alpha(0.18,0.19,0.20,1.)}else{NSColor::colorWithSRGBRed_green_blue_alpha(0.98,0.98,0.97,1.)};
         decorate(&self.top,&chrome,0.);decorate(&self.footer,&chrome,12.);decorate(&self.panel,&chrome,14.);
         self.reader.set_spread(self.preferences.mode=="spread");self.reader.set_rtl(self.preferences.direction=="rtl");self.reader.set_theme(&self.preferences.theme);
-        self.spread_button.setToolTip(Some(&s(if self.preferences.mode=="spread"{"1ページにする"}else{"見開きにする"})));
-        self.spread_button.setState(if self.preferences.mode=="spread"{1}else{0});self.spread_button.setAccessibilityLabel(Some(&s(if self.preferences.mode=="spread"{"1ページにする"}else{"見開きにする"})));
+        self.bookshelf.set_background(&bg);
         self.last_page=0;self.last_zoom=0;
     }
     unsafe fn tick(&mut self){
         let commands=COMMANDS.with(|q|q.borrow_mut().drain(..).collect::<Vec<_>>());
         for command in commands{match command{Command::Action(name,value)=>self.action(&name,value),Command::Files(paths)=>{if self.import_busy{self.toast("取り込み中です");}else{self.pending_open=if paths.len()==1{paths.first().filter(|p|p.is_file()).cloned()}else{None};self.import(paths);}},Command::BookAction(action,id)=>self.book_action(action,&id),Command::Outside(point)=>{if self.panel_kind!=Panel::None && !contains(self.panel.frame(),point) && point.y<self.size.height-38. && (self.panel_kind!=Panel::Find||self.query.stringValue().to_string().trim().is_empty()){self.close_panel();}}}}
-        self.reader.tick();if self.panel_kind==Panel::Pages{self.thumbnails.render_next();}
+        self.reader.tick();if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.render_next();}if self.panel_kind==Panel::Pages{self.thumbnails.render_next();}
         if self.search_due.is_some_and(|t|Instant::now()>=t){self.search_due=None;self.begin_search();}
         while let Some(result)=self.search.try_recv(){if result.request_id==self.request_id && matches!(self.panel_kind,Panel::Find|Panel::Palette){self.search_running=!result.complete;self.text_hits=result.hits;let count=self.text_hits.len();self.panel_hint.setStringValue(&s(&if result.complete{if result.warnings.is_empty(){format!("{count}件　↑↓ 選択　↵ 移動　Esc 閉じる")}else{format!("{count}件 · {}",result.warnings[0])}}else{format!("検索中… {count}件")}));self.populate_rows();}}
-        let result=self.import_receiver.as_ref().and_then(|rx|rx.try_recv().ok());if let Some(result)=result{self.import_receiver=None;self.import_busy=false;match result{Ok(report)=>{let summary=format!("{}冊を追加 · 重複{}冊 · 読めなかったファイル{}件{}",report.added.len(),report.duplicates,report.errors.len(),if report.limited{" · 一部は上限に達したため未処理"}else{""});self.toast(&summary);if !report.errors.is_empty(){self.show_import_errors(&report);}else if self.panel_kind==Panel::Library{self.populate_rows();}if let Some(path)=self.pending_open.take(){let canonical=std::fs::canonicalize(path).ok();let entry=self.store.snapshot().ok().and_then(|library|library.recent.into_iter().find(|e|Some(&e.path)==canonical.as_ref()));if let Some(entry)=entry{self.open_book(&entry.document.id,None);}}else if self.current.is_none(){if let Some(entry)=report.added.first(){self.open_book(&entry.document.id,None);}}},Err(error)=>{self.pending_open=None;self.toast(&error)}}}
+        let result=self.import_receiver.as_ref().and_then(|rx|rx.try_recv().ok());if let Some(result)=result{self.import_receiver=None;self.import_busy=false;self.layout();match result{Ok(report)=>{let summary=format!("{}冊を追加 · 重複{}冊 · 読めなかったファイル{}件{}",report.added.len(),report.duplicates,report.errors.len(),if report.limited{" · 一部は上限に達したため未処理"}else{""});self.toast(&summary);if !report.errors.is_empty(){self.show_import_errors(&report);}if self.screen==Screen::Shelf{self.refresh_shelf();}if let Some(path)=self.pending_open.take(){let canonical=std::fs::canonicalize(path).ok();let entry=self.store.snapshot().ok().and_then(|library|library.recent.into_iter().find(|e|Some(&e.path)==canonical.as_ref()));if let Some(entry)=entry{self.open_book(&entry.document.id,None);}}},Err(error)=>{self.pending_open=None;self.toast(&error)}}}
         let page=self.reader.current_page();let zoom=(self.reader.zoom_factor()*100.).round() as usize;
         if page!=self.last_page || zoom!=self.last_zoom {let changed=page!=self.last_page;self.last_page=page;self.last_zoom=zoom;self.refresh_chrome();if changed&&self.current.is_some(){self.dirty=Some(Instant::now()+Duration::from_millis(400));}}
         if self.dirty.is_some_and(|t|Instant::now()>=t)&&!self.reader.is_turning(){self.save();}
-        if self.toast_until.is_some_and(|t|Instant::now()>=t){self.toast_until=None;self.status.setHidden(self.current.is_some());}
+        if self.toast_until.is_some_and(|t|Instant::now()>=t){self.toast_until=None;self.status.setHidden(true);}
         #[cfg(debug_assertions)] self.smoke_tick();
     }
     #[cfg(debug_assertions)]
@@ -293,18 +333,26 @@ impl Ui {
             3=>{self.reader.set_spread(true);150},
             4=>{self.reader.step(1);smoke.expected=(smoke.expected-smoke.expected%2+2).min(self.reader.page_count());700},
             5=>{self.reader.zoom(1);150},6=>{self.reader.fit();150},7=>{self.reader.set_spread(false);150},
+            8=>{self.reader.debug_scroll(-30.,0.,1,false,1.);self.reader.debug_scroll(-200.,0.,4,false,1.12);self.reader.debug_scroll(0.,0.,8,false,1.14);smoke.expected+=1;700},
+            9=>{self.reader.debug_scroll(-900.,0.,0,true,1.3);self.reader.debug_scroll(2.,-40.,1,false,2.);self.reader.debug_scroll(-250.,3.,4,false,2.1);self.reader.debug_scroll(0.,0.,8,false,2.12);200},
+            10=>{self.reader.debug_scroll(-30.,0.,1,false,3.);self.reader.debug_scroll(-200.,0.,4,false,3.1);self.reader.debug_scroll(0.,0.,16,false,3.12);700},
+            11=>{self.reader.debug_scroll(-30.,0.,1,false,4.);self.reader.debug_scroll(-170.,0.,4,false,4.1);self.reader.debug_scroll(190.,0.,4,false,4.2);self.reader.debug_scroll(0.,0.,8,false,4.22);700},
+            12=>{self.reader.zoom(1);self.reader.debug_scroll(-600.,0.,1,false,5.);self.reader.debug_scroll(0.,0.,8,false,5.1);self.reader.fit();200},
+            13=>{self.show_shelf();self.reader.step(1);self.reader.debug_scroll(-600.,0.,1,false,6.);self.reader.debug_scroll(0.,0.,8,false,6.1);self.show_reader();200},
             _=>{smoke.book+=1;smoke.phase=usize::MAX;100}
         };smoke.phase=smoke.phase.wrapping_add(1);smoke.due=Instant::now()+Duration::from_millis(delay);self.smoke=Some(smoke);
     }
     unsafe fn action(&mut self,name:&str,value:usize){
+        if self.screen==Screen::Shelf&&matches!(name,"previous"|"next"|"fit"|"zoom-in"|"zoom-out"|"bookmark"|"capture"|"copy-selection"|"copy-page"|"focus"){return;}
         match name {
             "control"=>{if let Some(action)=CONTROLS.get(value){self.action(action,0);}},
-            "layout"=>self.layout(),"find"=>self.toggle(Panel::Find),"palette"=>self.toggle(Panel::Palette),"library"=>self.toggle(Panel::Library),"tools"=>self.toggle(Panel::Tools),"pages"=>self.toggle(Panel::Pages),"outline"=>self.toggle(Panel::Outline),"bookmarks"=>self.toggle(Panel::Bookmarks),
-            "escape"=>{if self.panel_kind!=Panel::None{self.close_panel();}else if self.reader.cancel_interaction(){}else if self.reader.zoom_factor()>1.01{self.reader.fit();}else if self.focus{self.focus=false;self.layout();}else{self.reader.cancel_interaction();}},
+            "layout"=>self.layout(),"find"=>{if self.screen==Screen::Shelf{self.window.makeFirstResponder(Some(&*self.shelf_query));self.shelf_query.selectText(None);}else{self.toggle(Panel::Find);}},"palette"=>self.toggle(Panel::Palette),"library"=>self.show_shelf(),"tools"=>self.toggle(Panel::Palette),"pages"=>self.toggle(Panel::Pages),"outline"=>self.toggle(Panel::Outline),"bookmarks"=>self.toggle(Panel::Bookmarks),
+            "escape"=>{if self.panel_kind!=Panel::None{self.close_panel();}else if self.screen==Screen::Shelf{if !self.shelf_query.stringValue().is_empty(){self.shelf_query.setStringValue(&s(""));self.refresh_shelf();self.window.makeFirstResponder(Some(self.bookshelf.view()));}else if self.current.is_some(){self.show_reader();}}else if self.reader.cancel_interaction(){}else if self.reader.zoom_factor()>1.01{self.reader.fit();}else if self.focus{self.focus=false;self.layout();}else{self.reader.cancel_interaction();}},
+            "shelf-query"=>self.refresh_shelf(),"shelf-open"=>{self.bookshelf.select(value);let id=self.bookshelf.id_at(value).map(str::to_owned);if let Some(id)=id{self.open_book(&id,None);}},
             "close"=>self.close_panel(),"query"=>{self.last_find_selected=None;self.selected=0;self.text_hits.clear();self.search.cancel();self.search_running=matches!(self.panel_kind,Panel::Find|Panel::Palette)&&!self.query.stringValue().to_string().trim().is_empty();self.populate_rows();self.layout();if matches!(self.panel_kind,Panel::Find|Panel::Palette)&&!self.query.stringValue().to_string().trim().is_empty(){self.search_due=Some(Instant::now()+Duration::from_millis(180));}},
-            "row-down"=>{self.last_find_selected=None;if !self.rows.is_empty(){self.selected=(self.selected+if self.panel_kind==Panel::Pages{COLUMNS}else{1}).min(self.rows.len()-1);self.highlight_row();}},"row-up"=>{self.last_find_selected=None;self.selected=self.selected.saturating_sub(if self.panel_kind==Panel::Pages{COLUMNS}else{1});self.highlight_row();},"row"=>{self.selected=value;self.last_find_selected=None;self.accept();},"accept"|"accept-prev"=>{if self.panel_kind==Panel::Find&&self.rows.iter().any(|r|matches!(r.action,RowAction::Hit(_))) {if name=="accept-prev"{self.selected=(self.selected+self.rows.len()-1)%self.rows.len();}else if self.last_find_selected==Some(self.selected){self.selected=(self.selected+1)%self.rows.len();}self.highlight_row();}self.accept();},
-            "left"=>{if self.panel_kind==Panel::None{self.reader.step(if self.preferences.direction=="rtl"{1}else{-1});}},"right"=>{if self.panel_kind==Panel::None{self.reader.step(if self.preferences.direction=="rtl"{-1}else{1});}},"previous"=>self.reader.step(-1),"next"=>self.reader.step(1),
-            "fit"=>{self.reader.fit();},"zoom-in"=>{self.reader.zoom(1);},"zoom-out"=>{self.reader.zoom(-1);},
+            "row-down"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.move_selection(0,1);return;}self.last_find_selected=None;if !self.rows.is_empty(){self.selected=(self.selected+if self.panel_kind==Panel::Pages{COLUMNS}else{1}).min(self.rows.len()-1);self.highlight_row();}},"row-up"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.move_selection(0,-1);return;}self.last_find_selected=None;self.selected=self.selected.saturating_sub(if self.panel_kind==Panel::Pages{COLUMNS}else{1});self.highlight_row();},"row"=>{self.selected=value;self.last_find_selected=None;self.accept();},"accept"|"accept-prev"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.activate_selected();return;}if self.panel_kind==Panel::Find&&self.rows.iter().any(|r|matches!(r.action,RowAction::Hit(_))) {if name=="accept-prev"{self.selected=(self.selected+self.rows.len()-1)%self.rows.len();}else if self.last_find_selected==Some(self.selected){self.selected=(self.selected+1)%self.rows.len();}self.highlight_row();}self.accept();},
+            "left"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.move_selection(-1,0);return;}if self.panel_kind==Panel::None{self.reader.step(if self.preferences.direction=="rtl"{1}else{-1});}},"right"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.move_selection(1,0);return;}if self.panel_kind==Panel::None{self.reader.step(if self.preferences.direction=="rtl"{-1}else{1});}},"previous"=>self.reader.step(-1),"next"=>self.reader.step(1),
+            "space"=>{if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.activate_selected();}},"fit"=>{self.reader.fit();},"zoom-in"=>{self.reader.zoom(1);},"zoom-out"=>{self.reader.zoom(-1);},
             "spread"=>{self.preferences.mode=if self.preferences.mode=="spread"{"single"}else{"spread"}.into();self.persist_preferences();},
             "white"|"paper"|"night"=>{self.preferences.theme=name.into();self.persist_preferences();},"direction"=>{self.preferences.direction=if self.preferences.direction=="rtl"{"ltr"}else{"rtl"}.into();self.persist_preferences();},
             "focus"=>{self.close_panel();self.focus=!self.focus;self.layout();},"bookmark"=>self.bookmark(),
@@ -319,30 +367,29 @@ impl Ui {
             "import"=>self.choose_import(),_=>{}
         }
     }
-    unsafe fn persist_preferences(&mut self){if let Err(e)=self.store.save_preferences(&json!({"theme":self.preferences.theme,"mode":self.preferences.mode,"direction":self.preferences.direction})){self.toast(&e);}self.apply_preferences();if self.panel_kind==Panel::Tools{self.populate_rows();}}
+    unsafe fn persist_preferences(&mut self){if let Err(e)=self.store.save_preferences(&json!({"theme":self.preferences.theme,"mode":self.preferences.mode,"direction":self.preferences.direction})){self.toast(&e);}self.apply_preferences();if self.panel_kind==Panel::Palette{self.populate_rows();}}
     fn save(&mut self){self.dirty=None;let result=if let Some(book)=self.current.as_mut(){book.state["page"]=json!(self.reader.current_page().max(1));self.store.save_state(&book.id,&book.state)}else{Ok(())};if let Err(error)=result{self.dirty=Some(Instant::now()+Duration::from_secs(2));unsafe{self.toast(&format!("読書位置を保存できません: {error}"));}}}
-    unsafe fn refresh_chrome(&mut self){let page=self.reader.current_page();let count=self.reader.page_count();self.page_button.setTitle(&s(&if count>0{format!("{page} / {count}")}else{"ページ".into()}));self.page_button.setAccessibilityLabel(Some(&s(&format!("ページを選ぶ · {page} / {count}"))));let zoom=self.reader.zoom_factor();self.zoom_button.setTitle(&s(&if zoom>1.01{format!("{}%",(zoom*100.).round() as usize)}else{"全体表示".into()}));}
+    unsafe fn refresh_chrome(&mut self){let page=self.reader.current_page();let count=self.reader.page_count();self.page_button.setTitle(&s(&if count>0{format!("{page} / {count}")}else{"ページ".into()}));self.page_button.setAccessibilityLabel(Some(&s(&format!("ページを選ぶ · {page} / {count}"))));let zoom=self.reader.zoom_factor();self.zoom_button.setTitle(&s(&if zoom>1.01{format!("{}%",(zoom*100.).round() as usize)}else{"全体表示".into()}));self.layout_footer();}
     unsafe fn toast(&mut self,text:&str){self.status.setStringValue(&s(text));self.status.setHidden(false);self.toast_until=Some(Instant::now()+Duration::from_secs(4));}
-    unsafe fn toggle(&mut self,kind:Panel){if self.panel_kind==kind{self.close_panel();return;}self.search.cancel();self.search_due=None;self.search_running=false;self.panel_kind=kind;self.text_hits.clear();self.selected=0;self.page_anchor=self.reader.current_page().max(1);self.last_find_selected=None;self.query.setStringValue(&s(if kind==Panel::Find{&self.last_find}else{""}));self.panel.setHidden(false);
-        let (title,placeholder)=match kind{Panel::Find=>("本文を検索","この本の中を検索"),Panel::Palette=>("すべて検索","本・本文・ページ・操作を検索"),Panel::Library=>("本棚","タイトルで絞り込む"),Panel::Pages=>("ページを選ぶ","ページ番号を入力"),Panel::Tools=>("表示と操作","操作を絞り込む"),Panel::Outline=>("目次","見出しを検索"),Panel::Bookmarks=>("しおり","ページ番号で絞り込む"),Panel::None=>("","")};
+    unsafe fn toggle(&mut self,kind:Panel){if self.screen==Screen::Shelf&&matches!(kind,Panel::Pages|Panel::Outline|Panel::Bookmarks|Panel::Find){return;}if self.panel_kind==kind{self.close_panel();return;}self.search.cancel();self.search_due=None;self.search_running=false;self.panel_kind=kind;self.text_hits.clear();self.selected=0;self.page_anchor=self.reader.current_page().max(1);self.last_find_selected=None;self.query.setStringValue(&s(if kind==Panel::Find{&self.last_find}else{""}));self.panel.setHidden(false);
+        let (title,placeholder)=match kind{Panel::Find=>("本文を検索","この本の中を検索"),Panel::Palette=>("検索・操作","本・本文・ページ・操作を検索"),Panel::ImportErrors=>("取り込み結果",""),Panel::Pages=>("ページを選ぶ","ページ番号を入力"),Panel::Outline=>("目次","見出しを検索"),Panel::Bookmarks=>("しおり","ページ番号で絞り込む"),Panel::None=>("","")};
         self.panel_title.setStringValue(&s(title));self.query.setPlaceholderString(Some(&s(placeholder)));self.panel_hint.setStringValue(&s("↑↓ 選択　↵ 開く　Esc 閉じる"));self.populate_rows();self.layout();self.window.makeFirstResponder(Some(&*self.query));self.query.selectText(None);if kind==Panel::Find&&!self.last_find.is_empty(){self.search_running=true;self.search_due=Some(Instant::now()+Duration::from_millis(100));}
     }
-    unsafe fn close_panel(&mut self){if self.panel_kind==Panel::Find{self.last_find=self.query.stringValue().to_string();}self.panel_kind=Panel::None;self.panel.setHidden(true);self.search.cancel();self.search_due=None;self.search_running=false;self.reader.focus();}
+    unsafe fn close_panel(&mut self){if self.panel_kind==Panel::Find{self.last_find=self.query.stringValue().to_string();}self.panel_kind=Panel::None;self.panel.setHidden(true);self.search.cancel();self.search_due=None;self.search_running=false;self.reader.set_interaction_enabled(self.screen==Screen::Reader);if self.screen==Screen::Reader{self.reader.focus();}else{self.window.makeFirstResponder(Some(self.bookshelf.view()));}}
     unsafe fn populate_rows(&mut self){
         let query=self.query.stringValue().to_string();let query=query.trim().to_lowercase();let mut rows=vec![];
-        if matches!(self.panel_kind,Panel::Palette|Panel::Tools) {
-            let actions=[("本を取り込む…","PDF・フォルダをまとめて追加","import"),("本棚を開く","取り込んだ本から選ぶ","library"),("本文を検索","⌘F","find"),("ページを選ぶ","G / ⌘G","pages"),("目次を開く","章や見出しに移動","outline"),("しおりを開く","保存したページに移動","bookmarks"),("しおりを切り替える","⌘D","bookmark"),("1ページ / 見開き","アプリ全体に適用","spread"),("全体表示に戻す","⌘0","fit"),("拡大","⌘+","zoom-in"),("縮小","⌘−","zoom-out"),("範囲を画像でコピー","切り抜き · ⌘⇧X","capture"),("切り抜いた画像を保存…","最後にコピーした範囲をPNGで保存","save-capture"),("選んだ文章をコピー","書名・ページ付き","copy-selection"),("ページの文章をコピー","書名・ページ付き","copy-page"),("ライト","外観","white"),("セピア","外観","paper"),("ダーク","外観","night"),("読み進める方向を切り替える","左右のページ送り","direction"),("読書に集中","⌘⇧F","focus")];
-            for(title,detail,action)in actions{if query.is_empty()||crate::search::matches_query(&format!("{title} {detail}"),&query){rows.push(Row{title:title.into(),detail:detail.into(),action:RowAction::Command(action)});}}
+        if self.panel_kind==Panel::Palette {
+            let actions=[("この本の本文を検索","⌘F","find"),("ページを選ぶ","G / ⌘G","pages"),("目次を開く","章や見出しに移動","outline"),("しおりを開く","保存したページに移動","bookmarks"),("しおりを切り替える","⌘D","bookmark"),(if self.preferences.mode=="spread"{"1ページにする"}else{"見開きにする"},"単ページ・見開き · 全ての本に適用","spread"),("全体表示に戻す","⌘0","fit"),("拡大","⌘+","zoom-in"),("縮小","⌘−","zoom-out"),("範囲を画像でコピー","切り抜き · ⌘⇧X","capture"),("切り抜いた画像を保存…","最後にコピーした範囲をPNGで保存","save-capture"),("選んだ文章をコピー","書名・ページ付き","copy-selection"),("ページの文章をコピー","書名・ページ付き","copy-page"),("ライト",if self.preferences.theme=="white"{"外観 · 選択中"}else{"外観を変更"},"white"),("セピア",if self.preferences.theme=="paper"{"外観 · 選択中"}else{"外観を変更"},"paper"),("ダーク",if self.preferences.theme=="night"{"外観 · 選択中"}else{"外観を変更"},"night"),(if self.preferences.direction=="rtl"{"左から右に読む"}else{"右から左に読む"},"めくる方向を切り替える","direction"),("読書に集中","⌘⇧F","focus"),("本を追加…","PDF・フォルダをまとめて取り込む · ⌘O","import"),("本棚へ戻る","表紙から本を選ぶ · ⌘L","library")];
+            for(title,detail,action)in actions{if self.screen==Screen::Shelf&&!matches!(action,"import"|"white"|"paper"|"night"|"spread"|"direction"){continue;}if query.is_empty()||crate::search::matches_query(&format!("{title} {detail}"),&query){rows.push(Row{title:title.into(),detail:detail.into(),action:RowAction::Command(action)});}}
         }
-        if matches!(self.panel_kind,Panel::Palette|Panel::Library){if let Ok(library)=self.store.public_library(){for book in library.recent{if query.is_empty()||crate::search::matches_query(&format!("{} {}",book.title,book.name),&query){let page=book.state["page"].as_u64().unwrap_or(1);rows.push(Row{title:book.title.clone(),detail:format!("本 · {page}ページから"),action:RowAction::Book(book.id)});}}}if self.panel_kind==Panel::Library{rows.insert(0,Row{title:if self.import_busy{"取り込み中…"}else{"本を取り込む…"}.into(),detail:"複数PDF・フォルダを選択　⌘O".into(),action:RowAction::Command("import")});}}
-        if matches!(self.panel_kind,Panel::Palette|Panel::Pages){let number=query.trim_start_matches('p').trim_start_matches('.').trim_end_matches("ページ").trim().parse::<usize>().ok().filter(|p|*p>0&&*p<=self.reader.page_count());
+        if self.panel_kind==Panel::Palette&&!query.is_empty(){if let Ok(library)=self.store.public_library(){for book in library.recent{if crate::search::matches_query(&format!("{} {}",book.title,book.name),&query){let page=book.state["page"].as_u64().unwrap_or(1);rows.push(Row{title:book.title.clone(),detail:format!("本 · {page}ページから"),action:RowAction::Book(book.id)});}}}}
+        if self.screen==Screen::Reader&&matches!(self.panel_kind,Panel::Palette|Panel::Pages){let number=query.trim_start_matches('p').trim_start_matches('.').trim_end_matches("ページ").trim().parse::<usize>().ok().filter(|p|*p>0&&*p<=self.reader.page_count());
             if self.panel_kind==Panel::Pages{let anchor=number.unwrap_or(self.page_anchor);for page in pages_near(anchor,self.reader.page_count()){rows.push(Row{title:format!("{page}ページ"),detail:if page==self.reader.current_page(){"読書中"}else{""}.into(),action:RowAction::Page(page)});}self.selected=rows.iter().position(|row|matches!(row.action,RowAction::Page(page) if page==anchor)).unwrap_or(0);self.panel_hint.setStringValue(&s(&format!("全{}ページ · 番号入力で移動",self.reader.page_count())));
             }else if let Some(page)=number{rows.insert(0,Row{title:format!("{page}ページへ移動"),detail:"この本".into(),action:RowAction::Page(page)});}}
-        if matches!(self.panel_kind,Panel::Outline|Panel::Palette){for(title,page)in self.reader.outline(){if query.is_empty()&&self.panel_kind==Panel::Outline||!query.is_empty()&&crate::search::matches_query(&title,&query){rows.push(Row{title,detail:format!("目次 · {page}ページ"),action:RowAction::Page(page)});}}}
+        if self.screen==Screen::Reader&&matches!(self.panel_kind,Panel::Outline|Panel::Palette){for(title,page)in self.reader.outline(){if query.is_empty()&&self.panel_kind==Panel::Outline||!query.is_empty()&&crate::search::matches_query(&title,&query){rows.push(Row{title,detail:format!("目次 · {page}ページ"),action:RowAction::Page(page)});}}}
         if self.panel_kind==Panel::Bookmarks{if let Some(book)=&self.current{if let Some(pages)=book.state["bookmarks"].as_array(){for value in pages{if let Some(page)=value.as_u64(){if query.is_empty()||page.to_string().contains(&query){rows.push(Row{title:format!("{page}ページ"),detail:"しおり".into(),action:RowAction::Page(page as usize)});}}}}}}
         if matches!(self.panel_kind,Panel::Find|Panel::Palette){for hit in &self.text_hits{rows.push(Row{title:format!("{} · {}ページ",hit.title,hit.page),detail:hit.snippet.clone(),action:RowAction::Hit(hit.clone())});}}
         if rows.is_empty(){rows.push(Row{title:if query.is_empty(){if self.panel_kind==Panel::Find{"言葉を入力して本文を検索"}else{"まだ項目がありません"}}else if self.search_running{"検索しています…"}else{"一致する項目がありません"}.into(),detail:String::new(),action:RowAction::None});}
-        if self.panel_kind==Panel::Palette&&query.is_empty(){rows.sort_by_key(|r|if matches!(r.action,RowAction::Book(_)){0}else{1});}
         rows.truncate(160);self.rows=rows;self.selected=self.selected.min(self.rows.len().saturating_sub(1));self.render_rows();
     }
     unsafe fn render_rows(&mut self){
@@ -353,10 +400,10 @@ impl Ui {
         self.highlight_row();
     }
     unsafe fn highlight_row(&self){for(i,b)in self.row_buttons.iter().enumerate(){let color=if i==self.selected{NSColor::controlAccentColor().colorWithAlphaComponent(0.13)}else{NSColor::clearColor()};decorate(b,&color,7.);let tint=NSColor::labelColor();b.setContentTintColor(Some(&tint));if self.panel_kind!=Panel::Pages{if let Some(row)=self.rows.get(i){b.setAttributedTitle(&row_title(row,self.mtm));}}}if let Some(b)=self.row_buttons.get(self.selected){let frame=b.convertRect_toView(b.bounds(),Some(&self.rows_view));self.rows_view.scrollRectToVisible(frame);}}
-    unsafe fn accept(&mut self){let action=self.rows.get(self.selected).map(|r|r.action.clone());match action{Some(RowAction::Command(action))=>{self.close_panel();self.action(action,0);},Some(RowAction::Book(id))=>{self.close_panel();self.open_book(&id,None);},Some(RowAction::Page(page))=>{self.close_panel();self.reader.go_to(page,false);},Some(RowAction::Hit(hit))=>{let query=self.query.stringValue().to_string();let keep=self.panel_kind==Panel::Find;if !keep{self.close_panel();}if self.current.as_ref().is_some_and(|b|b.id==hit.book_id){self.reader.go_to(hit.page,false);}else{self.open_book(&hit.book_id,Some(hit.page));}self.reader.highlight(&query);if keep{self.last_find_selected=Some(self.selected);}},_=>{}}}
+    unsafe fn accept(&mut self){let action=self.rows.get(self.selected).map(|r|r.action.clone());match action{Some(RowAction::Command(action))=>{self.close_panel();self.action(action,0);},Some(RowAction::Book(id))=>{self.close_panel();self.open_book(&id,None);},Some(RowAction::Page(page))=>{self.close_panel();self.reader.go_to(page,false);},Some(RowAction::Hit(hit))=>{let query=self.query.stringValue().to_string();let keep=self.panel_kind==Panel::Find;if !keep{self.close_panel();}if self.current.as_ref().is_some_and(|b|b.id==hit.book_id){self.reader.go_to(hit.page,false);if self.screen==Screen::Shelf{self.show_reader();}}else{self.open_book(&hit.book_id,Some(hit.page));}self.reader.highlight(&query);if keep{self.last_find_selected=Some(self.selected);}},_=>{}}}
     unsafe fn begin_search(&mut self){let query=self.query.stringValue().to_string();if query.trim().is_empty(){return;}let mut books=vec![];if let Ok(library)=self.store.public_library(){for book in library.recent{if self.panel_kind==Panel::Find&&!self.current.as_ref().is_some_and(|b|b.id==book.id){continue;}if let Ok(path)=self.store.authorized_path(&book.id){let password=if self.current.as_ref().is_some_and(|b|b.id==book.id){self.password.clone()}else{None};books.push(SearchBook{id:book.id,title:book.title,path,password});}}}self.request_id=self.search.submit(SearchRequest{query,books,limit:100});self.panel_hint.setStringValue(&s("検索中… · Escで閉じる"));}
     unsafe fn open_book(&mut self,id:&str,page:Option<usize>){
-        self.close_panel();self.save();let path=match self.store.authorized_path(id){Ok(path)=>path,Err(e)=>{self.toast(&e);return;}};
+        self.close_panel();if self.current.as_ref().is_some_and(|book|book.id==id){if let Some(page)=page{self.reader.go_to(page,false);}self.show_reader();return;}self.save();let path=match self.store.authorized_path(id){Ok(path)=>path,Err(e)=>{self.toast(&e);return;}};
         let mut password=None;let mut result=self.reader.open(&path,None);
         while matches!(&result,Err(error) if error=="PASSWORD_REQUIRED"||error=="PASSWORD_INCORRECT") {
             let alert=NSAlert::new(self.mtm);alert.setMessageText(&s("このPDFのパスワードを入力"));alert.setInformativeText(&s(if matches!(&result,Err(e) if e=="PASSWORD_INCORRECT"){ "パスワードが違います。もう一度入力してください。" }else{"パスワードはこの起動中だけ使い、保存しません。"}));
@@ -365,19 +412,19 @@ impl Ui {
         }
         match result {
             Ok(info)=>{if let Some(title)=crate::search::derive_title(&path).or_else(||(!info.title.trim().is_empty()).then_some(info.title)){let _=self.store.set_book_title(id,&title);}
-                let entry=self.store.entry(id);if let Ok(entry)=entry{let book=entry.document;let position=page.unwrap_or_else(||book.state["page"].as_u64().unwrap_or(1) as usize);self.title.setStringValue(&s(&book.title));self.window.setTitle(&s(&format!("{} — Sumi",book.title)));self.reader.set_title(&book.title);self.thumbnails.clear();self.current=Some(book);self.password=password;self.reader.go_to(position,false);self.status.setHidden(true);self.refresh_chrome();if let Err(error)=self.store.open(id){self.toast(&format!("本は開けましたが、履歴を保存できません: {error}"));}}
+                let entry=self.store.entry(id);if let Ok(entry)=entry{let book=entry.document;let position=page.unwrap_or_else(||book.state["page"].as_u64().unwrap_or(1) as usize);self.title.setStringValue(&s(&book.title));self.window.setTitle(&s(&format!("{} — Sumi",book.title)));self.reader.set_title(&book.title);self.thumbnails.clear();self.current=Some(book);self.password=password;self.reader.go_to(position,false);self.show_reader();self.status.setHidden(true);self.refresh_chrome();if let Err(error)=self.store.open(id){self.toast(&format!("本は開けましたが、履歴を保存できません: {error}"));}}
             },Err(e)=>self.toast(&e)
         }
     }
     unsafe fn book_action(&mut self,action:usize,id:&str){
         match action {
             0=>{if let Ok(path)=self.store.authorized_path(id){let url=objc2_foundation::NSURL::fileURLWithPath(&s(&path.to_string_lossy()));NSWorkspace::sharedWorkspace().activateFileViewerSelectingURLs(&NSArray::from_slice(&[&*url]));}},
-            1=>{let panel=NSOpenPanel::openPanel(self.mtm);panel.setTitle(Some(&s("移動したPDFを選ぶ")));panel.setAllowsMultipleSelection(false);panel.setCanChooseDirectories(false);#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("pdf")])));if panel.runModal()==1{if let Some(path)=panel.URL().and_then(|url|url.path()){match self.store.relink(id,&PathBuf::from(path.to_string())){Ok(_)=>{self.toast("本の場所を更新しました");self.populate_rows();},Err(e)=>self.toast(&e)}}}},
-            2=>{let alert=NSAlert::new(self.mtm);alert.setMessageText(&s("この本を本棚から外しますか？"));alert.setInformativeText(&s("PDFファイルは残ります。読書位置としおりは本棚から削除されます。"));alert.addButtonWithTitle(&s("キャンセル"));alert.addButtonWithTitle(&s("本棚から外す"));if alert.runModal()==1001{if self.current.as_ref().is_some_and(|b|b.id==id){self.toast("読んでいる本は、別の本を開いてから外せます");}else{match self.store.remove(id){Ok(_)=>{self.populate_rows();self.toast("本棚から外しました");},Err(e)=>self.toast(&e)}}}},_=>{}
+            1=>{let panel=NSOpenPanel::openPanel(self.mtm);panel.setTitle(Some(&s("移動したPDFを選ぶ")));panel.setAllowsMultipleSelection(false);panel.setCanChooseDirectories(false);#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("pdf")])));if panel.runModal()==1{if let Some(path)=panel.URL().and_then(|url|url.path()){match self.store.relink(id,&PathBuf::from(path.to_string())){Ok(_)=>{self.toast("本の場所を更新しました");self.refresh_shelf();self.populate_rows();},Err(e)=>self.toast(&e)}}}},
+            2=>{let alert=NSAlert::new(self.mtm);alert.setMessageText(&s("この本を本棚から外しますか？"));alert.setInformativeText(&s("PDFファイルは残ります。読書位置としおりは本棚から削除されます。"));alert.addButtonWithTitle(&s("キャンセル"));alert.addButtonWithTitle(&s("本棚から外す"));if alert.runModal()==1001{if self.screen==Screen::Reader&&self.current.as_ref().is_some_and(|b|b.id==id){self.toast("読んでいる本は、別の本を開いてから外せます");}else{match self.store.remove(id){Ok(_)=>{if self.current.as_ref().is_some_and(|b|b.id==id){self.reader.clear();self.current=None;self.password=None;}self.refresh_shelf();self.populate_rows();self.toast("本棚から外しました");},Err(e)=>self.toast(&e)}}}},_=>{}
         }
     }
     unsafe fn show_import_errors(&mut self,report:&ImportReport){
-        if self.panel_kind!=Panel::Library{self.toggle(Panel::Library);}self.panel_title.setStringValue(&s("取り込み結果"));self.rows=report.errors.iter().map(|e|Row{title:e.path.file_name().unwrap_or_default().to_string_lossy().into_owned(),detail:e.message.clone(),action:RowAction::None}).collect();self.panel_hint.setStringValue(&s("追加できた本は本棚に保存されています · Esc 閉じる"));self.render_rows();
+        if self.panel_kind!=Panel::ImportErrors{self.toggle(Panel::ImportErrors);}self.panel_title.setStringValue(&s("取り込み結果"));self.rows=report.errors.iter().map(|e|Row{title:e.path.file_name().unwrap_or_default().to_string_lossy().into_owned(),detail:e.message.clone(),action:RowAction::None}).collect();self.panel_hint.setStringValue(&s("追加できた本は本棚に保存されています · Esc 閉じる"));self.render_rows();
     }
     unsafe fn bookmark(&mut self){if let Some(book)=self.current.as_mut(){let page=self.reader.current_page().max(1);let mut marks=book.state["bookmarks"].as_array().cloned().unwrap_or_default();let exists=marks.iter().any(|v|v.as_u64()==Some(page as u64));marks.retain(|v|v.as_u64()!=Some(page as u64));if !exists{marks.push(json!(page));}marks.sort_by_key(|v|v.as_u64().unwrap_or(0));book.state["bookmarks"]=json!(marks);self.save();self.toast(if exists{"しおりを外しました"}else{"しおりを付けました"});}}
     unsafe fn save_capture(&mut self){
@@ -387,7 +434,7 @@ impl Ui {
         let panel=NSSavePanel::savePanel(self.mtm);panel.setTitle(Some(&s("切り抜いた画像を保存")));panel.setNameFieldStringValue(&s(&self.capture_name.replace('/',"-")));#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("png")])));if panel.runModal()==1{if let Some(url)=panel.URL(){let ok:bool=msg_send![&png,writeToURL:&*url,atomically:true];self.toast(if ok{"画像を保存しました"}else{"画像を保存できませんでした"});}}
     }
     unsafe fn choose_import(&mut self){if self.import_busy{self.toast("本を取り込み中です");return;}let panel=NSOpenPanel::openPanel(self.mtm);panel.setCanChooseFiles(true);panel.setCanChooseDirectories(true);panel.setAllowsMultipleSelection(true);panel.setTitle(Some(&s("本を取り込む")));panel.setMessage(Some(&s("PDFまたはフォルダを選んでください。元のファイルは移動しません。")));panel.setPrompt(Some(&s("取り込む")));#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("pdf")])));let result=panel.runModal();if result==1{let paths=panel.URLs().iter().filter_map(|u|u.path().map(|p|PathBuf::from(p.to_string()))).collect();self.import(paths);}}
-    unsafe fn import(&mut self,paths:Vec<PathBuf>){if paths.is_empty(){return;}if self.import_busy{self.toast("本を取り込み中です。完了してから追加してください");return;}self.import_busy=true;self.toast("本を取り込んでいます…");let store=self.store.clone();let(tx,rx)=mpsc::channel();self.import_receiver=Some(rx);std::thread::spawn(move||{let result=store.import_paths(&paths).map(|report|{for entry in &report.added{if let Some(title)=crate::search::derive_title(&entry.path){let _=store.set_book_title(&entry.document.id,&title);}}report});let _=tx.send(result);});}
+    unsafe fn import(&mut self,paths:Vec<PathBuf>){if paths.is_empty(){return;}if self.import_busy{self.toast("本を取り込み中です。完了してから追加してください");return;}self.import_busy=true;self.layout();self.toast("本を取り込んでいます…");let store=self.store.clone();let(tx,rx)=mpsc::channel();self.import_receiver=Some(rx);std::thread::spawn(move||{let result=store.import_paths(&paths).map(|report|{for entry in &report.added{if let Some(title)=crate::search::derive_title(&entry.path){let _=store.set_book_title(&entry.document.id,&title);}}report});let _=tx.send(result);});}
 }
 
 pub fn run(){let mtm=MainThreadMarker::new().expect("Sumi requires the macOS main thread");let app=NSApplication::sharedApplication(mtm);let delegate=Delegate::new(mtm);app.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));app.run();}
