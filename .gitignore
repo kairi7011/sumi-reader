@@ -12,3 +12,6 @@ src-tauri/target/
 *.pdf
 __pycache__/
 src-tauri/gen/
+
+src-native/target/
+dist-qa/
