@@ -184,6 +184,7 @@ impl Reader {
         unsafe { let _: () = msg_send![&*state.view, setBackgroundColor: &*color]; }
     }
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
+    pub fn restore_zoom(&self,factor:f64){self.state.borrow_mut().set_zoom(factor);}
     pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.fit(); state.update_cursor(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.document().map(|document| document.outline()).unwrap_or_default() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }

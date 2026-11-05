@@ -1,6 +1,8 @@
 use sumi_native::pdf;
 mod reader;
 mod bookshelf;
+mod tabs;
+mod icons;
 use sumi_native::search;
 mod ui;
 
