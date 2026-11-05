@@ -112,6 +112,13 @@ impl Reader {
     }
     pub fn document(&self) -> Option<Retained<PDFDocument>> { self.state.borrow().document.clone() }
     pub fn current_page(&self) -> usize { self.state.borrow().current }
+    pub fn is_turning(&self) -> bool { self.state.borrow().turn.is_some() }
+    #[cfg(debug_assertions)]
+    pub fn diagnostics(&self) -> serde_json::Value {
+        let state=self.state.borrow();let bounds=state.view.bounds();let pages=state.visible();
+        let fitted=state.factor<=1.001 && !pages.is_empty() && pages.iter().all(|(_,_,rect)|rect.origin.x>=-2. && rect.origin.y>=-2. && rect.origin.x+rect.size.width<=bounds.size.width+2. && rect.origin.y+rect.size.height<=bounds.size.height+2.);
+        serde_json::json!({"page":state.current,"page_count":state.document.as_ref().map(|doc|doc.page_count()).unwrap_or(0),"zoom":state.factor,"visible_pages":pages.into_iter().map(|(page,_,rect)|serde_json::json!({"page":page,"rect":[rect.origin.x,rect.origin.y,rect.size.width,rect.size.height]})).collect::<Vec<_>>(),"bounds":[bounds.size.width,bounds.size.height],"fitted":fitted})
+    }
     pub fn page_count(&self) -> usize { self.state.borrow().document.as_ref().map(|pdf| pdf.page_count()).unwrap_or(0) }
     pub fn zoom_factor(&self) -> f64 { self.state.borrow().factor }
     pub fn title(&self) -> String { self.state.borrow().title.clone() }
@@ -135,11 +142,9 @@ impl Reader {
     pub fn highlight(&self, query: &str) -> bool {
         let state = self.state.borrow();
         let Some(page) = state.document.as_ref().and_then(|pdf| pdf.page(state.current.saturating_sub(1))) else { return false; };
-        let text = NSString::from_str(&page.text());
+        let Some((location,length)) = crate::search::first_match_range(&page.text(),query) else { return false; };
         unsafe {
-            let range: NSRange = msg_send![&*text, rangeOfString: &*NSString::from_str(query), options: 1usize];
-            if range.length == 0 || range.location == usize::MAX { return false; }
-            let selection: Option<Retained<PDFSelection>> = msg_send![&*page, selectionForRange: range];
+            let selection: Option<Retained<PDFSelection>> = msg_send![&*page, selectionForRange: NSRange::new(location,length)];
             if let Some(selection) = selection { let _: () = msg_send![&*state.view, setCurrentSelection: &*selection, animate: true]; return true; }
         }
         false
@@ -180,6 +185,7 @@ impl Reader {
     }
     pub fn tick(&self) {
         let mut state = self.state.borrow_mut();
+        #[cfg(debug_assertions)] animation::debug_tick(&mut state.visual.borrow_mut());
         state.advance_turn();
         if state.turn.is_none() {
             let actual: Option<Retained<PDFPage>> = unsafe { msg_send![&*state.view, currentPage] };
@@ -336,20 +342,25 @@ impl ReaderState {
         #[cfg(debug_assertions)]
         animation::debug_begin(&mut self.visual.borrow_mut());
         let front = self.snapshot(&moving.1,moving.2);
+        #[cfg(debug_assertions)] animation::debug_phase(&mut self.visual.borrow_mut(), "front_snapshot");
         let companion = old.first().map(|(_,page,rect)|self.snapshot(page,*rect));
+        #[cfg(debug_assertions)] animation::debug_phase(&mut self.visual.borrow_mut(), "companion_snapshot");
         let gutter = companion.as_ref().map(|other| (front.rect.origin.x-other.rect.origin.x).abs()-front.rect.size.width).unwrap_or(0.).max(0.);
         let old_page = self.current;
         self.visual.borrow_mut().curl = Some(Curl { front, companion, back: None, direction, corner, progress: 0., vertical: 0., spread: self.spread, gutter });
         self.overlay.repaint();
         if let Some(page)=document.page(target-1) { unsafe { let _:()=msg_send![&*self.view,goToPage:&*page]; } }
         self.fit();
+        #[cfg(debug_assertions)] animation::debug_phase(&mut self.visual.borrow_mut(), "destination_layout");
         let mut incoming=self.visible();incoming.sort_by(|a,b|a.2.origin.x.total_cmp(&b.2.origin.x));
         if self.spread && incoming.len() > 1 {
             let reverse=&incoming[if direction > 0. {0}else{incoming.len()-1}];
             let image=self.snapshot(&reverse.1,reverse.2).image;
             self.visual.borrow_mut().curl.as_mut().unwrap().back=Some(image);
         }
+        #[cfg(debug_assertions)] animation::debug_phase(&mut self.visual.borrow_mut(), "back_snapshot");
         self.view.displayIfNeeded();
+        #[cfg(debug_assertions)] animation::debug_phase(&mut self.visual.borrow_mut(), "destination_display");
         #[cfg(debug_assertions)] { self.debug_samples = 0; animation::debug_prepared(&mut self.visual.borrow_mut()); }
         self.turn=Some(Turn {old:old_page,target,settle:None,start,last:start,sample:Instant::now(),velocity:0.,excursion:0.});
         self.overlay.repaint(); true
@@ -408,11 +419,12 @@ impl ReaderState {
     }
     fn finish_turn(&mut self, commit: bool) {
         let Some(turn)=self.turn.take()else{return;};
-        #[cfg(debug_assertions)]
-        animation::debug_finish(&mut self.visual.borrow_mut(), turn.old, turn.target, commit);
+        #[cfg(debug_assertions)] let endpoint = Instant::now();
         let target=if commit{turn.target}else{turn.old};
         if !commit {if let Some(page)=self.document.as_ref().and_then(|doc|doc.page(target-1)){unsafe{let _:()=msg_send![&*self.view,goToPage:&*page];}self.fit();}}
-        self.view.displayIfNeeded();self.current=target;self.visual.borrow_mut().curl=None;self.update_cursor();self.overlay.repaint();crate::enqueue("reader-page",target);
+        self.view.displayIfNeeded();
+        #[cfg(debug_assertions)] animation::debug_finish(&mut self.visual.borrow_mut(), turn.old, turn.target, commit, endpoint.elapsed().as_secs_f64()*1000.);
+        self.current=target;self.visual.borrow_mut().curl=None;self.update_cursor();self.overlay.repaint();crate::enqueue("reader-page",target);
     }
     fn update_cursor(&self) {
         if self.visual.borrow().capture_mode { NSCursor::crosshairCursor().set(); }

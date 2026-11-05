@@ -211,6 +211,10 @@ struct DebugMetrics {
     last_draw: Option<std::time::Instant>,
     draws: Vec<(f64, f64)>,
     intervals: Vec<f64>,
+    last_tick: Option<std::time::Instant>,
+    tick_intervals: Vec<f64>,
+    last_phase: std::time::Instant,
+    phases: Vec<(&'static str, f64)>,
 }
 #[cfg(debug_assertions)]
 impl DebugMetrics {
@@ -226,14 +230,14 @@ impl DebugMetrics {
 pub fn debug_pngs_enabled() -> bool { std::env::var("SUMI_CAPTURE_TURN_PNGS").as_deref() != Ok("0") }
 #[cfg(debug_assertions)]
 pub fn debug_begin(visual: &mut Visual) {
-    visual.debug = std::env::var_os("SUMI_CAPTURE_TURNS").map(|_| DebugMetrics { start: std::time::Instant::now(), preparation_ms: 0., first_draw_ms: None, last_draw: None, draws: Vec::with_capacity(40), intervals: Vec::with_capacity(40) });
+    visual.debug = std::env::var_os("SUMI_CAPTURE_TURNS").map(|_| DebugMetrics { start: std::time::Instant::now(), preparation_ms: 0., first_draw_ms: None, last_draw: None, draws: Vec::with_capacity(40), intervals: Vec::with_capacity(40), last_tick: None, tick_intervals: Vec::with_capacity(40), last_phase: std::time::Instant::now(), phases: Vec::new() });
 }
 #[cfg(debug_assertions)]
 pub fn debug_prepared(visual: &mut Visual) {
     if let Some(debug) = visual.debug.as_mut() { debug.preparation_ms = debug.start.elapsed().as_secs_f64() * 1000.; }
 }
 #[cfg(debug_assertions)]
-pub fn debug_finish(visual: &mut Visual, from: usize, target: usize, committed: bool) {
+pub fn debug_finish(visual: &mut Visual, from: usize, target: usize, committed: bool, endpoint_ms: f64) {
     let Some(debug) = visual.debug.take() else { return; };
     let Some(directory) = std::env::var_os("SUMI_CAPTURE_TURNS") else { return; };
     fn summary(values: impl Iterator<Item=f64>) -> serde_json::Value {
@@ -249,12 +253,25 @@ pub fn debug_finish(visual: &mut Visual, from: usize, target: usize, committed: 
     }
     let result=serde_json::json!({
         "from_page":from,"target_page":target,"committed":committed,"png_capture_enabled":debug_pngs_enabled(),
-        "preparation_ms":debug.preparation_ms,"first_draw_ms":debug.first_draw_ms,"elapsed_ms":debug.start.elapsed().as_secs_f64()*1000.,
-        "frame_count":debug.draws.len(),"draw_ms":summary(debug.draws.iter().map(|(_,time)|*time)),"frame_interval_ms":summary(debug.intervals.iter().copied()),
+        "preparation_ms":debug.preparation_ms,"preparation_phases":debug.phases,"endpoint_ms":endpoint_ms,"first_draw_ms":debug.first_draw_ms,"elapsed_ms":debug.start.elapsed().as_secs_f64()*1000.,
+        "tick_count":debug.tick_intervals.len()+usize::from(debug.last_tick.is_some()),"tick_interval_ms":summary(debug.tick_intervals.iter().copied()),"frame_count":debug.draws.len(),"draw_ms":summary(debug.draws.iter().map(|(_,time)|*time)),"frame_interval_ms":summary(debug.intervals.iter().copied()),
         "snapshot_dimensions":pixels,"snapshot_total_pixels":pixels.iter().map(|(w,h)|w*h).sum::<usize>(),
         "draw_samples":debug.draws.iter().map(|(progress,ms)|serde_json::json!({"progress":progress,"ms":ms})).collect::<Vec<_>>()
     });
     let directory=std::path::PathBuf::from(directory);let _=std::fs::create_dir_all(&directory);
     let stamp=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_micros();
     if let Ok(bytes)=serde_json::to_vec_pretty(&result) {let _=std::fs::write(directory.join(format!("turn-{stamp}-{from}-{target}.json")),bytes);}
+}
+
+#[cfg(debug_assertions)]
+pub fn debug_tick(visual: &mut Visual) {
+    if let Some(debug) = visual.debug.as_mut() {
+        let now=std::time::Instant::now();
+        if debug.tick_intervals.len()<600 {if let Some(last)=debug.last_tick {debug.tick_intervals.push(now.duration_since(last).as_secs_f64()*1000.);}}
+        debug.last_tick=Some(now);
+    }
+}
+#[cfg(debug_assertions)]
+pub fn debug_phase(visual: &mut Visual, name: &'static str) {
+    if let Some(debug) = visual.debug.as_mut() {let now=std::time::Instant::now();debug.phases.push((name,now.duration_since(debug.last_phase).as_secs_f64()*1000.));debug.last_phase=now;}
 }
