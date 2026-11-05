@@ -4,7 +4,7 @@ Recorded on Apple Silicon macOS, 2026-11-05. This document covers the native Rus
 
 ## Confirmed automated checks
 
-The current native test run passed **24 Rust tests**: 22 library/search/thumbnail tests and two reader-navigation tests. The real-book search probe is a separate opt-in test. Final animation optimization and release-package measurements remain pending.
+The final code at `d90c38a` passed **24 Rust tests**: 22 library/search/thumbnail tests and two reader-navigation tests. `npm run check` also passed. The real-book search probe is a separate opt-in test.
 
 - Importing 65 books alongside an existing book retains all 66 records and preserves the previous last-read book and position.
 - Recursive imports deduplicate canonical paths and file symlinks, continue after invalid or missing files, skip directory symlinks, and report traversal-depth limits.
@@ -15,7 +15,7 @@ The current native test run passed **24 Rust tests**: 22 library/search/thumbnai
 - Search tests cover Japanese width/case normalization, line wrapping, original-character snippet offsets, normalized PDF highlight ranges, literal and bounded queries, cancellation, and stale-result rejection. The optional SQLite path is read-only, scoped to matching files, and rejects changed sources.
 - Thumbnail tests keep distant targets in a bounded 24-page window and avoid invalid pages. Reader tests cover cover/spread navigation and corner-drag cancellation versus a click.
 
-The **14 Python local-library/MCP tests** were rerun successfully on 2026-11-05. Native debug builds and initial bundle signing have succeeded. Final release-package checks remain pending below.
+The **14 Python local-library/MCP tests** were rerun successfully on 2026-11-05. Native debug and release builds succeeded; final artifact checks are recorded below.
 
 ## Native reader and manual QA
 
@@ -28,7 +28,7 @@ Manual native QA confirmed:
 - Importing the nine-book set added eight books, reported one duplicate, and reported no errors. Importing the authored recursive fixture added 45 PDFs and reported its one invalid file, with no duplicates; the current reader stayed on page 6 and the additions persisted.
 - The password-protected authored PDF imported and unlocked with its fixture password. A captured rectangle was saved as PNG; its private QA artifact is excluded from Git.
 
-Shifted-shortcut handling and decomposed-Unicode title matching received subsequent fixes. Final release validation will use the rebuilt application; the baseline smoke report does not claim coverage of later animation optimization.
+The final packaged release was also checked at page **113 of 384** in spread mode. A short corner drag of about 25 Retina pixels cancelled without changing page 113, including after a subsequent zoom. In-place 125% zoom returned to fit with Escape. Reimporting the nine real books added eight, reported one duplicate and no errors, and retained page 113. Command K listed all nine books plus the existing fixture. The existing paper/spread/left-to-right preferences remained unchanged. Shifted-shortcut and decomposed-Unicode title-query fixes are included in the rebuilt release.
 
 ## Nine-book search sample
 
@@ -38,17 +38,22 @@ These are single-machine measurements using the existing local index. “Cold”
 
 ## Dependencies and data
 
-The native graph contains 31 previously audited registry packages. Cached archive hashes and eight approved build scripts were rechecked with no downloads; see the [native dependency review](dependency-review-native.md). The inspected debug executable links system PDFKit/AppKit/CoreGraphics/Foundation libraries and has no WebKit dependency.
+The native graph contains 31 previously audited registry packages. Cached archive hashes and eight approved build scripts were rechecked with no downloads; see the [native dependency review](dependency-review-native.md). The release executable links system PDFKit, AppKit, CoreGraphics, Foundation, CoreFoundation, SQLite, Objective-C, System and iconv libraries. It has no WebKit dependency.
 
 The default library file is `~/Library/Application Support/com.kairi7011.sumi/library.json`. `~/Library/Application Support/Sumi/library.json` is a legacy migration source. Source PDFs stay at their original locations.
 
-## Release evidence status
+## Animation measurements
 
-| Check | Status |
-| --- | --- |
-| Native reader baseline and manual feature QA | 72 checks passed; manual checks above confirmed |
-| Page-turn visual quality and animation timing | Pending |
-| Native process RSS sample and its measurement conditions | Pending |
-| Final release signing, bundle/ZIP size and artifact checksum | Pending |
+The [animation report](native-animation.json) compares two local debug runs of 27 turns each across nine books. Drawing the active turn overlay in its update tick retained the existing geometry and texture sampling. The median of per-turn median draw-start intervals was **16.656 ms**; the median of per-turn p95 intervals was **22.817 ms**, versus **33.335 ms** in the baseline. The largest observed interval was **45.488 ms**. Median preparation time was **19.376 ms**, and the maximum retained snapshot allocation was 2,525,454 pixels. A repeat reader smoke run with synchronous active-turn drawing passed **72 checks with zero failures**.
 
-The remaining release checks must be recorded against the final packaged build. Internal-link and other prepared fixtures are not counted as passed manual checks unless listed above.
+These intervals measure starts of overlay drawing, not screen presentation or GPU completion. The reported p95 aggregate is the median of per-turn p95 values, not a pooled percentile. No external UI queries or PNG captures ran during these measurements. This single debug-build sample does not establish 60 fps on every PDF or Mac, nor pixel-perfect curl rendering for every page.
+
+## Packaged release and memory sample
+
+The [release manifest](native-release.json) records the ARM64 application built from `d90c38abbbaae4ffe7bec83c46dfdbdb7e2f1a62`. Application files total **1,031,770 bytes**; the ZIP is **481,441 bytes**. Ad-hoc signature verification passed for both the built bundle and delivered copy, and the ZIP integrity test passed. No notarization was performed.
+
+ZIP SHA-256: `6cb180abbb188c478c14a382850bde9142f664fd467e3bcf2e9ef0a5b6bf863b`.
+
+One release-process sample showed **164.5 MiB RSS** and **128.9 MiB physical footprint**. It was taken with a real book's page-113 spread open after zoom/fit, an eight-book import and opening/closing the command palette. One reader process was present. This is a local observation after those operations, not a peak-memory measurement or a controlled comparison with another reader.
+
+The authored internal-link fixture was prepared but its GUI behavior was **not verified**. Other coverage is limited to the tests and manual actions listed above; prepared fixtures alone are not counted as passed checks.
