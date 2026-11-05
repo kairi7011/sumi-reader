@@ -411,7 +411,7 @@ impl ReaderState {
                 }
             }
         } }
-        if t>=1. {self.finish_turn(commit);}else{self.overlay.repaint();}
+        if t>=1. {self.finish_turn(commit);}else{self.overlay.repaint();self.overlay.displayIfNeeded();}
     }
     fn finish_intended_turn(&mut self) {
         let commit=self.turn.as_ref().and_then(|turn|turn.settle.as_ref()).map(|settle|settle.to>0.5).unwrap_or(true);

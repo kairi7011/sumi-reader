@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "date": "2026-11-05",
+  "platform": "macOS arm64",
+  "build_profile": "debug",
+  "method": {
+    "books": 9,
+    "turns_per_book": 3,
+    "turn_types": [
+      "single-page forward",
+      "single-page backward",
+      "spread forward"
+    ],
+    "selection": "First 27 JSON records in chronological filename order for each run; subsequent manual trials excluded.",
+    "driver": "Internal UI timer; no external accessibility or computer-use queries during animation.",
+    "png_capture": false,
+    "timer_interval_ms": 16.6666667,
+    "autosave": "Deferred until no page turn is active.",
+    "quantiles": "Per-turn quantiles use nearest rank. Aggregates are medians of the 27 per-turn p50/p95 values, not pooled sample quantiles. Maximum is the largest recorded value across all turns.",
+    "draw_start_interval": "Elapsed time between overlay drawRect starts. This is not a display-presentation or GPU-completion measurement.",
+    "draw_cpu_time": "CPU time inside overlay drawRect; CoreGraphics may defer rasterization and compositing.",
+    "limitations": "One local debug-build run per strategy across nine books. These measurements do not guarantee 60 fps on every document or device."
+  },
+  "baseline": {
+    "turn_count": 27,
+    "median_frames_per_turn": 23,
+    "draw_start_interval_ms": {
+      "median_of_turn_p50": 16.711,
+      "median_of_turn_p95": 33.335,
+      "maximum_observed": 67.0
+    },
+    "timer_tick_interval_ms": {
+      "median_of_turn_p50": 16.671,
+      "median_of_turn_p95": 24.8,
+      "maximum_observed": 87.781
+    },
+    "overlay_draw_cpu_ms": {
+      "median_of_turn_p50": 0.514,
+      "median_of_turn_p95": 0.993,
+      "maximum_observed": 4.727
+    },
+    "preparation_ms": {
+      "median": 22.177,
+      "maximum": 57.0
+    },
+    "endpoint_ms": {
+      "median": 0.032,
+      "maximum": 0.043
+    },
+    "turn_elapsed_ms": {
+      "median": 534.51,
+      "maximum": 572.242
+    },
+    "maximum_retained_snapshot_pixels": 2525454
+  },
+  "synchronous_active_turn_drawing": {
+    "turn_count": 27,
+    "median_frames_per_turn": 29,
+    "draw_start_interval_ms": {
+      "median_of_turn_p50": 16.656,
+      "median_of_turn_p95": 22.817,
+      "maximum_observed": 45.488
+    },
+    "timer_tick_interval_ms": {
+      "median_of_turn_p50": 16.665,
+      "median_of_turn_p95": 23.391,
+      "maximum_observed": 63.696
+    },
+    "overlay_draw_cpu_ms": {
+      "median_of_turn_p50": 0.707,
+      "median_of_turn_p95": 1.098,
+      "maximum_observed": 1.312
+    },
+    "preparation_ms": {
+      "median": 19.376,
+      "maximum": 35.551
+    },
+    "endpoint_ms": {
+      "median": 0.032,
+      "maximum": 0.046
+    },
+    "turn_elapsed_ms": {
+      "median": 533.763,
+      "maximum": 563.144
+    },
+    "maximum_retained_snapshot_pixels": 2525454
+  },
+  "change": "During an active settling turn, display the invalidated overlay in the same timer tick. Geometry, texture sampling, and idle behavior are unchanged.",
+  "integration_validation": {
+    "books": 9,
+    "checks": 72,
+    "failures": 0
+  }
+}
