@@ -86,7 +86,8 @@ impl Reader {
     pub fn view(&self) -> &NSView { &self.container }
     pub fn focus(&self) { let state = self.state.borrow(); if let Some(window) = state.view.window() { window.makeFirstResponder(Some(&*state.view)); } }
     pub fn resize(&self, frame: NSRect) {
-        self.state.borrow_mut().finish_turn(true);
+        if self.container.frame() == frame { return; }
+        self.state.borrow_mut().finish_intended_turn();
         self.container.setFrame(frame);
         if self.zoom_factor() <= 1.001 { self.fit(); }
     }
@@ -102,7 +103,7 @@ impl Reader {
         let info = DocumentInfo { title: title.clone(), page_count: document.page_count(), path: path.to_owned(), allows_copying: document.allows_copying() };
         {
             let mut state = self.state.borrow_mut();
-            state.finish_turn(true); state.cancel_capture(); state.captured = None;
+            state.finish_intended_turn(); state.cancel_capture(); state.captured = None;
             state.current = 1; state.title = title; state.document = Some(document.clone()); state.factor = 1.; state.pan = None; state.space = false;
             unsafe { let _: () = msg_send![&*state.view, setDocument: &*document]; }
         }
@@ -118,17 +119,17 @@ impl Reader {
     pub fn go_to(&self, page: usize, animated: bool) { self.state.borrow_mut().navigate(page, animated); }
     pub fn step(&self, delta: isize) { self.state.borrow_mut().step(delta); }
     pub fn set_spread(&self, enabled: bool) {
-        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } state.finish_turn(true); state.spread = enabled;
+        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } state.finish_intended_turn(); state.spread = enabled;
         unsafe { let _: () = msg_send![&*state.view, setDisplayMode: if enabled { 2isize } else { 0isize }]; let _: () = msg_send![&*state.view, setDisplaysAsBook: true]; }
         let current = state.current; state.go_to(current);
     }
-    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } state.finish_turn(true); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
+    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } state.finish_intended_turn(); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
     pub fn set_theme(&self, theme: &str) {
         let color = match theme { "night" => NSColor::colorWithSRGBRed_green_blue_alpha(0.09, 0.10, 0.10, 1.), "white" => NSColor::colorWithSRGBRed_green_blue_alpha(0.96, 0.96, 0.96, 1.), _ => NSColor::colorWithSRGBRed_green_blue_alpha(0.91, 0.91, 0.88, 1.) };
         unsafe { let _: () = msg_send![&*self.state.borrow().view, setBackgroundColor: &*color]; }
     }
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
-    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.finish_turn(true); state.fit(); }
+    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.fit(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.document().map(|document| document.outline()).unwrap_or_default() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }
     pub fn highlight(&self, query: &str) -> bool {
@@ -165,7 +166,7 @@ impl Reader {
         write_text(&format!("{} — p. {}\n\n{}", state.title, state.current, text.trim()))
     }
     pub fn begin_capture(&self) {
-        let mut state = self.state.borrow_mut(); state.finish_turn(true);
+        let mut state = self.state.borrow_mut(); state.finish_intended_turn();
         if state.document.is_none() { return; }
         state.visual.borrow_mut().capture_mode = true; state.capture_start = None; state.pan = None;
         NSCursor::crosshairCursor().set(); state.overlay.repaint();
@@ -216,12 +217,12 @@ impl ReaderState {
         }
     }
     fn step(&mut self, delta: isize) {
-        self.finish_turn(true);
+        self.finish_intended_turn();
         let target = step_target(self.current, self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1), self.spread, delta);
         self.navigate(target, true);
     }
     fn set_zoom(&mut self, factor: f64) {
-        self.finish_turn(true);
+        self.finish_intended_turn();
         if self.document.is_none() { return; }
         self.factor = factor.clamp(1., 4.);
         if self.factor <= 1.001 { self.fit(); return; }
@@ -260,7 +261,7 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
         if modifiers.contains(NSEventModifierFlags::Command) {
             if event.keyCode() == 24 { let factor = state.factor * 1.25; state.set_zoom(factor); return true; }
             if event.keyCode() == 27 { let factor = state.factor / 1.25; state.set_zoom(factor); return true; }
-            if event.keyCode() == 29 { state.finish_turn(true); state.fit(); return true; }
+            if event.keyCode() == 29 { state.finish_intended_turn(); state.fit(); return true; }
             match text.as_str() { "+" | "=" => { let factor = state.factor * 1.25; state.set_zoom(factor); return true; }, "-" => { let factor = state.factor / 1.25; state.set_zoom(factor); return true; }, "0" => { state.fit(); return true; }, _ => return false }
         }
         if modifiers.intersects(NSEventModifierFlags::Control | NSEventModifierFlags::Option) { return false; }
@@ -315,7 +316,7 @@ impl ReaderState {
         PageImage { image: page.thumbnail(NSSize::new(rect.size.width * scale, rect.size.height * scale)), rect }
     }
     fn navigate(&mut self, target: usize, animated: bool) {
-        self.finish_turn(true); self.cancel_capture();
+        self.finish_intended_turn(); self.cancel_capture();
         let count = self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(0); if count == 0 { return; }
         let target = target.clamp(1,count); if target == self.current { self.go_to(target); return; }
         let reduce: bool = unsafe { msg_send![&*NSWorkspace::sharedWorkspace(), accessibilityDisplayShouldReduceMotion] };
@@ -350,7 +351,7 @@ impl ReaderState {
         self.overlay.repaint(); true
     }
     fn corner_turn(&mut self, point: NSPoint) -> bool {
-        if self.turn.is_some() { self.finish_turn(true); }
+        if self.turn.is_some() { self.finish_intended_turn(); }
         let mut pages=self.visible();pages.sort_by(|a,b|a.2.origin.x.total_cmp(&b.2.origin.x));
         let Some(first)=pages.first() else{return false;};let last=pages.last().unwrap();
         let left=(point.x-first.2.origin.x).abs()<38.;let right=(point.x-last.2.origin.x-last.2.size.width).abs()<38.;
@@ -394,6 +395,10 @@ impl ReaderState {
             }
         } }
         if t>=1. {self.finish_turn(commit);}else{self.overlay.repaint();}
+    }
+    fn finish_intended_turn(&mut self) {
+        let commit=self.turn.as_ref().and_then(|turn|turn.settle.as_ref()).map(|settle|settle.to>0.5).unwrap_or(true);
+        self.finish_turn(commit);
     }
     fn finish_turn(&mut self, commit: bool) {
         let Some(turn)=self.turn.take()else{return;};
