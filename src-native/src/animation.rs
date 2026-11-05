@@ -18,9 +18,11 @@ pub struct Curl {
     pub spread: bool,
     pub gutter: f64,
 }
+#[derive(Clone, Copy, PartialEq)]
+pub struct EdgeHint { pub rect: NSRect, pub side: i8, pub pressed: bool }
 #[derive(Default)]
 pub struct Visual {
-    pub curl: Option<Curl>, pub capture: Option<NSRect>, pub capture_mode: bool,
+    pub curl: Option<Curl>, pub capture: Option<NSRect>, pub capture_mode: bool, pub edge: Option<EdgeHint>, pub night: bool,
     #[cfg(debug_assertions)]
     debug: Option<DebugMetrics>,
 }
@@ -46,6 +48,14 @@ define_class!(
             #[cfg(debug_assertions)]
             let progress = visual.curl.as_ref().map(|curl|curl.progress);
             if let Some(curl) = &visual.curl { draw_curl(&cg, curl); }
+            if let Some(edge)=visual.edge {
+                let x=edge.rect.origin.x+edge.rect.size.width/2.;let y=edge.rect.origin.y+edge.rect.size.height/2.;
+                let pill=NSRect::new(NSPoint::new(x-13.,y-22.),objc2_foundation::NSSize::new(26.,44.));
+                CGContext::set_rgb_fill_color(Some(&cg),0.18,0.25,0.22,if visual.night{0.9}else if edge.pressed{0.19}else{0.09});CGContext::fill_ellipse_in_rect(Some(&cg),pill);
+                CGContext::begin_path(Some(&cg));let direction=edge.side as f64;
+                CGContext::move_to_point(Some(&cg),x-direction*3.,y-7.);CGContext::add_line_to_point(Some(&cg),x+direction*4.,y);CGContext::add_line_to_point(Some(&cg),x-direction*3.,y+7.);
+                let ink=if visual.night{0.95}else{0.2};CGContext::set_rgb_stroke_color(Some(&cg),ink,ink,ink,if edge.pressed{0.95}else{0.65});CGContext::set_line_width(Some(&cg),if edge.pressed{2.3}else{1.7});CGContext::stroke_path(Some(&cg));
+            }
             if visual.capture_mode {
                 if let Some(rect) = visual.capture {
                     CGContext::set_rgb_fill_color(Some(&cg), 0.25, 0.43, 0.36, 0.14);

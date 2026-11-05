@@ -3,12 +3,12 @@ use block2::RcBlock;
 use objc2::{msg_send, ClassType, MainThreadMarker, MainThreadOnly, AnyThread};
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, AnyClass};
-use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSImage, NSPasteboard, NSPasteboardTypeString, NSScrollView, NSView, NSGraphicsContext, NSCursor, NSDeviceRGBColorSpace, NSWorkspace};
+use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSEventPhase, NSImage, NSPasteboard, NSPasteboardTypeString, NSScrollView, NSView, NSGraphicsContext, NSCursor, NSDeviceRGBColorSpace, NSWorkspace};
 use objc2_foundation::{NSPoint, NSRange, NSRect, NSSize, NSString, NSArray};
 use objc2_core_graphics::CGContext;
 #[path = "animation.rs"]
 mod animation;
-use animation::{Curl, Overlay, PageImage, Visual};
+use animation::{Curl, Overlay, PageImage, Visual, EdgeHint};
 use crate::pdf::{PDFDocument, PDFPage, PDFSelection, PDFView};
 
 #[derive(Clone, Debug)]
@@ -22,8 +22,35 @@ pub struct DocumentInfo {
 struct Settle { start: Instant, duration: Duration, from: f64, to: f64, vertical: f64, tangent: f64 }
 struct Turn { old: usize, target: usize, settle: Option<Settle>, start: NSPoint, last: NSPoint, sample: Instant, velocity: f64, excursion: f64 }
 
+#[derive(Clone, Copy)]
+struct EdgePress { side: i8, start: NSPoint, distance: f64 }
+struct ScrollSession { gesture: PagingGesture, target: Option<usize>, animated: bool }
+#[derive(Debug)]
+struct PagingGesture { x: f64, y: f64, width: f64, direction: Option<i8>, vertical: bool, velocity: f64, last_time: f64, last_motion: f64, finished: bool }
+impl PagingGesture {
+    fn new(width: f64, time: f64) -> Self { Self { x: 0., y: 0., width: width.max(1.), direction: None, vertical: false, velocity: 0., last_time: time, last_motion: time, finished: false } }
+    fn update(&mut self, dx: f64, dy: f64, time: f64, momentum: bool) -> Option<i8> {
+        if momentum || self.finished {return None;}
+        self.x += dx; self.y += dy;
+        if dx.abs() > 0.01 { self.velocity = dx / self.width / (time-self.last_time).max(1./120.); self.last_motion = time; }
+        self.last_time = time;
+        if self.direction.is_none() && !self.vertical {
+            if self.x.abs() >= 12. && self.x.abs() > self.y.abs()*1.35 { let direction=if self.x>0. {1}else{-1}; self.direction=Some(direction); return Some(direction); }
+            if self.y.abs() >= 12. && self.y.abs() > self.x.abs()*1.15 { self.vertical=true; }
+        }
+        None
+    }
+    fn progress(&self) -> f64 { (self.x*self.direction.unwrap_or(0) as f64/self.width).clamp(0.,1.) }
+    fn speed(&self, time: f64) -> f64 { if time-self.last_motion > 0.12 {0.} else {self.velocity*self.direction.unwrap_or(0) as f64} }
+    fn finish(&mut self, cancelled: bool, time: f64) -> bool { let commit=!self.finished && !cancelled && self.direction.is_some() && (self.progress()>0.22 || self.progress()>=0.08 && self.speed(time)>0.8);self.finished=true;commit }
+}
+
 struct ReaderState {
     view: Retained<PDFView>,
+    enabled: bool,
+    edge_press: Option<EdgePress>,
+    scroll: Option<ScrollSession>,
+    last_scroll: Option<Instant>,
     document: Option<Retained<PDFDocument>>,
     title: String,
     current: usize,
@@ -70,7 +97,7 @@ impl Reader {
         let visual = Rc::new(RefCell::new(Visual::default()));
         let overlay = Overlay::new(mtm, NSRect::new(NSPoint::new(0., 0.), frame.size), visual.clone());
         container.addSubview(&overlay);
-        let state = Rc::new(RefCell::new(ReaderState { view, document: None, title: String::new(), current: 1, spread: false, rtl: false, fit_scale: 1., factor: 1., space: false, pan: None, last_scale: 1., overlay, visual, turn: None, capture_start: None, captured: None, #[cfg(debug_assertions)] debug_samples: 0 }));
+        let state = Rc::new(RefCell::new(ReaderState { view, enabled: true, edge_press: None, scroll: None, last_scroll: None, document: None, title: String::new(), current: 1, spread: false, rtl: false, fit_scale: 1., factor: 1., space: false, pan: None, last_scale: 1., overlay, visual, turn: None, capture_start: None, captured: None, #[cfg(debug_assertions)] debug_samples: 0 }));
         let weak = Rc::downgrade(&state);
         let block = RcBlock::new(move |pointer: NonNull<NSEvent>| -> *mut NSEvent {
             let Some(state) = weak.upgrade() else { return pointer.as_ptr(); };
@@ -84,10 +111,24 @@ impl Reader {
     }
 
     pub fn view(&self) -> &NSView { &self.container }
-    pub fn focus(&self) { let state = self.state.borrow(); if let Some(window) = state.view.window() { window.makeFirstResponder(Some(&*state.view)); } }
+    pub fn set_interaction_enabled(&self, enabled: bool) {
+        let mut state=self.state.borrow_mut(); if state.enabled==enabled {return;} state.enabled=enabled;
+        if !enabled {
+            state.cancel_scroll();
+            let commit=state.turn.as_ref().and_then(|turn|turn.settle.as_ref()).is_some_and(|settle|settle.to>0.5);
+            state.finish_turn(commit);state.edge_press=None;state.set_edge_hint(None);state.cancel_capture();state.pan=None;state.space=false;state.update_cursor();
+        } else if let Some(window)=state.view.window() {window.setAcceptsMouseMovedEvents(true);}
+    }
+    pub fn clear(&self) {
+        self.set_interaction_enabled(false);let mut state=self.state.borrow_mut();state.turn=None;state.scroll=None;state.edge_press=None;state.captured=None;
+        {let mut visual=state.visual.borrow_mut();visual.curl=None;visual.edge=None;visual.capture=None;visual.capture_mode=false;}
+        unsafe {let _:()=msg_send![&*state.view,setDocument:std::ptr::null::<PDFDocument>()];}
+        state.document=None;state.title.clear();state.current=1;state.factor=1.;state.fit_scale=1.;state.last_scale=1.;state.overlay.repaint();
+    }
+    pub fn focus(&self) { let state = self.state.borrow(); if state.enabled {if let Some(window) = state.view.window() { window.setAcceptsMouseMovedEvents(true);window.makeFirstResponder(Some(&*state.view)); }} }
     pub fn resize(&self, frame: NSRect) {
         if self.container.frame() == frame { return; }
-        { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.pan = None; state.update_cursor(); }
+        { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.pan = None; state.update_cursor(); }
         self.container.setFrame(frame);
         if self.zoom_factor() <= 1.001 { self.fit(); }
     }
@@ -103,7 +144,7 @@ impl Reader {
         let info = DocumentInfo { title: title.clone(), page_count: document.page_count(), path: path.to_owned(), allows_copying: document.allows_copying() };
         {
             let mut state = self.state.borrow_mut();
-            state.finish_intended_turn(); state.cancel_capture(); state.captured = None;
+            state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.cancel_capture(); state.captured = None;
             state.current = 1; state.title = title; state.document = Some(document.clone()); state.factor = 1.; state.pan = None; state.space = false;
             unsafe { let _: () = msg_send![&*state.view, setDocument: &*document]; }
         }
@@ -113,6 +154,12 @@ impl Reader {
     pub fn document(&self) -> Option<Retained<PDFDocument>> { self.state.borrow().document.clone() }
     pub fn current_page(&self) -> usize { self.state.borrow().current }
     pub fn is_turning(&self) -> bool { self.state.borrow().turn.is_some() }
+    #[cfg(debug_assertions)]
+    pub fn debug_scroll(&self, dx: f64, dy: f64, phase: usize, momentum: bool, time: f64) {
+        let mut state=self.state.borrow_mut();if !state.enabled || state.view.isHiddenOrHasHiddenAncestor() || state.factor>1.001 {return;}
+        let bounds=state.view.bounds();let point=NSPoint::new(bounds.size.width/2.,bounds.size.height*0.8);
+        state.trackpad_sample(dx,dy,NSEventPhase::from_bits_retain(phase),momentum,time,point);
+    }
     #[cfg(debug_assertions)]
     pub fn diagnostics(&self) -> serde_json::Value {
         let state=self.state.borrow();let bounds=state.view.bounds();let pages=state.visible();
@@ -124,19 +171,20 @@ impl Reader {
     pub fn title(&self) -> String { self.state.borrow().title.clone() }
     pub fn set_title(&self, title: &str) { self.state.borrow_mut().title = title.to_owned(); }
     pub fn go_to(&self, page: usize, animated: bool) { self.state.borrow_mut().navigate(page, animated); }
-    pub fn step(&self, delta: isize) { self.state.borrow_mut().step(delta); }
+    pub fn step(&self, delta: isize) { let mut state=self.state.borrow_mut();if state.enabled {state.step(delta);} }
     pub fn set_spread(&self, enabled: bool) {
-        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } state.finish_intended_turn(); state.spread = enabled;
+        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.spread = enabled;
         unsafe { let _: () = msg_send![&*state.view, setDisplayMode: if enabled { 2isize } else { 0isize }]; let _: () = msg_send![&*state.view, setDisplaysAsBook: true]; }
         let current = state.current; state.go_to(current);
     }
-    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } state.finish_intended_turn(); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
+    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
     pub fn set_theme(&self, theme: &str) {
         let color = match theme { "night" => NSColor::colorWithSRGBRed_green_blue_alpha(0.09, 0.10, 0.10, 1.), "white" => NSColor::colorWithSRGBRed_green_blue_alpha(0.96, 0.96, 0.96, 1.), _ => NSColor::colorWithSRGBRed_green_blue_alpha(0.91, 0.91, 0.88, 1.) };
-        unsafe { let _: () = msg_send![&*self.state.borrow().view, setBackgroundColor: &*color]; }
+        let state=self.state.borrow();state.visual.borrow_mut().night=theme=="night";state.overlay.repaint();
+        unsafe { let _: () = msg_send![&*state.view, setBackgroundColor: &*color]; }
     }
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
-    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.finish_intended_turn(); state.fit(); state.update_cursor(); }
+    pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.fit(); state.update_cursor(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.document().map(|document| document.outline()).unwrap_or_default() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }
     pub fn highlight(&self, query: &str) -> bool {
@@ -171,7 +219,7 @@ impl Reader {
         write_text(&format!("{} — p. {}\n\n{}", state.title, state.current, text.trim()))
     }
     pub fn begin_capture(&self) {
-        let mut state = self.state.borrow_mut(); state.finish_intended_turn();
+        let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn();
         if state.document.is_none() { return; }
         state.visual.borrow_mut().capture_mode = true; state.capture_start = None; state.pan = None; state.space = false;
         NSCursor::crosshairCursor().set(); state.overlay.repaint();
@@ -179,12 +227,15 @@ impl Reader {
     pub fn take_capture(&self) -> Option<Retained<NSImage>> { self.state.borrow_mut().captured.take() }
     pub fn cancel_interaction(&self) -> bool {
         let mut state = self.state.borrow_mut();
+        if state.scroll.is_some() { state.cancel_scroll(); return true; }
+        if state.edge_press.take().is_some() {state.set_edge_hint(None);state.update_cursor();return true;}
         if state.turn.is_some() { state.settle_turn(false); return true; }
         if state.visual.borrow().capture_mode { state.cancel_capture(); return true; }
         let active = state.pan.is_some() || state.space; state.pan = None; state.space = false; state.update_cursor(); active
     }
     pub fn tick(&self) {
         let mut state = self.state.borrow_mut();
+        if !state.enabled {return;}
         #[cfg(debug_assertions)] animation::debug_tick(&mut state.visual.borrow_mut());
         state.advance_turn();
         if state.turn.is_none() {
@@ -223,12 +274,12 @@ impl ReaderState {
         }
     }
     fn step(&mut self, delta: isize) {
-        self.finish_intended_turn();
+        self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn();
         let target = step_target(self.current, self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1), self.spread, delta);
         self.navigate(target, true);
     }
     fn set_zoom(&mut self, factor: f64) {
-        self.finish_intended_turn(); self.pan = None;
+        self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn(); self.pan = None;
         if self.document.is_none() { return; }
         self.factor = factor.clamp(1., 4.);
         if self.factor <= 1.001 { self.fit(); self.update_cursor(); return; }
@@ -249,6 +300,7 @@ fn write_text(text: &str) -> Result<(), String> {
 
 fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
     let Ok(mut state) = state.try_borrow_mut() else { return false; };
+    if state.view.isHiddenOrHasHiddenAncestor() {return false;}
     let Some(window) = state.view.window() else { return false; };
     if event.window(state.view.mtm()).as_deref() != Some(&*window) { return false; }
     let point = state.view.convertPoint_fromView(event.locationInWindow(), None);
@@ -258,9 +310,21 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
     let inside = geometric_inside && reader_hit;
     let event_type = event.r#type();
     let overlay_point = NSPoint::new(point.x, if state.view.isFlipped() { point.y } else { bounds.size.height - point.y });
-    if event_type == NSEventType::LeftMouseDown && inside { crate::enqueue("reader-click", 0); }
     let responder = window.firstResponder();
     let reader_focused = responder.as_ref().and_then(|responder| responder.downcast_ref::<NSView>()).is_some_and(|view| view.isDescendantOf(&state.view));
+    if !state.enabled {
+        let command=event.modifierFlags().contains(NSEventModifierFlags::Command);
+        let paging=event_type==NSEventType::KeyDown && reader_focused && if command {matches!(event.keyCode(),24|27|29)}else{matches!(event.keyCode(),49|115|116|119|121|123|124)};
+        return paging || inside && (event_type==NSEventType::ScrollWheel || event_type==NSEventType::Magnify || event_type==NSEventType::Swipe);
+    }
+    if event_type == NSEventType::LeftMouseDown && inside { state.cancel_scroll();crate::enqueue("reader-click", 0); }
+    if event_type == NSEventType::MouseMoved || event_type == NSEventType::CursorUpdate || event_type == NSEventType::MouseExited {
+        if !state.space && !state.visual.borrow().capture_mode && state.edge_press.is_none() {
+            let hint=if inside {state.edge_at(overlay_point).map(|(side,rect)|EdgeHint{side,rect,pressed:false})}else{None};
+            state.set_edge_hint(hint);
+            if hint.is_some() {state.update_cursor();return true;}
+        }
+    }
     if event_type == NSEventType::KeyUp && event.keyCode() == 49 { state.space = false; state.pan = None; state.update_cursor(); return false; }
     if inside && (event_type == NSEventType::MouseMoved || event_type == NSEventType::CursorUpdate) && (state.space || state.visual.borrow().capture_mode) { state.update_cursor(); return true; }
     if event_type == NSEventType::KeyDown && reader_focused {
@@ -288,9 +352,31 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
         if event_type == NSEventType::LeftMouseDragged && state.capture_start.is_some() { state.update_capture(overlay_point); return true; }
         if event_type == NSEventType::LeftMouseUp && state.capture_start.is_some() { state.update_capture(overlay_point); state.complete_capture(); return true; }
     }
-    if event_type == NSEventType::LeftMouseDown && inside && !state.space && state.factor <= 1.001 && state.corner_turn(overlay_point) { return true; }
-    if event_type == NSEventType::LeftMouseDragged && state.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) { state.drag_turn(overlay_point); return true; }
-    if event_type == NSEventType::LeftMouseUp && state.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) {
+    if event_type == NSEventType::ScrollWheel && (inside || state.scroll.is_some()) && state.factor<=1.001 {
+        if !inside {state.cancel_scroll();return false;}
+        return state.trackpad_event(event,overlay_point);
+    }
+    if event_type == NSEventType::Swipe && inside && state.factor<=1.001 {
+        if state.scroll.is_none() && state.last_scroll.is_none_or(|last|last.elapsed().as_secs_f64()>0.7) && event.deltaX().abs()>event.deltaY().abs() {
+            let side=if event.deltaX()>0. {1}else{-1};let delta=if (side>0)!=state.rtl {1}else{-1};state.step(delta);
+        }
+        return true;
+    }
+    if event_type == NSEventType::LeftMouseDown && inside && !state.space && state.factor <= 1.001 && !state.page_content_at(overlay_point) {
+        if state.corner_turn(overlay_point) {return true;}
+        if let Some((side,rect))=state.edge_at(overlay_point) {state.edge_press=Some(EdgePress{side,start:overlay_point,distance:0.});state.set_edge_hint(Some(EdgeHint{side,rect,pressed:true}));state.update_cursor();return true;}
+    }
+    if event_type == NSEventType::LeftMouseDragged && state.edge_press.is_some() {
+        let mut press=state.edge_press.unwrap();press.distance=press.distance.max((overlay_point.x-press.start.x).hypot(overlay_point.y-press.start.y));state.edge_press=Some(press);
+        let hint=if inside {state.edge_at(overlay_point).filter(|(side,_)|*side==press.side).map(|(side,rect)|EdgeHint{side,rect,pressed:press.distance<5.})}else{None};state.set_edge_hint(hint);return true;
+    }
+    if event_type == NSEventType::LeftMouseUp && state.edge_press.is_some() {
+        let press=state.edge_press.take().unwrap();let zone=if inside {state.edge_at(overlay_point)}else{None};
+        let commit=edge_click_commits(press,overlay_point,zone.map(|(side,_)|side));state.set_edge_hint(None);state.update_cursor();
+        if commit {let delta=if (press.side>0)!=state.rtl {1}else{-1};state.step(delta);}return true;
+    }
+    if event_type == NSEventType::LeftMouseDragged && state.scroll.is_none() && state.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) { state.drag_turn(overlay_point); return true; }
+    if event_type == NSEventType::LeftMouseUp && state.scroll.is_none() && state.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) {
         let progress = state.visual.borrow().curl.as_ref().map(|curl|curl.progress).unwrap_or(0.);
         let turn = state.turn.as_ref().unwrap();
         let speed = if turn.sample.elapsed().as_secs_f64() < 0.12 { turn.velocity } else { 0. };
@@ -324,7 +410,7 @@ impl ReaderState {
         PageImage { image: page.thumbnail(NSSize::new(rect.size.width * scale, rect.size.height * scale)), rect }
     }
     fn navigate(&mut self, target: usize, animated: bool) {
-        self.finish_intended_turn(); self.cancel_capture();
+        self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn(); self.cancel_capture();
         let count = self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(0); if count == 0 { return; }
         let target = target.clamp(1,count); if target == self.current { self.go_to(target); return; }
         let reduce: bool = unsafe { msg_send![&*NSWorkspace::sharedWorkspace(), accessibilityDisplayShouldReduceMotion] };
@@ -334,6 +420,7 @@ impl ReaderState {
     fn begin_turn(&mut self, target: usize, corner: f64, start: NSPoint) -> bool {
         let Some(document) = self.document.clone() else { return false; };
         if target == self.current || target == 0 || target > document.page_count() { return false; }
+        self.set_edge_hint(None);
         let direction = if (target > self.current) != self.rtl { 1. } else { -1. };
         let mut old = self.visible(); old.sort_by(|a,b|a.2.origin.x.total_cmp(&b.2.origin.x));
         if old.is_empty() { return false; }
@@ -397,7 +484,7 @@ impl ReaderState {
         drop(visual); self.update_cursor();
     }
     fn advance_turn(&mut self) {
-        let Some(turn)=self.turn.as_ref()else{return;};let Some(settle)=turn.settle.as_ref()else{return;};
+        let Some(turn)=self.turn.as_ref()else{return;};let Some(settle)=turn.settle.as_ref()else{self.overlay.displayIfNeeded();return;};
         let t=(settle.start.elapsed().as_secs_f64()/settle.duration.as_secs_f64()).clamp(0.,1.);let smooth=t*t*(3.-2.*t);let eased=smooth+settle.tangent*t*(1.-t)*(1.-t);
         {let mut visual=self.visual.borrow_mut();if let Some(curl)=visual.curl.as_mut(){curl.progress=settle.from+(settle.to-settle.from)*eased;curl.vertical=settle.vertical*(1.-smooth);}}
         let commit=settle.to>0.5;
@@ -430,6 +517,7 @@ impl ReaderState {
         if self.visual.borrow().capture_mode { NSCursor::crosshairCursor().set(); }
         else if self.pan.is_some() || self.turn.as_ref().is_some_and(|turn|turn.settle.is_none()) { NSCursor::closedHandCursor().set(); }
         else if self.space && self.factor > 1.001 { NSCursor::openHandCursor().set(); }
+        else if self.visual.borrow().edge.is_some() {NSCursor::pointingHandCursor().set();}
         else { NSCursor::arrowCursor().set(); }
     }
     fn cancel_capture(&mut self) {
@@ -489,5 +577,109 @@ mod tests {
         assert!(should_commit(0.01, 2., 0.));
         assert!(should_commit(0.7, 230., -0.2));
         assert!(should_commit(0.2, 80., 1.1));
+    }
+}
+
+impl ReaderState {
+    fn set_edge_hint(&mut self, hint: Option<EdgeHint>) {
+        let mut visual=self.visual.borrow_mut();if visual.edge!=hint {visual.edge=hint;self.overlay.repaint();}
+    }
+    fn page_content_at(&self, point: NSPoint) -> bool {
+        let point=NSPoint::new(point.x,if self.view.isFlipped(){point.y}else{self.view.bounds().size.height-point.y});
+        unsafe {
+            let page:Option<Retained<PDFPage>>=msg_send![&*self.view,pageForPoint:point,nearest:false];let Some(page)=page else{return false;};
+            let point:NSPoint=msg_send![&*self.view,convertPoint:point,toPage:&*page];
+            let annotation:Option<Retained<AnyObject>>=msg_send![&*page,annotationAtPoint:point];if annotation.is_some(){return true;}
+            let character:isize=msg_send![&*page,characterIndexAtPoint:point];let count:usize=msg_send![&*page,numberOfCharacters];character>=0 && (character as usize)<count
+        }
+    }
+    fn edge_at(&self, point: NSPoint) -> Option<(i8,NSRect)> {
+        if self.factor>1.001 || self.turn.is_some() || self.scroll.is_some() || self.visual.borrow().capture_mode {return None;}
+        let mut pages=self.visible();pages.sort_by(|a,b|a.2.origin.x.total_cmp(&b.2.origin.x));let first=pages.first()?.2;let last=pages.last()?.2;
+        let side=edge_side(point,self.view.bounds().size.width,first,last)?;
+        let delta=if (side>0)!=self.rtl{1}else{-1};let count=self.document.as_ref()?.page_count();
+        if step_target(self.current,count,self.spread,delta)==self.current || self.page_content_at(point){return None;}
+        let rect=if side<0 {NSRect::new(NSPoint::new(0.,first.origin.y),NSSize::new((first.origin.x+edge_band(first)).max(28.),first.size.height))}else{let x=(last.origin.x+last.size.width-edge_band(last)).max(0.);NSRect::new(NSPoint::new(x,last.origin.y),NSSize::new((self.view.bounds().size.width-x).max(28.),last.size.height))};
+        Some((side,rect))
+    }
+    fn cancel_scroll(&mut self) {
+        if let Some(scroll)=self.scroll.take() {if scroll.animated {self.finish_turn(false);}if scroll.gesture.direction.is_some(){self.last_scroll=Some(Instant::now());}self.set_edge_hint(None);}
+    }
+    fn trackpad_event(&mut self, event: &NSEvent, point: NSPoint) -> bool {
+        self.trackpad_sample(event.scrollingDeltaX(),event.scrollingDeltaY(),event.phase(),event.momentumPhase()!=NSEventPhase::None,event.timestamp(),point)
+    }
+    fn trackpad_sample(&mut self, dx: f64, dy: f64, phase: NSEventPhase, momentum: bool, time: f64, point: NSPoint) -> bool {
+        if momentum {self.last_scroll=Some(Instant::now());return true;}
+        if phase.intersects(NSEventPhase::Began|NSEventPhase::MayBegin) {
+            self.cancel_scroll();self.finish_intended_turn();self.edge_press=None;self.set_edge_hint(None);
+            let width=self.visible().first().map(|(_,_,rect)|rect.size.width).unwrap_or(self.view.bounds().size.width);
+            self.scroll=Some(ScrollSession{gesture:PagingGesture::new(width,time),target:None,animated:false});
+        }
+        let Some(mut scroll)=self.scroll.take()else{return true;};
+        if let Some(side)=scroll.gesture.update(-dx,dy,time,false) {
+            let delta=if (side>0)!=self.rtl{1}else{-1};let target=step_target(self.current,self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1),self.spread,delta);
+            if target!=self.current {
+                scroll.target=Some(target);
+                let reduce:bool=unsafe{msg_send![&*NSWorkspace::sharedWorkspace(),accessibilityDisplayShouldReduceMotion]};
+                if !reduce {scroll.animated=self.begin_turn(target,if point.y<self.view.bounds().size.height/2.{0.18}else{0.82},point);}
+            }
+        }
+        if scroll.gesture.direction.is_some(){self.last_scroll=Some(Instant::now());}
+        if scroll.animated {
+            {let mut visual=self.visual.borrow_mut();if let Some(curl)=visual.curl.as_mut(){curl.progress=scroll.gesture.progress();curl.vertical=scroll.gesture.y.clamp(-curl.front.rect.size.height*0.3,curl.front.rect.size.height*0.3);}}
+            if let Some(turn)=self.turn.as_mut(){turn.velocity=scroll.gesture.speed(time);turn.sample=Instant::now();}self.overlay.repaint();
+        }
+        if phase.intersects(NSEventPhase::Ended|NSEventPhase::Cancelled) {
+            let commit=scroll.gesture.finish(phase.contains(NSEventPhase::Cancelled),time);
+            if scroll.animated {self.settle_turn(commit);}else if commit {if let Some(target)=scroll.target{self.go_to(target);}}
+        } else {self.scroll=Some(scroll);}
+        true
+    }
+}
+fn edge_band(rect:NSRect)->f64 {(rect.size.width*0.035).clamp(10.,16.)}
+fn edge_side(point:NSPoint,width:f64,left:NSRect,right:NSRect)->Option<i8> {
+    if point.x<0.||point.x>width{return None;}
+    if point.x<=left.origin.x+edge_band(left) && point.y>=left.origin.y && point.y<=left.origin.y+left.size.height {return Some(-1);}
+    if point.x>=right.origin.x+right.size.width-edge_band(right) && point.y>=right.origin.y && point.y<=right.origin.y+right.size.height {return Some(1);}
+    None
+}
+fn edge_click_commits(press:EdgePress,point:NSPoint,side:Option<i8>)->bool {side==Some(press.side)&&press.distance<5.&&(point.x-press.start.x).hypot(point.y-press.start.y)<5.}
+
+#[cfg(test)]
+mod input_tests {
+    use super::{PagingGesture,EdgePress,edge_side,edge_click_commits};
+    use objc2_foundation::{NSPoint,NSRect,NSSize};
+    #[test]
+    fn horizontal_trackpad_gesture_can_return_to_its_origin_and_cancel() {
+        let mut gesture=PagingGesture::new(500.,0.);
+        assert_eq!(gesture.update(30.,2.,0.02,false),Some(1));
+        gesture.update(170.,4.,0.08,false);assert!((gesture.progress()-0.4).abs()<0.001);
+        gesture.update(-185.,0.,0.14,false);assert!(gesture.progress()<0.04);
+        assert!(!gesture.finish(false,0.15));
+    }
+    #[test]
+    fn trackpad_commit_is_once_and_momentum_cannot_advance_another_page() {
+        let mut gesture=PagingGesture::new(500.,0.);
+        gesture.update(150.,4.,0.1,false);assert!(gesture.finish(false,0.12));
+        gesture.update(800.,0.,0.14,true);assert!(!gesture.finish(false,0.16));
+        let mut noise=PagingGesture::new(500.,0.);noise.update(900.,0.,0.1,true);assert!(!noise.finish(false,0.12));
+    }
+    #[test]
+    fn vertical_scroll_and_short_horizontal_flicks_do_not_turn() {
+        let mut vertical=PagingGesture::new(500.,0.);vertical.update(2.,40.,0.02,false);vertical.update(250.,3.,0.1,false);assert!(!vertical.finish(false,0.11));
+        let mut tiny=PagingGesture::new(500.,0.);tiny.update(13.,0.,0.008,false);assert!(!tiny.finish(false,0.015));
+        let mut cancelled=PagingGesture::new(500.,0.);cancelled.update(280.,0.,0.1,false);assert!(!cancelled.finish(true,0.12));
+    }
+    #[test]
+    fn page_center_stays_native_and_edge_click_requires_a_release_in_the_same_zone() {
+        let page=NSRect::new(NSPoint::new(220.,20.),NSSize::new(500.,700.));
+        assert_eq!(edge_side(NSPoint::new(80.,300.),940.,page,page),Some(-1));
+        assert_eq!(edge_side(NSPoint::new(710.,300.),940.,page,page),Some(1));
+        assert_eq!(edge_side(NSPoint::new(470.,300.),940.,page,page),None);
+        assert_eq!(edge_side(NSPoint::new(80.,5.),940.,page,page),None);
+        let press=EdgePress{side:1,start:NSPoint::new(800.,300.),distance:0.};
+        assert!(edge_click_commits(press,NSPoint::new(802.,301.),Some(1)));
+        assert!(!edge_click_commits(press,NSPoint::new(802.,301.),None));
+        assert!(!edge_click_commits(EdgePress{distance:30.,..press},press.start,Some(1)));
     }
 }
