@@ -1,0 +1,13 @@
+{
+  "version": "0.6.0",
+  "date": "2026-11-05",
+  "source_commit": "43ca21a56832af140efc6ab13fb26ae45b0d23d4",
+  "architecture": "arm64",
+  "app_bytes": 1110941,
+  "zip_bytes": 525067,
+  "zip_sha256": "9edd60930a2fec592f468511299ed0792b26f27f9d828e10bc3531c4fefbe6e8",
+  "signature": "ad-hoc, built and delivered deep strict verification passed",
+  "zip_integrity": "passed",
+  "notarized": false,
+  "icons": "Lucide 0.468.0 static vector subset; ISC and Feather MIT licenses bundled"
+}
