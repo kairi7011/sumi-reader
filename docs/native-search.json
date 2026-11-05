@@ -1,0 +1,157 @@
+{
+  "checkedAt": "2026-11-05T07:23:09.491352+00:00",
+  "appVersion": "0.4.0",
+  "platform": "macOS aarch64",
+  "engine": "Native PDFKit with optional read-only local SQLite index",
+  "authorizedBookCount": 9,
+  "queryKind": "Japanese term",
+  "resultCap": 80,
+  "method": {
+    "globalCold": "Fresh SearchEngine fingerprint cache; existing local index and operating-system file cache may already be warm.",
+    "globalWarm": "Same SearchEngine after first global request.",
+    "individualCold": "One fresh SearchEngine per book; operating-system file cache is not cleared.",
+    "limitations": "Single local sample. Global results stop at the result cap, so individual requests cover all nine books separately. These numbers are not cold-disk or broad performance benchmarks."
+  },
+  "checks": {
+    "allNineIndividualRequestsComplete": true,
+    "individualResultCapsNotReached": true,
+    "individualWarnings": 0,
+    "totalIndividualPages": 2876,
+    "globalWarningsAreExpectedResultCap": true
+  },
+  "sourceSha256": "720acfca5c4083e35596f24e372eb93ca96b360a223eb2d2ac68df710c0ee53f",
+  "measurements": [
+    {
+      "book_ordinal": null,
+      "books_requested": 9,
+      "cap_reached": true,
+      "case": "global_cold",
+      "first_hit_ms": 135.2365,
+      "hits": 80,
+      "result_cap": 80,
+      "scanned_pages": 2103,
+      "total_ms": 755.712709,
+      "warning_count": 1
+    },
+    {
+      "book_ordinal": null,
+      "books_requested": 9,
+      "cap_reached": true,
+      "case": "global_warm",
+      "first_hit_ms": 12.205542,
+      "hits": 80,
+      "result_cap": 80,
+      "scanned_pages": 2103,
+      "total_ms": 76.329167,
+      "warning_count": 1
+    },
+    {
+      "book_ordinal": 1,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 60.107333,
+      "hits": 3,
+      "result_cap": 80,
+      "scanned_pages": 400,
+      "total_ms": 62.642542,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 2,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 212.851459,
+      "hits": 17,
+      "result_cap": 80,
+      "scanned_pages": 189,
+      "total_ms": 215.403084,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 3,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 55.10933300000001,
+      "hits": 18,
+      "result_cap": 80,
+      "scanned_pages": 384,
+      "total_ms": 57.641,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 4,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 72.62287500000001,
+      "hits": 19,
+      "result_cap": 80,
+      "scanned_pages": 256,
+      "total_ms": 75.174375,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 5,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 206.85441600000001,
+      "hits": 6,
+      "result_cap": 80,
+      "scanned_pages": 541,
+      "total_ms": 209.39908300000002,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 6,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 82.837333,
+      "hits": 41,
+      "result_cap": 80,
+      "scanned_pages": 333,
+      "total_ms": 85.38575,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 7,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 52.582375,
+      "hits": 13,
+      "result_cap": 80,
+      "scanned_pages": 276,
+      "total_ms": 55.098041,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 8,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 195.324458,
+      "hits": 4,
+      "result_cap": 80,
+      "scanned_pages": 296,
+      "total_ms": 197.854167,
+      "warning_count": 0
+    },
+    {
+      "book_ordinal": 9,
+      "books_requested": 1,
+      "cap_reached": false,
+      "case": "individual_cold",
+      "first_hit_ms": 117.674792,
+      "hits": 14,
+      "result_cap": 80,
+      "scanned_pages": 201,
+      "total_ms": 120.220333,
+      "warning_count": 0
+    }
+  ]
+}
