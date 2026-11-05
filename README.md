@@ -79,7 +79,7 @@ Password-protected PDFs request a password for the current session. Passwords ar
 
 `npm run package:mac` produces `dist/Sumi.app` with the native executable, app icon, and optional local-library tools. It is an Apple Silicon build, ad-hoc signed and not notarized. Node.js is needed for development scripts, not for running the packaged reader.
 
-Library records and app preferences are stored under `~/Library/Application Support/Sumi`. PDFs remain at their original locations and are not added to the app bundle or Git.
+Library records and app preferences are stored in `~/Library/Application Support/com.kairi7011.sumi/library.json`. Existing history in `~/Library/Application Support/Sumi/library.json` is migrated when the current library does not yet exist. PDFs remain at their original locations and are not added to the app bundle or Git.
 
 ## Local books for AI agents
 
@@ -89,7 +89,7 @@ The index stays on the Mac. Excerpts returned to a cloud-based AI client can ent
 
 ## Verification and retained versions
 
-See [verification notes](docs/verification.md), the [native dependency review](docs/dependency-review-native.md), and the [sanitized native search measurements](docs/native-search.json). Personal PDFs, extracted book contents, and private screenshots are excluded from the repository.
+See [native validation notes](docs/native-verification.md), the [native dependency review](docs/dependency-review-native.md), and the [sanitized native search measurements](docs/native-search.json). Personal PDFs, extracted book contents, and private screenshots are excluded from the repository.
 
 The earlier Tauri/WebKit implementation remains for comparison under `src/`, `src-tauri/`, and the `legacy:*` npm scripts. Its PDF.js dependency and frontend preparation are used only by those legacy scripts; the default build and package commands use the native app.
 
