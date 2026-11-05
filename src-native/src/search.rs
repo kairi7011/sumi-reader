@@ -610,12 +610,11 @@ mod tests {
         paths.sort();
         assert!(!paths.is_empty());
         let books: Vec<SearchBook> = paths.iter().enumerate().map(|(index, path)| SearchBook { id: index.to_string(), path: path.clone(), title: derive_title(path).expect("PDF title metadata"), password: None }).collect();
-        for book in &books { eprintln!("title: {}", book.title); }
-        let engine = SearchEngine::new();
-        for run in ["cold", "warm"] {
+        fn measure(engine: &SearchEngine, books: Vec<SearchBook>, case: &str, ordinal: Option<usize>) -> SearchResult {
             let start = Instant::now();
             let mut first_hit = None;
-            engine.submit(SearchRequest { query: "フィードバック".into(), books: books.clone(), limit: 80 });
+            let books_requested = books.len();
+            engine.submit(SearchRequest { query: "フィードバック".into(), books, limit: 80 });
             let result = loop {
                 if let Some(result) = engine.try_recv() {
                     if first_hit.is_none() && !result.hits.is_empty() { first_hit = Some(start.elapsed()); }
@@ -624,9 +623,25 @@ mod tests {
                 assert!(start.elapsed() < Duration::from_secs(90), "search did not complete");
                 thread::sleep(Duration::from_millis(2));
             };
-            assert!(!result.hits.is_empty());
             assert!(result.hits.len() <= 80);
-            eprintln!("{run}: {} hits, {} pages; first {:?}, total {:?}", result.hits.len(), result.scanned_pages, first_hit.unwrap(), start.elapsed());
+            eprintln!("search_probe {}", serde_json::json!({
+                "case": case, "book_ordinal": ordinal, "books_requested": books_requested,
+                "hits": result.hits.len(), "result_cap": 80, "cap_reached": result.hits.len() == 80,
+                "scanned_pages": result.scanned_pages, "warning_count": result.warnings.len(),
+                "first_hit_ms": first_hit.map(|time| time.as_secs_f64() * 1000.),
+                "total_ms": start.elapsed().as_secs_f64() * 1000.
+            }));
+            result
+        }
+        let engine = SearchEngine::new();
+        for case in ["global_cold", "global_warm"] {
+            let result = measure(&engine, books.clone(), case, None);
+            assert!(!result.hits.is_empty());
+        }
+        for (index, book) in books.into_iter().enumerate() {
+            let result = measure(&SearchEngine::new(), vec![book], "individual_cold", Some(index + 1));
+            assert!(result.scanned_pages > 0);
+            assert!(result.warnings.is_empty());
         }
     }
 }
