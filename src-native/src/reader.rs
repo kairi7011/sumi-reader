@@ -291,10 +291,10 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
     }
     if event_type == NSEventType::Magnify && inside { let factor = state.factor * (1. + event.magnification()); state.set_zoom(factor); return true; }
     if event_type == NSEventType::LeftMouseDown && inside && state.space && state.factor > 1. {
-        if let Some(scroll) = state.scroll_view() { let clip=scroll.contentView(); state.pan = Some((clip.convertPoint_fromView(event.locationInWindow(),None), clip.bounds().origin)); return true; }
+        if let Some(scroll) = state.scroll_view() { let clip=scroll.contentView(); state.pan = Some((event.locationInWindow(), clip.bounds().origin)); return true; }
     }
     if event_type == NSEventType::LeftMouseDragged {
-        if let Some((start, origin)) = state.pan { if let Some(scroll) = state.scroll_view() { let clip = scroll.contentView(); let position=clip.convertPoint_fromView(event.locationInWindow(),None); let next = NSPoint::new(origin.x - position.x + start.x, origin.y - position.y + start.y); clip.scrollToPoint(next); scroll.reflectScrolledClipView(&clip); } return true; }
+        if let Some((start, origin)) = state.pan { if let Some(scroll) = state.scroll_view() { let clip = scroll.contentView(); let position=event.locationInWindow(); let next = NSPoint::new(origin.x - position.x + start.x, origin.y + (position.y - start.y) * if clip.isFlipped() { 1. } else { -1. }); clip.scrollToPoint(next); scroll.reflectScrolledClipView(&clip); } return true; }
     }
     if event_type == NSEventType::LeftMouseUp && state.pan.take().is_some() { return true; }
     if event_type == NSEventType::ScrollWheel && inside && state.factor <= 1.001 { return true; }
