@@ -463,7 +463,7 @@ fn step_target(current: usize, count: usize, spread: bool, delta: isize) -> usiz
     let target = if spread { if delta > 0 { if current == 1 { 2 } else { current - current % 2 + 2 } } else if current <= 3 { 1 } else { current - current % 2 - 2 } } else { current.saturating_add_signed(delta.signum()).max(1) };
     if target > count { current } else { target.max(1) }
 }
-fn should_commit(progress: f64, excursion: f64, velocity: f64) -> bool { excursion < 5. || progress > 0.32 || velocity > 0.8 }
+fn should_commit(progress: f64, excursion: f64, velocity: f64) -> bool { excursion < 5. || progress > 0.32 || progress >= 0.08 && velocity > 0.8 }
 
 #[cfg(test)]
 mod tests {
@@ -485,6 +485,7 @@ mod tests {
     fn returning_a_drag_to_its_origin_cancels_while_a_corner_click_turns() {
         assert!(!should_commit(0.02, 160., -0.3));
         assert!(!should_commit(0.05, 160., 0.));
+        assert!(!should_commit(0.025, 12., 1.2));
         assert!(should_commit(0.01, 2., 0.));
         assert!(should_commit(0.7, 230., -0.2));
         assert!(should_commit(0.2, 80., 1.1));
