@@ -1,0 +1,32 @@
+{
+  "version": "0.6.1",
+  "date": "2026-11-06",
+  "source_commit": "653052b036243a96681fa8d5f3ec0276e3f9a1d7",
+  "architecture": "arm64",
+  "app_bytes": 1111480,
+  "zip_bytes": 525620,
+  "zip_sha256": "61d2d34f0223aa792cabc256d2ce3af1e2c5cd92fc57b037c652d3f56623358e",
+  "signature": "ad-hoc; built and delivered deep strict verification passed",
+  "zip_integrity": "passed",
+  "notarized": false,
+  "checks": {
+    "rust_tests": "35 passed, one opt-in probe ignored",
+    "builds": "offline locked debug and release builds passed",
+    "delivered_gui": [
+      "Home starts without a selected card",
+      "Right selects the first visible card",
+      "Coordinate click on empty shelf background clears the card's selected state",
+      "Return without selection does not open a book",
+      "Command L refresh preserves no selection",
+      "Right resumes selection after clearing"
+    ],
+    "initial_patch_gui": [
+      "Coordinate click between cards clears selection",
+      "Clicking a book still opens its saved reading position"
+    ],
+    "code_review": "Native hit testing preserves card and scrollbar clicks; panel interiors do not clear underlying shelf selection; body clicks release native focus without stealing toolbar focus",
+    "limits": "The final card-gap coordinate retry hit the automation tool's noWindowsAvailable error. Scrollbar dragging and scrolled keyboard recovery were reviewed, not physically exercised. Broader 0.6.0 checks were not rerun for this patch."
+  },
+  "dependencies": "No external package changes, resolution or downloads",
+  "user_library": "Existing reading positions retained; isolated QA records were not copied over the user library"
+}
