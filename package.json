@@ -1,6 +1,6 @@
 {
   "name": "sumi-reader",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "A quiet, local PDF reader for macOS",
   "type": "module",
@@ -12,7 +12,7 @@
   "scripts": {
     "start": "node scripts/build-native.mjs --debug && node scripts/start-native.mjs",
     "check": "node --check scripts/build-native.mjs && node --check scripts/start-native.mjs && node --check scripts/package-native.mjs && node scripts/build-native.mjs --check",
-    "test": "node scripts/build-native.mjs --test && python3 -m unittest discover -s tests -p library_test.py && npm run test:public",
+    "test": "node scripts/build-native.mjs --test && python3 -m unittest discover -s tests -p library_test.py && npm run test:public && python3 -m unittest discover -s tests -p mirror_test.py",
     "build": "node scripts/build-native.mjs",
     "test:native": "node scripts/build-native.mjs --test",
     "package:mac": "npm run build && node scripts/package-native.mjs",
