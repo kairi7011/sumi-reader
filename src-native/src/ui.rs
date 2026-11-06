@@ -197,7 +197,7 @@ fn palette_commands(preferences: &ReaderPreferences) -> Vec<PaletteCommand> {
         command("拡大","Zoom In","⌘+","⌘+","zoom-in","拡大"),
         command("縮小","Zoom Out","⌘−","⌘−","zoom-out","縮小"),
         command("範囲を画像でコピー","Copy an Area as an Image","切り抜き · ⌘⇧X","Capture · ⌘⇧X","capture","スクリーンショット screenshot"),
-        command("切り抜いた画像を保存…","Save Captured Image…","最後にコピーした範囲をPNGで保存","Save the Last Capture as a PNG","save-capture","画像 保存 screenshot PNG"),
+        command("切り抜いた画像を保存…","Save Captured Image…","最後にコピーした範囲をPNGで保存","Save the Last Capture as a PNG","save-capture","画像 保存 screenshot PNG save image"),
         command("選んだ文章をコピー","Copy Selected Text","書名・ページ付き","Includes the Book Title and Page","copy-selection","選択 文章 selection"),
         command("ページの文章をコピー","Copy Page Text","書名・ページ付き","Includes the Book Title and Page","copy-page","本文 文章"),
         command("ライト","Light",white.0,white.1,"white","外観 appearance theme"),
@@ -432,6 +432,9 @@ impl Ui {
         let selected=self.selected;
         if self.panel_kind==Panel::ImportErrors {
             self.panel_hint.setStringValue(&s(text("追加できた本は本棚に保存されています · Esc 閉じる","Successfully added books are in your library · Esc to close")));
+        } else if self.panel_kind==Panel::Pages {
+            // Rebuilding these rows would reveal the reading page and lose the user's scroll position.
+            self.panel_hint.setStringValue(&s(&page_total(self.reader.page_count())));
         } else if self.panel_kind!=Panel::None {
             self.populate_rows();self.selected=selected.min(self.rows.len().saturating_sub(1));
             if matches!(self.panel_kind,Panel::Find|Panel::Palette)&&!self.query.stringValue().to_string().trim().is_empty(){
@@ -597,7 +600,7 @@ mod language_tests {
         for mode in ["single","spread"] {
             let mut preferences=ReaderPreferences::default();preferences.mode=mode.into();
             let commands=palette_commands(&preferences);
-            for (query,action) in [("しおりを開く","bookmarks"),("open bookmarks","bookmarks"),("見開き","spread"),("two pages","spread"),("ＺＯＯＭ ＩＮ","zoom-in"),("英語","language-en"),("Japanese","language-ja"),("システム","language-system")] {
+            for (query,action) in [("しおりを開く","bookmarks"),("open bookmarks","bookmarks"),("見開き","spread"),("two pages","spread"),("ＺＯＯＭ ＩＮ","zoom-in"),("save image","save-capture"),("英語","language-en"),("Japanese","language-ja"),("システム","language-system")] {
                 assert!(commands.iter().any(|command|command.action==action&&command.matches(query)),"{mode}: {query}");
             }
             assert!(!commands.iter().any(|command|command.matches("not-a-command-937")));
