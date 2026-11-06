@@ -4,7 +4,7 @@ The native release targets Apple Silicon and macOS 13 or later. Current bundles 
 
 ## Prepare a preview
 
-Use a clean, audited checkout with the pinned compiler and cached dependencies described in the README.
+First follow [private-to-public synchronization](maintainer-sync.md): changes must be committed and pushed privately before the public mirror is updated. Use a clean, audited public checkout with the pinned compiler and cached dependencies described in the README.
 
 ```sh
 npm run check
