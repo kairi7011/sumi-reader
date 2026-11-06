@@ -1,5 +1,5 @@
-use std::path::Path;
-use objc2::{extern_class, msg_send, ClassType, MainThreadOnly};
+use std::{cell::Cell, marker::PhantomData, path::{Path, PathBuf}};
+use objc2::{extern_class, msg_send, ClassType, MainThreadMarker, MainThreadOnly};
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, NSObject};
 use objc2_app_kit::{NSImage, NSView};
@@ -41,6 +41,71 @@ extern_class!(
 );
 
 pub const CROP_BOX: isize = 1;
+
+#[derive(Clone, Debug)]
+pub struct DocumentInfo {
+    pub title: String,
+    pub page_count: usize,
+    pub path: PathBuf,
+    pub allows_copying: bool,
+}
+
+pub struct PreparedDocument {
+    document: Retained<PDFDocument>,
+    info: DocumentInfo,
+    metadata_title: Option<String>,
+    outline: Vec<(String, usize)>,
+    initial_page: usize,
+    _not_sync: PhantomData<Cell<()>>,
+}
+
+// Only this unattached, exclusively owned object graph may cross threads. No PDFView,
+// delegate, async find, drawing, or escaped PDFPage exists before this handoff.
+// Cocoa permits serial ownership of non-main-thread objects; CoreGraphics forbids
+// distributing pages of one document across threads. Keep PDFDocument itself !Send
+// and !Sync, and require main-thread consumption before any view can retain it.
+// https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html
+// https://developer.apple.com/documentation/coregraphics/cgpdfdocument/init(_:)-gbq6
+unsafe impl Send for PreparedDocument {}
+
+impl PreparedDocument {
+    pub fn open(path: &Path, password: Option<&str>) -> Result<Self, String> {
+        Self::open_at(path, password, 1)
+    }
+
+    pub fn open_at(path: &Path, password: Option<&str>, page: usize) -> Result<Self, String> {
+        objc2::rc::autoreleasepool(|_| {
+            let document = PDFDocument::from_path(path).ok_or(crate::i18n::text("PDFを開けませんでした。ファイルを確認してください。", "The PDF could not be opened. Check the file."))?;
+            if document.is_locked() {
+                let password = password.ok_or("PASSWORD_REQUIRED")?;
+                if !document.unlock(password) { return Err("PASSWORD_INCORRECT".into()); }
+            }
+            let page_count = document.page_count();
+            if page_count == 0 { return Err(crate::i18n::text("このPDFにはページがありません。", "This PDF has no pages.").into()); }
+            let metadata_title = document.title();
+            let info = DocumentInfo {
+                title: metadata_title.clone().unwrap_or_else(|| path.file_stem().unwrap_or_default().to_string_lossy().into_owned()),
+                page_count, path: path.to_owned(), allows_copying: document.allows_copying(),
+            };
+            let initial_page = page.clamp(1, page_count);
+            // PDFKit is lazy: resolve the landing page's geometry before the UI owns
+            // the document, without rasterizing pages or building an image cache.
+            for index in [0, initial_page - 1] {
+                let page = document.page(index).ok_or(crate::i18n::text("PDFのページを読み込めませんでした。", "The PDF page could not be loaded."))?;
+                let _ = page.bounds();
+            }
+            let outline = document.outline();
+            Ok(Self { document, info, metadata_title, outline, initial_page, _not_sync: PhantomData })
+        })
+    }
+
+    pub fn info(&self) -> &DocumentInfo { &self.info }
+    pub fn metadata_title(&self) -> Option<&str> { self.metadata_title.as_deref() }
+
+    pub fn into_main_thread(self, _mtm: MainThreadMarker) -> (Retained<PDFDocument>, DocumentInfo, Vec<(String, usize)>, usize) {
+        (self.document, self.info, self.outline, self.initial_page)
+    }
+}
 
 impl PDFDocument {
     pub fn from_path(path: &Path) -> Option<Retained<Self>> {
@@ -151,6 +216,83 @@ pub(crate) fn fixture_document(catalog: &str, extra_objects: Vec<String>) -> Ret
 #[cfg(test)]
 mod tests {
     use super::*;
+    use objc2_foundation::NSDictionary;
+
+    unsafe extern "C" {
+        static PDFDocumentOwnerPasswordOption: &'static NSString;
+        static PDFDocumentUserPasswordOption: &'static NSString;
+    }
+
+    struct FixtureDirectory(PathBuf);
+    impl FixtureDirectory {
+        fn new() -> Self {
+            let name = format!("sumi-open-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+            let path = std::env::temp_dir().join(name);
+            std::fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+    }
+    impl Drop for FixtureDirectory { fn drop(&mut self) { let _ = std::fs::remove_dir_all(&self.0); } }
+
+    fn write_open_fixture(path: &Path, password: Option<&str>) {
+        objc2::rc::autoreleasepool(|_| unsafe {
+            let document = fixture_document("/Outlines 6 0 R", vec![
+                "<< /Type /Outlines /First 7 0 R /Last 7 0 R /Count 1 >>".into(),
+                "<< /Title (Chapter) /Parent 6 0 R /Dest [3 0 R /Fit] >>".into(),
+            ]);
+            let title_key = NSString::from_str("Title");
+            let title = NSString::from_str("Prepared example");
+            let attributes = NSDictionary::from_slices(&[&*title_key], &[&*title]);
+            let _: () = msg_send![&*document, setDocumentAttributes: &*attributes];
+            let owner = NSString::from_str("fixture-owner");
+            let user = NSString::from_str(password.unwrap_or(""));
+            let options = if password.is_some() {
+                NSDictionary::<NSString, AnyObject>::from_slices(
+                    &[PDFDocumentOwnerPasswordOption, PDFDocumentUserPasswordOption], &[&*owner, &*user],
+                )
+            } else { NSDictionary::from_slices::<NSString>(&[], &[]) };
+            let url = NSURL::fileURLWithPath(&NSString::from_str(path.to_str().unwrap()));
+            let written: bool = msg_send![&*document, writeToURL: &*url, withOptions: &*options];
+            assert!(written);
+        });
+    }
+
+    #[test]
+    fn prepared_document_can_move_from_worker_without_sharing_its_pdf_graph() {
+        let directory = FixtureDirectory::new();
+        let path = directory.0.join("prepared.pdf");
+        write_open_fixture(&path, None);
+        let expected_path = path.clone();
+        let prepared = std::thread::spawn(move || PreparedDocument::open_at(&path, None, usize::MAX)).join().unwrap().unwrap();
+        assert_eq!(prepared.info().title, "Prepared example");
+        assert_eq!(prepared.metadata_title(), Some("Prepared example"));
+        assert_eq!(prepared.info().page_count, 1);
+        assert_eq!(prepared.info().path, expected_path);
+        assert!(prepared.info().allows_copying);
+        assert_eq!(prepared.initial_page, 1);
+        assert_eq!(prepared.outline, vec![("Chapter".into(), 1)]);
+        // A cancelled result can be released without ever attaching it to a view.
+        std::thread::spawn(move || drop(prepared)).join().unwrap();
+    }
+
+    #[test]
+    fn preparation_preserves_password_retry_errors_and_rejects_invalid_files() {
+        let directory = FixtureDirectory::new();
+        let path = directory.0.join("locked.pdf");
+        write_open_fixture(&path, Some("fixture-user"));
+        std::thread::spawn(move || {
+            assert_eq!(PreparedDocument::open(&path, None).err().as_deref(), Some("PASSWORD_REQUIRED"));
+            assert_eq!(PreparedDocument::open(&path, Some("wrong")).err().as_deref(), Some("PASSWORD_INCORRECT"));
+            let prepared = PreparedDocument::open(&path, Some("fixture-user")).unwrap();
+            assert_eq!(prepared.info().page_count, 1);
+            assert_eq!(prepared.metadata_title(), Some("Prepared example"));
+            assert!(PreparedDocument::open(&path.with_file_name("missing.pdf"), None).is_err());
+        }).join().unwrap();
+        let invalid = directory.0.join("invalid.pdf");
+        std::fs::write(&invalid, b"not a PDF").unwrap();
+        assert!(PreparedDocument::open(&invalid, None).is_err());
+    }
+
     #[test]
     fn outline_work_is_bounded_even_when_entries_have_no_destination() {
         objc2::rc::autoreleasepool(|_| {

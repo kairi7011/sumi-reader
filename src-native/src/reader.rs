@@ -1,5 +1,5 @@
 use sumi_native::i18n::text as tr;
-use std::{cell::RefCell, path::{Path, PathBuf}, ptr::NonNull, rc::Rc, time::{Duration, Instant}};
+use std::{cell::RefCell, path::Path, ptr::NonNull, rc::Rc, time::{Duration, Instant}};
 use block2::RcBlock;
 use objc2::{define_class, msg_send, ClassType, MainThreadMarker, MainThreadOnly, AnyThread};
 use objc2::rc::{Allocated, Retained};
@@ -11,6 +11,7 @@ use objc2_core_graphics::CGContext;
 mod animation;
 use animation::{Curl, Overlay, PageImage, Visual, EdgeHint};
 use crate::pdf::{PDFDocument, PDFPage, PDFSelection, PDFView};
+pub use crate::pdf::{DocumentInfo, PreparedDocument};
 
 fn allowed_pdf_link(url: &NSURL) -> bool {
     let scheme = url.scheme().map(|value| value.to_string().to_ascii_lowercase());
@@ -38,14 +39,6 @@ define_class!(
         }
     }
 );
-
-#[derive(Clone, Debug)]
-pub struct DocumentInfo {
-    pub title: String,
-    pub page_count: usize,
-    pub path: PathBuf,
-    pub allows_copying: bool,
-}
 
 struct Settle { start: Instant, duration: Duration, from: f64, to: f64, vertical: f64, tangent: f64 }
 struct Turn { old: usize, target: usize, settle: Option<Settle>, start: NSPoint, last: NSPoint, sample: Instant, velocity: f64, excursion: f64 }
@@ -80,6 +73,7 @@ struct ReaderState {
     scroll: Option<ScrollSession>,
     last_scroll: Option<Instant>,
     document: Option<Retained<PDFDocument>>,
+    outline: Vec<(String, usize)>,
     title: String,
     current: usize,
     spread: bool,
@@ -128,7 +122,7 @@ impl Reader {
         let visual = Rc::new(RefCell::new(Visual::default()));
         let overlay = Overlay::new(mtm, NSRect::new(NSPoint::new(0., 0.), frame.size), visual.clone());
         container.addSubview(&overlay);
-        let state = Rc::new(RefCell::new(ReaderState { view, enabled: true, edge_press: None, scroll: None, last_scroll: None, document: None, title: String::new(), current: 1, spread: false, rtl: false, fit_scale: 1., factor: 1., space: false, pan: None, last_scale: 1., overlay, visual, turn: None, capture_start: None, captured: None, #[cfg(debug_assertions)] debug_samples: 0 }));
+        let state = Rc::new(RefCell::new(ReaderState { view, enabled: true, edge_press: None, scroll: None, last_scroll: None, document: None, outline: Vec::new(), title: String::new(), current: 1, spread: false, rtl: false, fit_scale: 1., factor: 1., space: false, pan: None, last_scale: 1., overlay, visual, turn: None, capture_start: None, captured: None, #[cfg(debug_assertions)] debug_samples: 0 }));
         let weak = Rc::downgrade(&state);
         let block = RcBlock::new(move |pointer: NonNull<NSEvent>| -> *mut NSEvent {
             let Some(state) = weak.upgrade() else { return pointer.as_ptr(); };
@@ -154,7 +148,7 @@ impl Reader {
         self.set_interaction_enabled(false);let mut state=self.state.borrow_mut();state.turn=None;state.scroll=None;state.edge_press=None;state.captured=None;
         {let mut visual=state.visual.borrow_mut();visual.curl=None;visual.edge=None;visual.capture=None;visual.capture_mode=false;}
         unsafe {let _:()=msg_send![&*state.view,setDocument:std::ptr::null::<PDFDocument>()];}
-        state.document=None;state.title.clear();state.current=1;state.factor=1.;state.fit_scale=1.;state.last_scale=1.;state.overlay.repaint();
+        state.document=None;state.outline.clear();state.title.clear();state.current=1;state.factor=1.;state.fit_scale=1.;state.last_scale=1.;state.overlay.repaint();
     }
     pub fn focus(&self) { let state = self.state.borrow(); if state.enabled {if let Some(window) = state.view.window() { window.setAcceptsMouseMovedEvents(true);window.makeFirstResponder(Some(&*state.view)); }} }
     pub fn resize(&self, frame: NSRect) {
@@ -165,22 +159,19 @@ impl Reader {
     }
     pub fn set_frame(&self, frame: NSRect) { self.resize(frame); }
     pub fn open(&self, path: &Path, password: Option<&str>) -> Result<DocumentInfo, String> {
-        let document = PDFDocument::from_path(path).ok_or(tr("PDFを開けませんでした。ファイルを確認してください。", "The PDF could not be opened. Check the file."))?;
-        if document.is_locked() {
-            let password = password.ok_or("PASSWORD_REQUIRED")?;
-            if !document.unlock(password) { return Err("PASSWORD_INCORRECT".into()); }
-        }
-        if document.page_count() == 0 { return Err(tr("このPDFにはページがありません。", "This PDF has no pages.").into()); }
-        let title = document.title().unwrap_or_else(|| path.file_stem().unwrap_or_default().to_string_lossy().into_owned());
-        let info = DocumentInfo { title: title.clone(), page_count: document.page_count(), path: path.to_owned(), allows_copying: document.allows_copying() };
+        PreparedDocument::open(path, password).map(|prepared| self.attach(prepared))
+    }
+    pub fn attach(&self, prepared: PreparedDocument) -> DocumentInfo {
+        let mtm = MainThreadMarker::new().expect("Reader attachment must run on the main thread");
+        let (document, info, outline, initial_page) = prepared.into_main_thread(mtm);
         {
             let mut state = self.state.borrow_mut();
             state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.cancel_capture(); state.captured = None;
-            state.current = 1; state.title = title; state.document = Some(document.clone()); state.factor = 1.; state.pan = None; state.space = false;
+            state.current = initial_page; state.title = info.title.clone(); state.document = Some(document.clone()); state.outline = outline; state.factor = 1.; state.pan = None; state.space = false;
             unsafe { let _: () = msg_send![&*state.view, setDocument: &*document]; }
         }
-        self.go_to(1, false); self.focus();
-        Ok(info)
+        self.go_to(initial_page, false); self.focus();
+        info
     }
     pub fn document(&self) -> Option<Retained<PDFDocument>> { self.state.borrow().document.clone() }
     pub fn current_page(&self) -> usize { self.state.borrow().current }
@@ -217,7 +208,7 @@ impl Reader {
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
     pub fn restore_zoom(&self,factor:f64){self.state.borrow_mut().set_zoom(factor);}
     pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.fit(); state.update_cursor(); }
-    pub fn outline(&self) -> Vec<(String, usize)> { self.document().map(|document| document.outline()).unwrap_or_default() }
+    pub fn outline(&self) -> Vec<(String, usize)> { self.state.borrow().outline.clone() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }
     pub fn highlight(&self, query: &str) -> bool {
         let state = self.state.borrow();
