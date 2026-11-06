@@ -1,3 +1,4 @@
+use sumi_native::i18n::{text as tr, is_japanese};
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{msg_send, sel, MainThreadOnly};
@@ -41,7 +42,7 @@ impl NativeTabStrip {
     pub fn new(mtm: MainThreadMarker, target: &AnyObject) -> Self {
         let view = NSView::initWithFrame(NSView::alloc(mtm), rect(0., 0., 600., 38.));
         view.setAccessibilityElement(false);
-        view.setAccessibilityLabel(Some(&string("本棚と開いている本")));
+        view.setAccessibilityLabel(Some(&string(tr("本棚と開いている本", "Library and open books"))));
 
         let home = unsafe {
             NSButton::buttonWithTitle_target_action(&string(""), Some(target), Some(sel!(selectTab:)), mtm)
@@ -50,8 +51,8 @@ impl NativeTabStrip {
         home.setTag(0);
         home.setImage(crate::icons::icon("library").as_deref());
         home.setImagePosition(NSCellImagePosition::ImageOnly);
-        home.setToolTip(Some(&string("本棚")));
-        home.setAccessibilityLabel(Some(&string("本棚")));
+        home.setToolTip(Some(&string(tr("本棚", "Library"))));
+        home.setAccessibilityLabel(Some(&string(tr("本棚", "Library"))));
         home.setAccessibilityIdentifier(Some(&string("sumi-tab-home")));
         view.addSubview(&home);
 
@@ -63,7 +64,7 @@ impl NativeTabStrip {
         scroll.setAutohidesScrollers(true);
         scroll.setVerticalScrollElasticity(NSScrollElasticity::None);
         scroll.setUsesPredominantAxisScrolling(true);
-        scroll.setAccessibilityLabel(Some(&string("開いている本")));
+        scroll.setAccessibilityLabel(Some(&string(tr("開いている本", "Open books"))));
         // Overlay scrollers keep a user's always-visible-scrollbar setting from shrinking the tab hit targets.
         unsafe { let _: () = msg_send![&*scroll, setScrollerStyle: 1isize]; }
         let content = NSView::initWithFrame(NSView::alloc(mtm), rect(0., 0., 552., 38.));
@@ -74,6 +75,19 @@ impl NativeTabStrip {
     }
 
     pub fn view(&self) -> &NSView { &self.view }
+
+    pub fn refresh_language(&mut self) {
+        self.view.setAccessibilityLabel(Some(&string(tr("本棚と開いている本", "Library and open books"))));
+        self.home.setToolTip(Some(&string(tr("本棚", "Library"))));
+        self.home.setAccessibilityLabel(Some(&string(tr("本棚", "Library"))));
+        self.scroll.setAccessibilityLabel(Some(&string(tr("開いている本", "Open books"))));
+        for (buttons, (_, title)) in self.buttons.iter().zip(&self.items) {
+            let tooltip = if is_japanese() { format!("{title}を閉じる") } else { format!("Close {title}") };
+            let accessible = if is_japanese() { format!("{title}のタブを閉じる") } else { format!("Close tab: {title}") };
+            buttons.close.setToolTip(Some(&string(&tooltip)));
+            buttons.close.setAccessibilityLabel(Some(&string(&accessible)));
+        }
+    }
 
     pub fn show(&mut self, items: &[(String, String)], active_id: Option<&str>, width: f64, height: f64) {
         let width = width.max(1.);
@@ -116,6 +130,7 @@ impl NativeTabStrip {
         self.scroll.reflectScrolledClipView(&clip);
         self.active_id = active_id.map(str::to_owned);
         self.size = NSSize::new(width, height);
+        self.refresh_language();
     }
 
     fn rebuild(&mut self, items: &[(String, String)]) {
@@ -143,8 +158,6 @@ impl NativeTabStrip {
             close.setTag(index as isize);
             close.setImage(crate::icons::icon("x").as_deref());
             close.setImagePosition(NSCellImagePosition::ImageOnly);
-            close.setToolTip(Some(&string(&format!("{title}を閉じる"))));
-            close.setAccessibilityLabel(Some(&string(&format!("{title}のタブを閉じる"))));
             close.setAccessibilityIdentifier(Some(&string(&format!("sumi-tab-close-{id}"))));
             background.addSubview(&close);
             self.content.addSubview(&background);

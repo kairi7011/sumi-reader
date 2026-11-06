@@ -1,3 +1,4 @@
+use crate::i18n::{text as tr, is_japanese};
 use crate::pdf::PDFDocument;
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::AnyObject;
@@ -73,6 +74,7 @@ impl ThumbnailGrid {
     pub fn realized_range(&self) -> Range<usize> { self.realized.clone() }
     pub fn visible_range(&self) -> Range<usize> { self.geometry().visible(self.view.visibleRect()) }
     pub fn cached_count(&self) -> usize { self.cache.len() }
+    pub fn refresh_language(&mut self) { self.refresh_buttons(); self.update_selection(); }
     pub fn remaining(&self) -> usize { self.active_indices().into_iter().filter(|index| !self.is_cached(self.pages[*index])).count() }
 
     pub fn prioritize(&mut self, page: usize) { self.priority = Some(page); }
@@ -197,7 +199,8 @@ impl ThumbnailGrid {
             let image = cached.and_then(|(_, image)| image.as_deref());
             button.setImage(Some(image.unwrap_or(&self.placeholder)));
             button.setTitle(&NSString::from_str(&caption(page, self.current, cached.is_none())));
-            button.setToolTip(Some(&NSString::from_str(&format!("{page}ページを開く{}", if cached.is_some() && image.is_none() { " · プレビューを表示できません" } else { "" }))));
+            let action = if is_japanese() { format!("{page}ページを開く") } else { format!("Open page {page}") };
+            button.setToolTip(Some(&NSString::from_str(&format!("{action}{}", if cached.is_some() && image.is_none() { tr(" · プレビューを表示できません", " · Preview unavailable") } else { "" }))));
         }
     }
 
@@ -206,7 +209,8 @@ impl ThumbnailGrid {
             let index = self.realized.start + offset;
             let page = self.pages[index];
             let selected = self.selected == Some(index);
-            button.setAccessibilityLabel(Some(&NSString::from_str(&format!("{page}ページを開く{}{}", if page == self.current { " · 読書中" } else { "" }, if selected { " · 選択中" } else { "" }))));
+            let action = if is_japanese() { format!("{page}ページを開く") } else { format!("Open page {page}") };
+            button.setAccessibilityLabel(Some(&NSString::from_str(&format!("{action}{}{}", if page == self.current { tr(" · 読書中", " · Reading") } else { "" }, if selected { tr(" · 選択中", " · Selected") } else { "" }))));
             button.setWantsLayer(true);
             let color = if selected { NSColor::controlAccentColor().colorWithAlphaComponent(0.13) } else { NSColor::clearColor() };
             unsafe {
@@ -222,7 +226,7 @@ impl ThumbnailGrid {
 }
 
 fn caption(page: usize, current: usize, loading: bool) -> String {
-    if page == current { format!("{page} · 現在") }
+    if page == current { format!("{page} · {}", tr("現在", "Current")) }
     else if loading { format!("{page} …") }
     else { page.to_string() }
 }

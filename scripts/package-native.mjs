@@ -52,11 +52,11 @@ try {
   const properties = {
     CFBundleName: displayName, CFBundleDisplayName: displayName, CFBundleExecutable: 'Sumi', CFBundleIdentifier: bundleId,
     CFBundlePackageType: 'APPL', CFBundleInfoDictionaryVersion: '6.0', CFBundleIconFile: 'sumi.icns',
-    CFBundleShortVersionString: version, CFBundleVersion: version,
+    CFBundleShortVersionString: version, CFBundleVersion: version, CFBundleDevelopmentRegion: 'en',
     LSMinimumSystemVersion: '13.0', LSApplicationCategoryType: 'public.app-category.productivity',
     NSHumanReadableCopyright: 'Copyright © 2026 kairi7011', NSPrincipalClass: 'NSApplication',
   };
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${Object.entries(properties).map(([key, value]) => `<key>${key}</key><string>${escape(value)}</string>`).join('\n')}\n<key>NSHighResolutionCapable</key><true/>\n<key>NSSupportsAutomaticGraphicsSwitching</key><true/>\n<key>NSRequiresAquaSystemAppearance</key><false/>\n<key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>PDF document</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array><key>CFBundleTypeExtensions</key><array><string>pdf</string></array></dict></array>\n</dict></plist>\n`;
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${Object.entries(properties).map(([key, value]) => `<key>${key}</key><string>${escape(value)}</string>`).join('\n')}\n<key>CFBundleLocalizations</key><array><string>ja</string><string>en</string></array>\n<key>NSHighResolutionCapable</key><true/>\n<key>NSSupportsAutomaticGraphicsSwitching</key><true/>\n<key>NSRequiresAquaSystemAppearance</key><false/>\n<key>CFBundleDocumentTypes</key><array><dict><key>CFBundleTypeName</key><string>PDF document</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>com.adobe.pdf</string></array><key>CFBundleTypeExtensions</key><array><string>pdf</string></array></dict></array>\n</dict></plist>\n`;
   await fs.writeFile(path.join(contents, 'Info.plist'), plist);
   await fs.writeFile(path.join(contents, 'PkgInfo'), 'APPL????');
   execFileSync('/usr/bin/plutil', ['-lint', path.join(contents, 'Info.plist')], { stdio: 'inherit' });

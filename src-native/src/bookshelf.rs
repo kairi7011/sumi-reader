@@ -1,3 +1,4 @@
+use sumi_native::i18n::{text as tr, is_japanese};
 use crate::pdf::PDFDocument;
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::AnyObject;
@@ -103,6 +104,13 @@ impl Bookshelf {
     pub fn selected_index(&self) -> Option<usize> { self.selected }
     pub fn columns(&self) -> usize { self.columns }
     pub fn set_background(&self, color: &NSColor) { self.scroll.setBackgroundColor(color); }
+
+    pub fn refresh_language(&mut self) {
+        for (index, card) in self.cards.iter().enumerate() {
+            unsafe { card.button.setMenu(Some(&self.context_menu(&card.book.id))); }
+            self.update_title(index);
+        }
+    }
 
     pub fn show(&mut self, books: &[BookCard], width: f64, height: f64) {
         let same_order = self.cards.len() == books.len() && self.cards.iter().zip(books).all(|(old, new)| old.book.id == new.id);
@@ -234,7 +242,7 @@ impl Bookshelf {
 
     fn context_menu(&self, id: &str) -> Retained<NSMenu> {
         let menu = NSMenu::new(self.mtm);
-        for (tag, title) in ["Finderで表示", "場所を指定し直す…", "本棚から外す…"].into_iter().enumerate() {
+        for (tag, title) in [tr("Finderで表示", "Show in Finder"), tr("場所を指定し直す…", "Locate PDF…"), tr("本棚から外す…", "Remove from Library…")].into_iter().enumerate() {
             let item = unsafe { NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(self.mtm), &string(title), Some(sel!(bookAction:)), &string("")) };
             item.setTag(tag as isize);
             unsafe {
@@ -249,14 +257,14 @@ impl Bookshelf {
     fn update_title(&self, index: usize) {
         let card = &self.cards[index];
         let detail = match card.status {
-            CoverStatus::Missing => "ファイルが見つかりません".into(),
-            CoverStatus::Locked => format!("鍵付き · {}ページから", card.book.page.max(1)),
-            CoverStatus::Unavailable => "表紙を表示できません".into(),
-            CoverStatus::Pending => "表紙を読み込み中…".into(),
+            CoverStatus::Missing => tr("ファイルが見つかりません", "File not found").into(),
+            CoverStatus::Locked => if is_japanese() { format!("鍵付き · {}ページから", card.book.page.max(1)) } else { format!("Locked · page {}", card.book.page.max(1)) },
+            CoverStatus::Unavailable => tr("表紙を表示できません", "Cover unavailable").into(),
+            CoverStatus::Pending => tr("表紙を読み込み中…", "Loading cover…").into(),
             CoverStatus::Ready => {
                 let count = card.pages.unwrap_or(1);
                 let page = card.book.page.clamp(1, count);
-                format!("{}{page} / {count}ページ · {}%", if card.book.current { "読書中 · " } else { "" }, page.saturating_mul(100) / count)
+                format!("{}{page} / {count}{} · {}%", if card.book.current { tr("読書中 · ", "Reading · ") } else { "" }, tr("ページ", " pages"), page.saturating_mul(100) / count)
             }
         };
         let title = two_line_title(&card.book.title);
@@ -277,7 +285,8 @@ impl Bookshelf {
         }
         card.button.setAttributedTitle(&attributed);
         card.button.setToolTip(Some(&string(&format!("{}\n{detail}", card.book.title))));
-        card.button.setAccessibilityLabel(Some(&string(&format!("{}、{detail}、開く", card.book.title))));
+        let accessible = if is_japanese() { format!("{}、{detail}、開く", card.book.title) } else { format!("{}, {detail}, open", card.book.title) };
+        card.button.setAccessibilityLabel(Some(&string(&accessible)));
     }
 
     fn update_selection(&self) {

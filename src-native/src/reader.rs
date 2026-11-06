@@ -1,3 +1,4 @@
+use sumi_native::i18n::text as tr;
 use std::{cell::RefCell, path::{Path, PathBuf}, ptr::NonNull, rc::Rc, time::{Duration, Instant}};
 use block2::RcBlock;
 use objc2::{define_class, msg_send, ClassType, MainThreadMarker, MainThreadOnly, AnyThread};
@@ -164,12 +165,12 @@ impl Reader {
     }
     pub fn set_frame(&self, frame: NSRect) { self.resize(frame); }
     pub fn open(&self, path: &Path, password: Option<&str>) -> Result<DocumentInfo, String> {
-        let document = PDFDocument::from_path(path).ok_or("PDFを開けませんでした。ファイルを確認してください。")?;
+        let document = PDFDocument::from_path(path).ok_or(tr("PDFを開けませんでした。ファイルを確認してください。", "The PDF could not be opened. Check the file."))?;
         if document.is_locked() {
             let password = password.ok_or("PASSWORD_REQUIRED")?;
             if !document.unlock(password) { return Err("PASSWORD_INCORRECT".into()); }
         }
-        if document.page_count() == 0 { return Err("このPDFにはページがありません。".into()); }
+        if document.page_count() == 0 { return Err(tr("このPDFにはページがありません。", "This PDF has no pages.").into()); }
         let title = document.title().unwrap_or_else(|| path.file_stem().unwrap_or_default().to_string_lossy().into_owned());
         let info = DocumentInfo { title: title.clone(), page_count: document.page_count(), path: path.to_owned(), allows_copying: document.allows_copying() };
         {
@@ -230,12 +231,12 @@ impl Reader {
     }
     pub fn copy_selection(&self) -> Result<(), String> {
         let state = self.state.borrow();
-        let document = state.document.as_ref().ok_or("PDFを開いてください。")?;
-        if !document.allows_copying() { return Err("このPDFでは文章のコピーが許可されていません。".into()); }
+        let document = state.document.as_ref().ok_or(tr("PDFを開いてください。", "Open a PDF first."))?;
+        if !document.allows_copying() { return Err(tr("このPDFでは文章のコピーが許可されていません。", "This PDF does not allow text copying.").into()); }
         let selection: Option<Retained<PDFSelection>> = unsafe { msg_send![&*state.view, currentSelection] };
-        let selection = selection.ok_or("コピーする文章を選択してください。")?;
+        let selection = selection.ok_or(tr("コピーする文章を選択してください。", "Select the text to copy."))?;
         let text = selection.text();
-        if text.trim().is_empty() { return Err("コピーする文章を選択してください。".into()); }
+        if text.trim().is_empty() { return Err(tr("コピーする文章を選択してください。", "Select the text to copy.").into()); }
         let pages = selection.pages();
         let first: Option<Retained<PDFPage>> = unsafe { if pages.count() > 0 { msg_send![&*pages, objectAtIndex: 0usize] } else { None } };
         let page = first.map(|page| document.index_of(&page) + 1).unwrap_or(state.current);
@@ -243,10 +244,10 @@ impl Reader {
     }
     pub fn copy_page_text(&self) -> Result<(), String> {
         let state = self.state.borrow();
-        let document = state.document.as_ref().ok_or("PDFを開いてください。")?;
-        if !document.allows_copying() { return Err("このPDFでは文章のコピーが許可されていません。".into()); }
+        let document = state.document.as_ref().ok_or(tr("PDFを開いてください。", "Open a PDF first."))?;
+        if !document.allows_copying() { return Err(tr("このPDFでは文章のコピーが許可されていません。", "This PDF does not allow text copying.").into()); }
         let text = document.page(state.current - 1).map(|page| page.text()).unwrap_or_default();
-        if text.trim().is_empty() { return Err("このページにはコピーできる文章がありません。".into()); }
+        if text.trim().is_empty() { return Err(tr("このページにはコピーできる文章がありません。", "This page has no text that can be copied.").into()); }
         write_text(&format!("{} — p. {}\n\n{}", state.title, state.current, text.trim()))
     }
     pub fn begin_capture(&self) {
@@ -324,9 +325,9 @@ impl ReaderState {
 }
 
 fn write_text(text: &str) -> Result<(), String> {
-    if text.len() > 8 * 1024 * 1024 { return Err("コピーする文章が長すぎます。".into()); }
+    if text.len() > 8 * 1024 * 1024 { return Err(tr("コピーする文章が長すぎます。", "The selected text is too long to copy.").into()); }
     let pasteboard = NSPasteboard::generalPasteboard(); pasteboard.clearContents();
-    if pasteboard.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString }) { Ok(()) } else { Err("コピーできませんでした。もう一度お試しください。".into()) }
+    if pasteboard.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString }) { Ok(()) } else { Err(tr("コピーできませんでした。もう一度お試しください。", "Copying failed. Please try again.").into()) }
 }
 
 fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {

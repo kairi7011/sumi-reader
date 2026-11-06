@@ -1,3 +1,4 @@
+use crate::i18n::{text as tr, is_japanese};
 use crate::pdf::PDFDocument;
 use objc2::rc::autoreleasepool;
 use objc2_foundation::NSString;
@@ -170,8 +171,8 @@ fn run_search(job: Job, shared: &Shared, sender: &SyncSender<SearchResult>, fing
         publish(sender, shared, result);
         return;
     }
-    if job.request.query.chars().count() > MAX_QUERY_CHARS { warning(&mut result, "検索語は先頭の200文字を使っています。".into()); }
-    if job.request.books.len() > MAX_BOOKS { warning(&mut result, "今回の検索は先頭の128冊までです。".into()); }
+    if job.request.query.chars().count() > MAX_QUERY_CHARS { warning(&mut result, tr("検索語は先頭の200文字を使っています。", "The search uses the first 200 characters of your query.").into()); }
+    if job.request.books.len() > MAX_BOOKS { warning(&mut result, tr("今回の検索は先頭の128冊までです。", "This search is limited to the first 128 books.").into()); }
     let limit = job.request.limit.clamp(1, MAX_RESULTS);
     let mut last_update = Instant::now();
     let index = NativeIndex::open_default();
@@ -187,19 +188,19 @@ fn run_search(job: Job, shared: &Shared, sender: &SyncSender<SearchResult>, fing
         if cancelled(shared, job.id) { break; }
         autoreleasepool(|_| {
             let Some(document) = PDFDocument::from_path(&book.path) else {
-                warning(&mut result, format!("「{}」を開けませんでした。", book.title));
+                warning(&mut result, if is_japanese() { format!("「{}」を開けませんでした。", book.title) } else { format!("Could not open “{}”.", book.title) });
                 return;
             };
             if document.is_locked() && !book.password.as_deref().is_some_and(|password| document.unlock(password)) {
-                warning(&mut result, format!("「{}」の検索にはパスワードが必要です。", book.title));
+                warning(&mut result, if is_japanese() { format!("「{}」の検索にはパスワードが必要です。", book.title) } else { format!("A password is required to search “{}”.", book.title) });
                 return;
             }
             if !document.allows_copying() {
-                warning(&mut result, format!("「{}」では文章の取り出しが許可されていないため、本文検索を省略しました。", book.title));
+                warning(&mut result, if is_japanese() { format!("「{}」では文章の取り出しが許可されていないため、本文検索を省略しました。", book.title) } else { format!("Text search was skipped for “{}” because text extraction is not allowed.", book.title) });
                 return;
             }
             let count = document.page_count();
-            if count > MAX_PAGES { warning(&mut result, format!("「{}」は先頭の20,000ページを検索します。", book.title)); }
+            if count > MAX_PAGES { warning(&mut result, if is_japanese() { format!("「{}」は先頭の20,000ページを検索します。", book.title) } else { format!("Only the first 20,000 pages of “{}” will be searched.", book.title) }); }
             for index in 0..count.min(MAX_PAGES) {
                 if cancelled(shared, job.id) || result.hits.len() >= limit { break; }
                 let text = autoreleasepool(|_| document.page(index).map(|page| page.text()).unwrap_or_default());
@@ -217,7 +218,7 @@ fn run_search(job: Job, shared: &Shared, sender: &SyncSender<SearchResult>, fing
         });
     }
     if cancelled(shared, job.id) { return; }
-    if result.hits.len() >= limit { warning(&mut result, format!("検索結果は先頭の{}件を表示しています。", limit)); }
+    if result.hits.len() >= limit { warning(&mut result, if is_japanese() { format!("検索結果は先頭の{}件を表示しています。", limit) } else { format!("Showing the first {limit} search results.") }); }
     result.complete = true;
     publish(sender, shared, result);
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use crate::i18n::text as tr;
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -52,10 +53,11 @@ pub struct ReaderPreferences {
     pub theme: String,
     pub mode: String,
     pub direction: String,
+    pub language: String,
 }
 
 impl Default for ReaderPreferences {
-    fn default() -> Self { Self { theme: "paper".into(), mode: "single".into(), direction: "ltr".into() } }
+    fn default() -> Self { Self { theme: "paper".into(), mode: "single".into(), direction: "ltr".into(), language: "system".into() } }
 }
 
 #[derive(Serialize)]
@@ -82,15 +84,15 @@ fn read_library(path: &Path) -> Result<(Library, bool), String> {
     let file = File::open(path).map_err(|e| e.to_string())?;
     let mut data = Vec::new();
     file.take(MAX_LIBRARY_BYTES + 1).read_to_end(&mut data).map_err(|e| e.to_string())?;
-    if data.len() as u64 > MAX_LIBRARY_BYTES { return Err("本棚のデータが大きすぎます。".into()); }
+    if data.len() as u64 > MAX_LIBRARY_BYTES { return Err(tr("本棚のデータが大きすぎます。", "The library data is too large.").into()); }
     let mut library: Library = serde_json::from_slice(&data).map_err(|e| e.to_string())?;
-    if library.version != 1 { return Err("本棚のデータ形式を読み込めません。".into()); }
+    if library.version != 1 { return Err(tr("本棚のデータ形式を読み込めません。", "This library format is not supported.").into()); }
     library.recent.retain(|entry| entry.document.id.len() == 64 && entry.document.id.bytes().all(|c| c.is_ascii_hexdigit()) && entry.path.is_absolute());
     let mut ids = std::collections::HashSet::new();
     let mut paths = std::collections::HashSet::new();
     library.recent.retain(|entry| ids.insert(entry.document.id.clone()) && paths.insert(entry.path.clone()));
     if !library.recent.iter().any(|entry| Some(&entry.document.id) == library.last_opened_id.as_ref()) { library.last_opened_id = None; }
-    let migrated = library.preferences.is_none();
+    let migrated = library.preferences.as_ref().is_none_or(|value| value.get("language").is_none());
     let preferences = if let Some(value) = &library.preferences {
         sanitize_preferences(value, &ReaderPreferences::default()).unwrap_or_default()
     } else {
@@ -141,16 +143,16 @@ impl Store {
 
     fn load_environment(override_path: Option<PathBuf>, home: Option<PathBuf>) -> Result<Self, String> {
         if let Some(path) = override_path {
-            if !path.is_absolute() { return Err("SUMI_LIBRARY_PATHには保存先の絶対パスを指定してください。".into()); }
+            if !path.is_absolute() { return Err(tr("SUMI_LIBRARY_PATHには保存先の絶対パスを指定してください。", "SUMI_LIBRARY_PATH must be an absolute path.").into()); }
             // An explicit QA store must never migrate the user's real reading history.
             return Self::load(path, None);
         }
-        let support = home.ok_or("ユーザーフォルダが見つかりません。")?.join("Library/Application Support");
+        let support = home.ok_or(tr("ユーザーフォルダが見つかりません。", "The home folder could not be found."))?.join("Library/Application Support");
         Self::load(support.join("com.kairi7011.sumi/library.json"), Some(&support.join("Sumi/library.json")))
     }
 
     pub fn load(path: PathBuf, legacy: Option<&Path>) -> Result<Self, String> {
-        if path.exists() && !path.is_file() { return Err("本棚の保存先にはJSONファイルを指定してください。".into()); }
+        if path.exists() && !path.is_file() { return Err(tr("本棚の保存先にはJSONファイルを指定してください。", "Choose a JSON file for the library.").into()); }
         let mut persist_on_load = false;
         let mut warning = None;
         let library = if path.exists() {
@@ -159,7 +161,7 @@ impl Store {
                 Err(_) => {
                     let backup = path.with_file_name(format!("library.corrupt-{}.json", milliseconds(SystemTime::now()) as u64));
                     fs::rename(&path, backup).map_err(|e| e.to_string())?;
-                    warning = Some("本棚の記録を読み込めなかったため、新しい本棚を開きました。元の記録はバックアップに残しています。".into());
+                    warning = Some(tr("本棚の記録を読み込めなかったため、新しい本棚を開きました。元の記録はバックアップに残しています。", "The library could not be read, so a new one was opened. The original records are preserved in a backup.").into());
                     persist_on_load = true;
                     Library::default()
                 }
@@ -168,7 +170,7 @@ impl Store {
             match read_library(legacy) {
                 Ok((library, _)) => { persist_on_load = true; library }
                 Err(_) => {
-                    warning = Some("以前の本棚を読み込めなかったため、新しい本棚を開きました。以前の記録はそのまま残しています。".into());
+                    warning = Some(tr("以前の本棚を読み込めなかったため、新しい本棚を開きました。以前の記録はそのまま残しています。", "The previous library could not be read, so a new one was opened. The previous records have been kept.").into());
                     persist_on_load = true;
                     Library::default()
                 }
@@ -176,17 +178,17 @@ impl Store {
         } else { Library::default() };
         let store = Self { library: Mutex::new(library), path, startup_warning: Mutex::new(warning) };
         if persist_on_load {
-            let library = store.library.lock().map_err(|_| "本棚を読み込めませんでした。")?;
+            let library = store.library.lock().map_err(|_| tr("本棚を読み込めませんでした。", "The library could not be read."))?;
             store.persist(&library)?;
         }
         Ok(store)
     }
 
     fn persist(&self, library: &Library) -> Result<(), String> {
-        let parent = self.path.parent().ok_or("保存先が見つかりません。")?;
+        let parent = self.path.parent().ok_or(tr("保存先が見つかりません。", "The save location could not be found."))?;
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         let data = serde_json::to_vec(library).map_err(|e| e.to_string())?;
-        if data.len() as u64 > MAX_LIBRARY_BYTES { return Err("本棚の記録が保存できる大きさを超えています。".into()); }
+        if data.len() as u64 > MAX_LIBRARY_BYTES { return Err(tr("本棚の記録が保存できる大きさを超えています。", "The library records are too large to save.").into()); }
         let sequence = WRITE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let temporary = self.path.with_extension(format!("json.{}.{}.tmp", std::process::id(), sequence));
         let result = (|| {
@@ -200,7 +202,7 @@ impl Store {
     }
 
     fn update<T>(&self, change: impl FnOnce(&mut Library) -> Result<T, String>) -> Result<T, String> {
-        let mut current = self.library.lock().map_err(|_| "本棚を読み込めませんでした。")?;
+        let mut current = self.library.lock().map_err(|_| tr("本棚を読み込めませんでした。", "The library could not be read."))?;
         let mut next = current.clone();
         let result = change(&mut next)?;
         self.persist(&next)?;
@@ -209,7 +211,7 @@ impl Store {
     }
 
     pub fn snapshot(&self) -> Result<Library, String> {
-        self.library.lock().map(|library| library.clone()).map_err(|_| "本棚を読み込めませんでした。".into())
+        self.library.lock().map(|library| library.clone()).map_err(|_| tr("本棚を読み込めませんでした。", "The library could not be read.").into())
     }
 
     pub fn public_library(&self) -> Result<PublicLibrary, String> {
@@ -220,13 +222,13 @@ impl Store {
     pub fn preferences(&self) -> Result<ReaderPreferences, String> { Ok(preferences_of(&self.snapshot()?)) }
 
     pub fn entry(&self, id: &str) -> Result<Entry, String> {
-        self.snapshot()?.recent.into_iter().find(|entry| entry.document.id == id).ok_or_else(|| "本棚にあるPDFを選んでください。".into())
+        self.snapshot()?.recent.into_iter().find(|entry| entry.document.id == id).ok_or_else(|| tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library.").into())
     }
 
     pub fn authorized_path(&self, id: &str) -> Result<PathBuf, String> {
         let entry = self.entry(id)?;
-        let canonical = fs::canonicalize(&entry.path).map_err(|_| "ファイルが見つかりません。移動先のPDFを選び直してください。")?;
-        if canonical != entry.path { return Err("ファイルの場所が変わりました。移動先のPDFを選び直してください。".into()); }
+        let canonical = fs::canonicalize(&entry.path).map_err(|_| tr("ファイルが見つかりません。移動先のPDFを選び直してください。", "The file could not be found. Select the PDF at its new location."))?;
+        if canonical != entry.path { return Err(tr("ファイルの場所が変わりました。移動先のPDFを選び直してください。", "The file location has changed. Select the PDF at its new location.").into()); }
         Ok(canonical)
     }
 
@@ -273,7 +275,7 @@ impl Store {
         let path = self.authorized_path(id)?;
         let metadata = describe_pdf(&path)?;
         self.update(|library| {
-            let index = library.recent.iter().position(|entry| entry.document.id == id).ok_or("本棚にあるPDFを選んでください。")?;
+            let index = library.recent.iter().position(|entry| entry.document.id == id).ok_or(tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library."))?;
             let mut entry = library.recent.remove(index);
             entry.document.size = metadata.document.size;
             entry.document.modified_at = metadata.document.modified_at;
@@ -285,9 +287,9 @@ impl Store {
     }
 
     pub fn open_authorized_path(&self, path: &Path) -> Result<Entry, String> {
-        let canonical = fs::canonicalize(path).map_err(|_| "ファイルが見つかりません。")?;
+        let canonical = fs::canonicalize(path).map_err(|_| tr("ファイルが見つかりません。", "The file could not be found."))?;
         self.import_paths(&[canonical.clone()])?;
-        let id = self.snapshot()?.recent.into_iter().find(|entry| entry.path == canonical).map(|entry| entry.document.id).ok_or("PDFを本棚に追加できませんでした。")?;
+        let id = self.snapshot()?.recent.into_iter().find(|entry| entry.path == canonical).map(|entry| entry.document.id).ok_or(tr("PDFを本棚に追加できませんでした。", "The PDF could not be added to the library."))?;
         self.open(&id)
     }
 
@@ -295,8 +297,8 @@ impl Store {
     pub fn relink(&self, id: &str, path: &Path) -> Result<Entry, String> {
         let replacement = describe_pdf(path)?;
         self.update(|library| {
-            if library.recent.iter().any(|entry| entry.document.id != id && entry.path == replacement.path) { return Err("このPDFはすでに本棚にあります。".into()); }
-            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or("本棚にあるPDFを選んでください。")?;
+            if library.recent.iter().any(|entry| entry.document.id != id && entry.path == replacement.path) { return Err(tr("このPDFはすでに本棚にあります。", "This PDF is already in the library.").into()); }
+            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or(tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library."))?;
             if entry.document.title == entry.document.name { entry.document.title = replacement.document.name.clone(); }
             entry.path = replacement.path.clone();
             entry.document.name = replacement.document.name.clone();
@@ -319,7 +321,7 @@ impl Store {
     pub fn save_state(&self, id: &str, state: &Value) -> Result<(), String> {
         let state = sanitize_state(state)?;
         self.update(|library| {
-            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or("本棚にあるPDFを選んでください。")?;
+            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or(tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library."))?;
             entry.document.state = state;
             Ok(())
         })
@@ -336,7 +338,7 @@ impl Store {
     pub fn set_book_title(&self, id: &str, title: &str) -> Result<(), String> {
         let title = sanitize_title(title)?;
         self.update(|library| {
-            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or("本棚にあるPDFを選んでください。")?;
+            let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or(tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library."))?;
             entry.document.title = title;
             Ok(())
         })
@@ -348,18 +350,18 @@ fn preferences_of(library: &Library) -> ReaderPreferences {
 }
 
 fn describe_pdf(path: &Path) -> Result<Entry, String> {
-    if !path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")) { return Err("PDFファイルを選んでください。".into()); }
-    let canonical = fs::canonicalize(path).map_err(|_| "ファイルが見つかりません。移動先のPDFを選び直してください。")?;
-    if !fs::metadata(&canonical).map_err(|e| e.to_string())?.is_file() { return Err("PDFファイルを選んでください。".into()); }
-    let mut file = File::open(&canonical).map_err(|_| "PDFを開けませんでした。アクセス権を確認してください。")?;
+    if !path.extension().and_then(|ext| ext.to_str()).is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")) { return Err(tr("PDFファイルを選んでください。", "Choose a PDF file.").into()); }
+    let canonical = fs::canonicalize(path).map_err(|_| tr("ファイルが見つかりません。移動先のPDFを選び直してください。", "The file could not be found. Select the PDF at its new location."))?;
+    if !fs::metadata(&canonical).map_err(|e| e.to_string())?.is_file() { return Err(tr("PDFファイルを選んでください。", "Choose a PDF file.").into()); }
+    let mut file = File::open(&canonical).map_err(|_| tr("PDFを開けませんでした。アクセス権を確認してください。", "The PDF could not be opened. Check its access permissions."))?;
     let metadata = file.metadata().map_err(|e| e.to_string())?;
-    if !metadata.is_file() { return Err("PDFファイルを選んでください。".into()); }
+    if !metadata.is_file() { return Err(tr("PDFファイルを選んでください。", "Choose a PDF file.").into()); }
     let mut header = [0u8; 1024];
     let length = file.read(&mut header).map_err(|e| e.to_string())?;
-    if !header[..length].windows(5).any(|part| part == b"%PDF-") { return Err("PDF形式として読み込めませんでした。".into()); }
-    let canonical_text = canonical.to_str().ok_or("ファイル名を読み込めませんでした。")?;
+    if !header[..length].windows(5).any(|part| part == b"%PDF-") { return Err(tr("PDF形式として読み込めませんでした。", "The file could not be read as a PDF.").into()); }
+    let canonical_text = canonical.to_str().ok_or(tr("ファイル名を読み込めませんでした。", "The filename could not be read."))?;
     let id = Sha256::digest(canonical_text.as_bytes()).iter().map(|byte| format!("{byte:02x}")).collect();
-    let name: String = canonical.file_name().and_then(|name| name.to_str()).ok_or("ファイル名を読み込めませんでした。")?.into();
+    let name: String = canonical.file_name().and_then(|name| name.to_str()).ok_or(tr("ファイル名を読み込めませんでした。", "The filename could not be read."))?.into();
     Ok(Entry { document: Document { id, title: name.clone(), name, size: metadata.len(), modified_at: milliseconds(metadata.modified().unwrap_or(UNIX_EPOCH)), opened_at: 0.0, state: empty_state() }, path: canonical })
 }
 
@@ -369,7 +371,7 @@ fn collect_pdfs(path: &Path, depth: usize, visited: &mut usize, directories: &mu
     let metadata = match fs::symlink_metadata(path) { Ok(metadata) => metadata, Err(error) => { report.error(path, error.to_string()); return; } };
     if metadata.file_type().is_symlink() && path.is_dir() { report.skipped += 1; return; }
     if metadata.is_dir() {
-        if depth >= MAX_SCAN_DEPTH { report.limited = true; report.error(path, "フォルダの階層が深いため、ここから先は追加していません。"); return; }
+        if depth >= MAX_SCAN_DEPTH { report.limited = true; report.error(path, tr("フォルダの階層が深いため、ここから先は追加していません。", "The folder nesting limit was reached. Deeper folders were not imported.")); return; }
         let canonical = match fs::canonicalize(path) { Ok(path) => path, Err(error) => { report.error(path, error.to_string()); return; } };
         if !directories.insert(canonical) { return; }
         let entries = match fs::read_dir(path) { Ok(entries) => entries, Err(error) => { report.error(path, error.to_string()); return; } };
@@ -388,35 +390,35 @@ fn collect_pdfs(path: &Path, depth: usize, visited: &mut usize, directories: &mu
 fn milliseconds(time: SystemTime) -> f64 { time.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs_f64() * 1000.0 }
 
 pub fn sanitize_state(value: &Value) -> Result<Value, String> {
-    let object = value.as_object().ok_or("読書設定を読み込めませんでした。")?;
-    if serde_json::to_vec(value).map_err(|e| e.to_string())?.len() > 64 * 1024 { return Err("読書設定が大きすぎます。".into()); }
+    let object = value.as_object().ok_or(tr("読書設定を読み込めませんでした。", "The reading settings could not be read."))?;
+    if serde_json::to_vec(value).map_err(|e| e.to_string())?.len() > 64 * 1024 { return Err(tr("読書設定が大きすぎます。", "The reading settings are too large.").into()); }
     let mut result = Map::new();
     for key in ["page", "bookmarks"] {
         if let Some(value) = object.get(key) { result.insert(key.into(), value.clone()); }
     }
-    if result.get("page").is_some_and(|v| !v.as_u64().is_some_and(|n| (1..=1_000_000).contains(&n))) { return Err("ページ番号が正しくありません。".into()); }
-    if result.get("bookmarks").is_some_and(|v| !v.as_array().is_some_and(|a| a.len() <= 2000 && a.iter().all(|p| p.as_u64().is_some_and(|n| (1..=1_000_000).contains(&n))))) { return Err("しおりが正しくありません。".into()); }
+    if result.get("page").is_some_and(|v| !v.as_u64().is_some_and(|n| (1..=1_000_000).contains(&n))) { return Err(tr("ページ番号が正しくありません。", "The page number is invalid.").into()); }
+    if result.get("bookmarks").is_some_and(|v| !v.as_array().is_some_and(|a| a.len() <= 2000 && a.iter().all(|p| p.as_u64().is_some_and(|n| (1..=1_000_000).contains(&n))))) { return Err(tr("しおりが正しくありません。", "The bookmarks are invalid.").into()); }
     Ok(Value::Object(result))
 }
 
 pub fn sanitize_preferences(value: &Value, existing: &ReaderPreferences) -> Result<ReaderPreferences, String> {
-    let object = value.as_object().ok_or("表示設定を読み込めませんでした。")?;
-    if serde_json::to_vec(value).map_err(|e| e.to_string())?.len() > 2048 { return Err("表示設定が大きすぎます。".into()); }
+    let object = value.as_object().ok_or(tr("表示設定を読み込めませんでした。", "The display settings could not be read."))?;
+    if serde_json::to_vec(value).map_err(|e| e.to_string())?.len() > 2048 { return Err(tr("表示設定が大きすぎます。", "The display settings are too large.").into()); }
     let mut preferences = existing.clone();
-    for (key, choices) in [("theme", &["paper", "white", "night"][..]), ("mode", &["single", "spread"][..]), ("direction", &["ltr", "rtl"][..])] {
+    for (key, choices) in [("theme", &["paper", "white", "night"][..]), ("mode", &["single", "spread"][..]), ("direction", &["ltr", "rtl"][..]), ("language", &["system", "ja", "en"][..])] {
         if let Some(value) = object.get(key) {
-            let selected = value.as_str().filter(|selected| choices.contains(selected)).ok_or("表示設定が正しくありません。")?;
-            match key { "theme" => preferences.theme = selected.into(), "mode" => preferences.mode = selected.into(), _ => preferences.direction = selected.into() }
+            let selected = value.as_str().filter(|selected| choices.contains(selected)).ok_or(tr("表示設定が正しくありません。", "The display settings are invalid."))?;
+            match key { "theme" => preferences.theme = selected.into(), "mode" => preferences.mode = selected.into(), "direction" => preferences.direction = selected.into(), _ => preferences.language = selected.into() }
         }
     }
     Ok(preferences)
 }
 
 fn sanitize_title(value: &str) -> Result<String, String> {
-    if value.len() > 4000 { return Err("書名が長すぎます。".into()); }
+    if value.len() > 4000 { return Err(tr("書名が長すぎます。", "The book title is too long.").into()); }
     let text: String = value.chars().filter(|character| !character.is_control() || character.is_whitespace()).collect();
     let title = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if title.is_empty() || title.chars().count() > 500 { return Err("書名を読み込めませんでした。".into()); }
+    if title.is_empty() || title.chars().count() > 500 { return Err(tr("書名を読み込めませんでした。", "The book title could not be read.").into()); }
     Ok(title)
 }
 
@@ -519,12 +521,45 @@ mod tests {
         json["recent"][0]["state"] = json!({"page":7,"bookmarks":[4],"theme":"night","mode":"spread","direction":"rtl"});
         fs::write(&store.path, serde_json::to_vec(&json).unwrap()).unwrap();
         let migrated = Store::load(fixture.0.join("native/library.json"), Some(&store.path)).unwrap();
-        assert_eq!(migrated.preferences().unwrap(), ReaderPreferences { theme:"night".into(), mode:"spread".into(), direction:"rtl".into() });
+        assert_eq!(migrated.preferences().unwrap(), ReaderPreferences { theme:"night".into(), mode:"spread".into(), direction:"rtl".into(), language:"system".into() });
         assert_eq!(migrated.entry(&entry.document.id).unwrap().document.state, json!({"page":7,"bookmarks":[4]}));
         migrated.save_preferences(&json!({"theme":"white"})).unwrap();
         let second = migrated.open_authorized_path(&fixture.pdf("second.pdf")).unwrap();
         migrated.save_state(&second.document.id, &json!({"page":2,"theme":"paper"})).unwrap();
         assert_eq!(migrated.preferences().unwrap().theme, "white");
+    }
+
+    #[test]
+    fn old_global_preferences_gain_system_language_without_losing_reading_state() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let book = store.open_authorized_path(&fixture.pdf("book.pdf")).unwrap();
+        store.save_state(&book.document.id, &json!({"page":12,"bookmarks":[5,12]})).unwrap();
+        let mut data: Value = serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        data["preferences"] = json!({"theme":"night","mode":"spread","direction":"rtl"});
+        fs::write(&store.path, serde_json::to_vec(&data).unwrap()).unwrap();
+        let migrated = fixture.store();
+        assert_eq!(migrated.preferences().unwrap(), ReaderPreferences { theme:"night".into(), mode:"spread".into(), direction:"rtl".into(), language:"system".into() });
+        assert_eq!(migrated.entry(&book.document.id).unwrap().document.state, json!({"page":12,"bookmarks":[5,12]}));
+        assert_eq!(serde_json::from_slice::<Value>(&fs::read(&store.path).unwrap()).unwrap()["preferences"]["language"], "system");
+        migrated.save_preferences(&json!({"language":"en"})).unwrap();
+        migrated.save_preferences(&json!({"theme":"white"})).unwrap();
+        let reloaded = fixture.store();
+        assert_eq!(reloaded.preferences().unwrap(), ReaderPreferences { theme:"white".into(), mode:"spread".into(), direction:"rtl".into(), language:"en".into() });
+        assert_eq!(reloaded.entry(&book.document.id).unwrap().document.state, json!({"page":12,"bookmarks":[5,12]}));
+    }
+
+    #[test]
+    fn invalid_language_changes_leave_the_saved_preferences_untouched() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        store.save_preferences(&json!({"language":"ja","theme":"night"})).unwrap();
+        let original = fs::read(&store.path).unwrap();
+        for language in [json!("fr"), json!(""), json!(false), Value::Null] {
+            assert!(store.save_preferences(&json!({"language":language,"theme":"white"})).is_err());
+            assert_eq!(store.preferences().unwrap().language, "ja");
+            assert_eq!(store.preferences().unwrap().theme, "night");
+            assert_eq!(fs::read(&store.path).unwrap(), original);
+        }
+        assert_eq!(store.save_preferences(&json!({"language":"system"})).unwrap().language, "system");
     }
 
     #[test]
