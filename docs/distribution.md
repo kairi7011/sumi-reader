@@ -24,6 +24,18 @@ The package script fails if dependency licenses do not match the native lockfile
 
 `scripts/generate-native-notices.mjs` rebuilds dependency notices from the reviewed Cargo cache and records their hashes. Run it after a reviewed dependency change; do not treat a matching hash or an old advisory report as a new security review.
 
+## Local app updates
+
+When delivering an update on the maintainer's Mac, update `/Applications/Sumi.app` as well as the release artifacts. Preserve the bundle identifier `com.kairi7011.sumi`. The installed reader must work independently of the checkout.
+
+The library, per-book reading positions and bookmarks, and shared appearance, layout, direction, and language preferences live in `~/Library/Application Support/com.kairi7011.sumi/library.json`. The existing local search index lives under `~/Library/Application Support/Sumi/library-index/`. Keep both directories and the source PDFs in place. An app update replaces the app bundle, not these files. Never launch the installed app with demo/test library overrides or copy sample data over the normal library. Keep the current schema version until a migration that preserves existing state has been implemented and verified; do not rely on corrupt-data recovery for an unsupported version.
+
+1. Finish the build and package checks in a staging location. Never pass `/Applications/Sumi.app` as the packaging output: the packaging script replaces its output directly. Let imports and other pending operations finish, then quit the running Sumi normally so its latest reading state is saved. Resolve any save error before proceeding; do not overwrite a running bundle.
+2. Keep a recoverable copy of the previous app and user data outside Git and release artifacts. Use owner-only access for user-data backups. Do not print or publish their contents.
+3. Stage and verify the new bundle, then replace `/Applications/Sumi.app`. Do not re-sign it merely to install it, clear system permissions, or modify the user-data directories.
+4. Launch that exact installed path using the normal library. Verify the version, bookshelf, a saved reading position, and shared settings. Restore the books that were open before the update. A renewed macOS file-access prompt must be resolved before claiming startup verification is complete.
+5. If verification fails, keep the backups and investigate. Do not reset the library or automatically restore an older data snapshot over newer reading activity. Roll back the app only when its data compatibility has been checked.
+
 ## Public Git history
 
 Check every reachable branch and tag before publishing. Deleting a file in a later commit does not remove earlier copies. Commit authors should use the maintainer's GitHub noreply identity. Personal PDFs, titles from a private test library, extracted passages, credentials, and local paths must not be included.
