@@ -767,6 +767,7 @@ impl Ui {
         let Some((sequence,result))=completed else{return;};self.open_receiver=None;
         if !self.opening.as_ref().is_some_and(|task|task.sequence==sequence){self.start_open();return;}
         let task=self.opening.take().unwrap();self.open_activity.finish();
+        #[cfg(debug_assertions)] crate::activity::trace_event("open-prepared");
         match result{
             Ok(loaded)=>{
                 let _busy=crate::busy::begin();
@@ -774,16 +775,22 @@ impl Ui {
                 if let Some(title)=loaded.title{let _=self.store.set_book_title(&task.id,&title);}
                 let Ok(entry)=self.store.entry(&task.id)else{self.layout();return;};
                 let saved=self.tabs.iter().find(|tab|tab.id==task.id).cloned();let book=entry.document;
+                #[cfg(debug_assertions)] crate::activity::trace_event("open-attach-start");
                 self.reader.attach(loaded.document);self.reader.set_title(&book.title);self.thumbnails.clear();
+                #[cfg(debug_assertions)] crate::activity::trace_event("open-attach-end");
                 self.current=Some(book.clone());self.password=task.password.clone();
                 self.last_find=saved.as_ref().map_or(String::new(),|tab|tab.find.clone());
                 if let Some(tab)=self.tabs.iter_mut().find(|tab|tab.id==task.id){tab.title=book.title.clone();tab.password=task.password;}
                 else{self.tabs.push(OpenTab{id:task.id.clone(),title:book.title.clone(),password:task.password,zoom:1.,find:String::new()});}
-                self.show_reader();self.reader.restore_zoom(saved.as_ref().map_or(1.,|tab|tab.zoom));
+                self.show_reader();
+                #[cfg(debug_assertions)] crate::activity::trace_event("open-show-reader-end");
+                self.reader.restore_zoom(saved.as_ref().map_or(1.,|tab|tab.zoom));
+                #[cfg(debug_assertions)] crate::activity::trace_event("open-zoom-end");
                 if let Some(query)=task.highlight{self.reader.highlight(&query);}
                 self.status.setHidden(true);self.refresh_chrome();
                 if let Err(error)=self.store.open(&task.id){self.toast(&format!("{}: {error}",text("本は開けましたが、履歴を保存できません","The book opened, but its history could not be saved")));}
                 self.save();
+                #[cfg(debug_assertions)] crate::activity::trace_event("open-ready");
             },
             Err(error) if error=="PASSWORD_REQUIRED"||error=="PASSWORD_INCORRECT"=>{
                 let alert=NSAlert::new(self.mtm);alert.setMessageText(&s(text("このPDFのパスワードを入力","Enter the PDF Password")));
