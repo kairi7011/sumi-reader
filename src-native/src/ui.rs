@@ -18,6 +18,18 @@ fn rect(x:f64,y:f64,w:f64,h:f64)->NSRect { NSRect::new(NSPoint::new(x,y),NSSize:
 fn s(text:&str)->Retained<NSString> { NSString::from_str(text) }
 fn contains(r:NSRect,p:NSPoint)->bool { p.x>=r.origin.x && p.y>=r.origin.y && p.x<=r.origin.x+r.size.width && p.y<=r.origin.y+r.size.height }
 
+fn command_shortcut(key: &str, modifiers: NSEventModifierFlags) -> Option<&'static str> {
+    if !modifiers.contains(NSEventModifierFlags::Command) || modifiers.contains(NSEventModifierFlags::Control) { return None; }
+    let shifted=modifiers.contains(NSEventModifierFlags::Shift);
+    match key.to_lowercase().as_str() {
+        "w" if shifted=>Some("close-all-tabs"),"w"=>Some("close-active-tab"),
+        "f" if shifted=>Some("focus"),"f"=>Some("find"),"k"=>Some("palette"),"t"|"l"=>Some("library"),
+        "[" if shifted=>Some("previous-tab"),"]" if shifted=>Some("next-tab"),
+        "o"=>Some("import"),"g"=>Some("pages"),"0"=>Some("fit"),"+"|"="=>Some("zoom-in"),"-"=>Some("zoom-out"),
+        "d"=>Some("bookmark"),"x" if shifted=>Some("capture"),_=>None,
+    }
+}
+
 #[derive(Default)]
 pub struct DelegateIvars {}
 define_class!(
@@ -78,7 +90,7 @@ define_class!(
         }
         #[unsafe(method(validateMenuItem:))]
         fn validate_menu(&self,item:&NSMenuItem)->bool {
-            UI.with(|state|{let Ok(state)=state.try_borrow()else{return false;};let Some(ui)=state.as_ref()else{return false;};let action=CONTROLS.get(item.tag()as usize).copied().unwrap_or("");if action=="import"{return !ui.import_busy;}if action=="close-active-tab"{return ui.active_tab.is_some();}ui.screen==Screen::Reader||!matches!(action,"previous"|"next"|"pages"|"fit"|"zoom-in"|"zoom-out"|"bookmark"|"capture"|"outline"|"bookmarks"|"focus")})
+            UI.with(|state|{let Ok(state)=state.try_borrow()else{return false;};let Some(ui)=state.as_ref()else{return false;};let action=CONTROLS.get(item.tag()as usize).copied().unwrap_or("");if action=="import"{return !ui.import_busy;}if action=="close-active-tab"{return ui.active_tab.is_some();}if action=="close-all-tabs"{return !ui.tabs.is_empty();}ui.screen==Screen::Reader||!matches!(action,"previous"|"next"|"pages"|"fit"|"zoom-in"|"zoom-out"|"bookmark"|"capture"|"outline"|"bookmarks"|"focus")})
         }
         #[unsafe(method(activateControl:))]
         fn action(&self,sender:&AnyObject) {let tag:isize=unsafe{msg_send![sender,tag]}; enqueue("control",tag as usize);}
@@ -120,7 +132,7 @@ define_class!(
                     if mods.contains(NSEventModifierFlags::Control)&&event.keyCode()==48{enqueue("cycle-tab",usize::from(mods.contains(NSEventModifierFlags::Shift)));return;}
                     if mods.contains(NSEventModifierFlags::Command)&&!mods.contains(NSEventModifierFlags::Control) {
                         if let Ok(number)=key.parse::<usize>(){if (1..=9).contains(&number){enqueue("number-tab",number);return;}}
-                        let command=match key.to_lowercase().as_str(){"f" if mods.contains(NSEventModifierFlags::Shift)=>Some("focus"),"f"=>Some("find"),"k"=>Some("palette"),"t"|"l"=>Some("library"),"w"=>Some("close-active-tab"),"[" if mods.contains(NSEventModifierFlags::Shift)=>Some("previous-tab"),"]" if mods.contains(NSEventModifierFlags::Shift)=>Some("next-tab"),"o"=>Some("import"),"g"=>Some("pages"),"0"=>Some("fit"),"+"|"="=>Some("zoom-in"),"-"=>Some("zoom-out"),"d"=>Some("bookmark"),"x" if mods.contains(NSEventModifierFlags::Shift)=>Some("capture"),_=>None};
+                        let command=command_shortcut(&key,mods);
                         if let Some(command)=command {enqueue(command,0);return;}
                     }
                     if event.keyCode()==53 {let composing=self.firstResponder().is_some_and(|r|r.isKindOfClass(NSTextView::class())&&msg_send![&r,hasMarkedText]);if !composing{enqueue("escape",0);return;}}
@@ -213,11 +225,17 @@ fn palette_commands(preferences: &ReaderPreferences) -> Vec<PaletteCommand> {
         command(if preferences.direction=="rtl"{"左から右に読む"}else{"右から左に読む"},if preferences.direction=="rtl"{"Read Left to Right"}else{"Read Right to Left"},"めくる方向を切り替える","Change Reading Direction","direction","読む方向 左 右 reading direction rtl ltr"),
         command("読書に集中","Focus on Reading","⌘⇧F","⌘⇧F","focus","集中 focus mode"),
         command("本を追加…","Add Books…","PDF・フォルダをまとめて取り込む · ⌘O","Add PDFs or Folders · ⌘O","import","本 追加 取り込む import library"),
+        command("本のタブをすべて閉じる","Close All Book Tabs","本は本棚に残ります · ⌘⇧W","Books Stay in the Library · ⌘⇧W","close-all-tabs","すべて 全て タブ 閉じる close all tabs"),
         command("本棚へ戻る","Go to Library","表紙から本を選ぶ · ⌘L","Choose a Book by its Cover · ⌘L","library","本棚 home shelf"),
         command("言語：システム設定に従う","Language: Use System Setting",system.0,system.1,"language-system","言語 システム language automatic default"),
         command("言語：日本語","Language: Japanese",ja.0,ja.1,"language-ja","言語 日本語 Japanese"),
         command("言語：英語","Language: English",en.0,en.1,"language-en","言語 英語 English"),
     ]
+}
+
+fn palette_command_enabled(action: &str, screen: Screen, tab_count: usize) -> bool {
+    if action=="close-all-tabs" { return tab_count>0; }
+    screen==Screen::Reader||matches!(action,"import"|"white"|"paper"|"night"|"spread"|"direction"|"language-system"|"language-ja"|"language-en")
 }
 
 fn language_for_action(action: &str) -> Option<&'static str> {
@@ -315,7 +333,7 @@ unsafe fn row_title(row:&Row,_mtm:MainThreadMarker)->Retained<NSMutableAttribute
     value.addAttribute_value_range(&s("NSFont"),&NSFont::systemFontOfSize(13.),full);value.addAttribute_value_range(&s("NSColor"),&NSColor::labelColor(),full);value.addAttribute_value_range(&s("NSFont"),&NSFont::systemFontOfSize(11.),detail);value.addAttribute_value_range(&s("NSColor"),&NSColor::secondaryLabelColor(),detail);
     let paragraph=NSMutableParagraphStyle::new();paragraph.setFirstLineHeadIndent(12.);paragraph.setHeadIndent(12.);paragraph.setTailIndent(-12.);paragraph.setLineSpacing(3.);paragraph.setLineBreakMode(NSLineBreakMode::ByTruncatingTail);value.addAttribute_value_range(&s("NSParagraphStyle"),&paragraph,full);value
 }
-const CONTROLS:[&str;28]=["library","find","palette","tools","previous","next","pages","spread","zoom-in","fit","zoom-out","close","import","outline","bookmarks","bookmark","capture","white","paper","night","direction","focus","close-active-tab","previous-tab","next-tab","language-system","language-ja","language-en"];
+const CONTROLS:[&str;29]=["library","find","palette","tools","previous","next","pages","spread","zoom-in","fit","zoom-out","close","import","outline","bookmarks","bookmark","capture","white","paper","night","direction","focus","close-active-tab","previous-tab","next-tab","language-system","language-ja","language-en","close-all-tabs"];
 
 impl Ui {
     unsafe fn new(delegate:&Delegate)->Result<Self,String>{
@@ -397,7 +415,7 @@ impl Ui {
     }
     unsafe fn setup_menu(&self){
         let bar=NSMenu::new(self.mtm);
-        for (name,items) in [("Sumi",vec![(text("Sumiを終了","Quit Sumi"),"quit","q")]),(text("ファイル","File"),vec![(text("本を取り込む…","Add Books…"),"import","o"),(text("ホーム","Home"),"library","l"),(text("タブを閉じる","Close Tab"),"close-active-tab","w")]),(text("編集","Edit"),vec![(text("取り消す","Undo"),"undo","z"),(text("切り取り","Cut"),"cut","x"),(text("コピー","Copy"),"copy","c"),(text("ペースト","Paste"),"paste","v"),(text("すべて選択","Select All"),"select-all","a"),(text("本文を検索","Find in Book"),"find","f"),(text("検索・操作","Search and Commands"),"palette","k")]),(text("表示","View"),vec![(text("ページを選ぶ","Choose a Page"),"pages","g"),(text("全体表示","Fit Page"),"fit","0"),(text("拡大","Zoom In"),"zoom-in","+"),(text("縮小","Zoom Out"),"zoom-out","-"),(text("見開きを切り替える","Toggle Two Pages"),"spread",""),(text("前のタブ","Previous Tab"),"previous-tab",""),(text("次のタブ","Next Tab"),"next-tab","")])]{
+        for (name,items) in [("Sumi",vec![(text("Sumiを終了","Quit Sumi"),"quit","q")]),(text("ファイル","File"),vec![(text("本を取り込む…","Add Books…"),"import","o"),(text("ホーム","Home"),"library","l"),(text("タブを閉じる","Close Tab"),"close-active-tab","w"),(text("本のタブをすべて閉じる","Close All Book Tabs"),"close-all-tabs","w")]),(text("編集","Edit"),vec![(text("取り消す","Undo"),"undo","z"),(text("切り取り","Cut"),"cut","x"),(text("コピー","Copy"),"copy","c"),(text("ペースト","Paste"),"paste","v"),(text("すべて選択","Select All"),"select-all","a"),(text("本文を検索","Find in Book"),"find","f"),(text("検索・操作","Search and Commands"),"palette","k")]),(text("表示","View"),vec![(text("ページを選ぶ","Choose a Page"),"pages","g"),(text("全体表示","Fit Page"),"fit","0"),(text("拡大","Zoom In"),"zoom-in","+"),(text("縮小","Zoom Out"),"zoom-out","-"),(text("見開きを切り替える","Toggle Two Pages"),"spread",""),(text("前のタブ","Previous Tab"),"previous-tab",""),(text("次のタブ","Next Tab"),"next-tab","")])]{
             let menu=NSMenu::initWithTitle(NSMenu::alloc(self.mtm),&s(name));
             if name=="Sumi" {
                 let title=text("言語 / Language","Language / 言語");
@@ -414,6 +432,7 @@ impl Ui {
             for (title,action,key) in items {
                 let item=NSMenuItem::initWithTitle_action_keyEquivalent(NSMenuItem::alloc(self.mtm),&s(title),Some(match action{"quit"=>sel!(terminate:),"copy"=>sel!(copy:),"cut"=>sel!(cut:),"paste"=>sel!(paste:),"select-all"=>sel!(selectAll:),"undo"=>sel!(undo:),_=>sel!(activateControl:)}),&s(key));
                 if let Some(tag)=CONTROLS.iter().position(|x|*x==action){item.setTag(tag as isize);item.setTarget(Some(&*self.delegate));}
+                if action=="close-all-tabs"{item.setKeyEquivalentModifierMask(NSEventModifierFlags::Command|NSEventModifierFlags::Shift);}
                 menu.addItem(&item);
             }
             let item=NSMenuItem::new(self.mtm);item.setSubmenu(Some(&menu));bar.addItem(&item);
@@ -480,6 +499,21 @@ impl Ui {
         self.tabs.remove(index);
         if self.active_tab.as_ref().is_some_and(|id|!self.tabs.iter().any(|tab|&tab.id==id)){self.active_tab=None;}
         if active{self.show_shelf();if !self.tabs.is_empty(){self.open_book(&self.tabs[index.min(self.tabs.len()-1)].id.clone(),None);}}else{self.layout();}self.persist_session();
+    }
+    unsafe fn close_all_tabs(&mut self){
+        if self.tabs.is_empty()&&self.opening.is_none()&&self.pending_open.is_none(){return;}
+        self.reader.set_interaction_enabled(false);
+        // Commit the saved page and empty session together, before discarding any live tabs.
+        if !self.save_with_session(Some(Session::default())){
+            self.reader.set_interaction_enabled(self.screen==Screen::Reader&&self.panel_kind==Panel::None&&self.opening.is_none());
+            return;
+        }
+        self.cancel_open();self.close_panel();self.reader.clear();self.thumbnails.clear();
+        self.current=None;self.password=None;self.tabs.clear();self.active_tab=None;
+        self.last_find.clear();self.last_find_selected=None;self.query.setStringValue(&s(""));self.text_hits.clear();self.rows.clear();self.selected=0;
+        self.screen=Screen::Shelf;self.focus=false;self.last_page=0;self.last_zoom=0;
+        self.window.setTitle(&s(text("本棚 — Sumi","Library — Sumi")));
+        self.refresh_shelf();self.layout();self.window.makeFirstResponder(Some(self.bookshelf.view()));
     }
     unsafe fn apply_preferences(&mut self){
         let dark=self.preferences.theme=="night";let appearance=NSAppearance::appearanceNamed(&s(if dark{"NSAppearanceNameDarkAqua"}else{"NSAppearanceNameAqua"}));self.window.setAppearance(appearance.as_deref());
@@ -592,6 +626,7 @@ impl Ui {
             "escape"=>{if self.panel_kind!=Panel::None{self.close_panel();}else if self.opening.is_some()||self.pending_open.is_some(){self.cancel_open();self.layout();}else if self.screen==Screen::Reader{if self.reader.cancel_interaction(){}else if self.reader.zoom_factor()>1.01{self.reader.fit();}else if self.focus{self.focus=false;self.layout();}}},
             "select-tab"=>self.select_tab(value),"close-tab"=>self.close_tab(value),
             "close-active-tab"=>{if let Some(index)=self.active_tab.as_ref().and_then(|id|self.tabs.iter().position(|tab|&tab.id==id)){self.close_tab(index);}},
+            "close-all-tabs"=>self.close_all_tabs(),
             "number-tab"=>{let index=if value==9{self.tabs.len()}else{value.saturating_sub(1)};if index<=self.tabs.len(){self.select_tab(index);}},
             "cycle-tab"|"previous-tab"|"next-tab"=>{let index=self.active_tab.as_ref().and_then(|id|self.tabs.iter().position(|tab|&tab.id==id)).map_or(0,|i|i+1);let count=self.tabs.len()+1;let backwards=name=="previous-tab"||(name=="cycle-tab"&&value==1);self.select_tab(if backwards{(index+count-1)%count}else{(index+1)%count});},
             "shelf-open"=>{self.bookshelf.select(value);let id=self.bookshelf.id_at(value).map(str::to_owned);if let Some(id)=id{self.open_book(&id,None);}},
@@ -620,7 +655,8 @@ impl Ui {
         if !saved{self.reader.set_interaction_enabled(self.screen==Screen::Reader&&self.panel_kind==Panel::None&&self.opening.is_none());}
         saved
     }
-    fn save(&mut self)->bool{
+    fn save(&mut self)->bool{self.save_with_session(None)}
+    fn save_with_session(&mut self,session:Option<Session>)->bool{
         let _busy=crate::busy::begin();
         self.dirty=None;
         if self.panel_kind==Panel::Find{self.last_find=self.query.stringValue().to_string();}
@@ -628,7 +664,8 @@ impl Ui {
             tab.zoom=self.reader.zoom_factor();tab.find=self.last_find.clone();
         }
         if let Some(book)=self.current.as_mut(){book.state["page"]=json!(self.reader.current_page().max(1));}
-        let result=self.store.save_reading_session(self.current.as_ref().map(|book|book.id.as_str()),self.current.as_ref().map(|book|&book.state),&self.session());
+        let session=session.unwrap_or_else(||self.session());
+        let result=self.store.save_reading_session(self.current.as_ref().map(|book|book.id.as_str()),self.current.as_ref().map(|book|&book.state),&session);
         if let Err(error)=result{
             self.dirty=Some(Instant::now()+Duration::from_secs(2));
             unsafe{self.toast(&format!("{}: {error}",text("読書状態を保存できません","Could not save your reading state")));}false
@@ -646,7 +683,7 @@ impl Ui {
         let query=self.query.stringValue().to_string();let query=query.trim().to_lowercase();let mut rows=vec![];
         if self.panel_kind==Panel::Palette {
             for command in palette_commands(&self.preferences) {
-                if self.screen==Screen::Shelf&&!matches!(command.action,"import"|"white"|"paper"|"night"|"spread"|"direction"|"language-system"|"language-ja"|"language-en"){continue;}
+                if !palette_command_enabled(command.action,self.screen,self.tabs.len()){continue;}
                 if command.matches(&query){rows.push(command.row());}
             }
         }
@@ -787,6 +824,30 @@ pub fn run(){let mtm=MainThreadMarker::new().expect("Sumi requires the macOS mai
 #[cfg(test)]
 mod language_tests {
     use super::*;
+
+    #[test]
+    fn close_all_shortcut_keeps_single_close_distinct_with_shifted_characters() {
+        let command=NSEventModifierFlags::Command;
+        let shift=NSEventModifierFlags::Shift;
+        assert_eq!(command_shortcut("w",command),Some("close-active-tab"));
+        for key in ["w","W"] {assert_eq!(command_shortcut(key,command|shift),Some("close-all-tabs"));}
+        assert_eq!(command_shortcut("W",shift),None);
+        assert_eq!(command_shortcut("w",command|shift|NSEventModifierFlags::Control),None);
+        assert_eq!(command_shortcut("F",command|shift),Some("focus"));
+        assert_eq!(command_shortcut("X",command|shift),Some("capture"));
+    }
+
+    #[test]
+    fn close_all_palette_is_bilingual_and_available_from_home_with_book_tabs() {
+        let commands=palette_commands(&ReaderPreferences::default());
+        let command=commands.iter().find(|command|command.action=="close-all-tabs").unwrap();
+        for query in ["本のタブをすべて閉じる","close all book tabs","close all tabs"] {assert!(command.matches(query));}
+        assert!(CONTROLS.contains(&command.action));
+        for screen in [Screen::Shelf,Screen::Reader] {
+            assert!(palette_command_enabled(command.action,screen,3));
+            assert!(!palette_command_enabled(command.action,screen,0));
+        }
+    }
 
     #[test]
     fn commands_remain_searchable_in_both_languages_in_either_layout() {

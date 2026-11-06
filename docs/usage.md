@@ -24,7 +24,7 @@ The top bar holds the pinned Home tab, open-book tabs and compact import/search 
 - Turn pages with the arrow keys, Space, a click at the page edge or outer margin, or a horizontal two-finger trackpad gesture. The corner can also follow a drag and return to its starting position. Reduced Motion skips the animation.
 - Press G or Command G, or click the page counter, to open the page picker. Scroll vertically through thumbnails for every page, enter a page number for a direct jump, or select a thumbnail. The picker renders the visible area and nearby previews with a bounded cache, so long books do not require rendering every thumbnail at once.
 - Zoom in place with pinch or Command + / −. Command 0 or the contextual reset button restores the complete page. Hold Space and drag to move an enlarged page; scrolling pans while zoomed.
-- Command L, Command T or Command 1 selects the pinned Home tab. Command W closes the current book tab; Control Tab cycles through Home and open books, and Control Shift Tab cycles backward. Command Shift F hides the reader chrome for focused reading; Escape restores it after dismissing any active panel or zoom. macOS standard full-screen behavior is separate.
+- Command L, Command T or Command 1 selects the pinned Home tab. Command W closes the current book tab; Command Shift W closes all book tabs and returns to Home, keeping the books and saved reading positions in the library; Control Tab cycles through Home and open books, and Control Shift Tab cycles backward. Command Shift F hides the reader chrome for focused reading; Escape restores it after dismissing any active panel or zoom. macOS standard full-screen behavior is separate.
 - Command K offers explicit actions such as **Show Two Pages**, **Show One Page**, and **Read right to left**. Appearance and reading direction are app-wide. Light, sepia and dark change the window and reading background; the PDF's paper, text and illustration colors remain unchanged.
 
 ## Language
@@ -55,6 +55,7 @@ Password-protected PDFs request a password for the current app session. Password
 | Combined search on Home / current-book find while reading | Command F |
 | Select the pinned Home tab | Command L / T / 1 |
 | Close the current book tab | Command W |
+| Close all book tabs; keep books in the library | Command Shift W |
 | Next / previous tab, including Home | Control Tab / Control Shift Tab |
 | Search books, text, pages, and commands | Command K |
 | Open selected search result / next result | Enter |

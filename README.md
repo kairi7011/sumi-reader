@@ -10,7 +10,7 @@ A small native PDF reader for macOS, with a bookshelf, reading tabs, and search 
 
 Keep several books open in tabs and switch back to the same page and zoom. Read a complete page or facing spread without scrolling at the fitted size. Turn pages from the edges, keyboard, or horizontal trackpad gestures; use a vertical thumbnail grid to jump anywhere in the book. Zoom in place to inspect a detail, then return with Command 0 or Escape.
 
-When you reopen Sumi, it restores your tab order, selected book or Home, and each tab's page, zoom, and in-book search query. If you close every book tab before quitting, Sumi reopens Home without any book tabs. PDF passwords are never saved; protected books ask again after relaunch.
+When you reopen Sumi, it restores your tab order, selected book or Home, and each tab's page, zoom, and in-book search query. Command Shift W closes all book tabs while keeping the books and saved reading positions in your library. If you close every book tab before quitting, Sumi reopens Home without any book tabs. PDF passwords are never saved; protected books ask again after relaunch.
 
 The import and search icons stay compact. Command K holds the less frequent actions, and focus mode hides the reader controls. Appearance and language are shared across all books. Choose English, Japanese, or the system language from the Sumi menu.
 
