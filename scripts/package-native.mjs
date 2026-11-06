@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { nativeTargetDirectory, NATIVE_TARGET } from './native-build-env.mjs';
+import { verifyNativeNotices, verifyNativePackage } from './verify-native-package.mjs';
 
 if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('Package Sumi on an Apple Silicon Mac.');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -23,8 +25,9 @@ const displayName = option('--display-name', 'Sumi');
 if (!/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(bundleId)) throw new Error('Use a reverse-DNS bundle identifier.');
 if (displayName.length > 80 || /[\r\n\x00-\x1f]/.test(displayName)) throw new Error('Use a short single-line display name.');
 
-const binary = path.join(root, `src-native/target/aarch64-apple-darwin/${profile}/sumi-native`);
+const binary = path.join(nativeTargetDirectory(root), NATIVE_TARGET, profile, 'sumi-native');
 await fs.access(binary);
+await verifyNativeNotices();
 const manifest = await fs.readFile(path.join(root, 'src-native/Cargo.toml'), 'utf8');
 const version = manifest.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 if (!version) throw new Error('Native crate version is missing.');
@@ -39,9 +42,12 @@ try {
   await fs.chmod(executable, 0o755);
   if (profile === 'release') execFileSync('/usr/bin/strip', ['-S', '-x', executable], { stdio: 'inherit' });
   await fs.copyFile(path.join(root, 'assets/app-icon.icns'), path.join(contents, 'Resources/sumi.icns'));
-  await fs.cp(path.join(root, 'tools/library'), path.join(contents, 'Resources/library'), { recursive: true, filter: source => !source.includes('__pycache__') && !source.endsWith('.pyc') });
+  await fs.mkdir(path.join(contents, 'Resources/library'), { recursive: true });
+  for (const name of ['sumi_library.py', 'extract.swift']) await fs.copyFile(path.join(root, 'tools/library', name), path.join(contents, 'Resources/library', name));
   await fs.copyFile(path.join(root, 'docs/native-dependency-audit.json'), path.join(contents, 'Resources/native-dependency-audit.json'));
   await fs.cp(path.join(root, 'assets/icons/lucide'), path.join(contents, 'Resources/icons/lucide'), { recursive: true });
+  for (const name of ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md']) await fs.copyFile(path.join(root, name), path.join(contents, 'Resources', name));
+  await fs.cp(path.join(root, 'licenses'), path.join(contents, 'Resources/licenses'), { recursive: true, filter: source => path.basename(source) !== '.gitattributes' });
   const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
   const properties = {
     CFBundleName: displayName, CFBundleDisplayName: displayName, CFBundleExecutable: 'Sumi', CFBundleIdentifier: bundleId,
@@ -56,6 +62,7 @@ try {
   execFileSync('/usr/bin/plutil', ['-lint', path.join(contents, 'Info.plist')], { stdio: 'inherit' });
   execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', bundle], { stdio: 'inherit' });
   execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle], { stdio: 'inherit' });
+  await verifyNativePackage(bundle, { debug: profile === 'debug' });
   await fs.rm(destination, { recursive: true, force: true });
   await fs.rename(bundle, destination);
   console.log(`Built native Sumi ${version}: ${destination}`);
