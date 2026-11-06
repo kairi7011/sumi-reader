@@ -13,6 +13,7 @@ Checked on an Apple Silicon Mac running macOS 15.8.1 on 2026-11-06. Native UI te
 - Closed middle tabs, reopened a book, and used Command Shift W from both the reader and Home. All book tabs closed while all nine library entries, reading states and shared preferences remained.
 - Made only the isolated store directory unwritable. Command Shift W showed a save error and retained all five tabs and their selection. Restoring directory access allowed the operation to finish.
 - After closing all tabs, quit and relaunched again. Home remained selected with no book tabs; the library was intact.
+- Installed the final 0.10.0 build in Applications and launched it there. The existing normal library, search index, settings, open tab and reading page were preserved. The installed executable matched the verified distribution build, and its signature passed strict verification.
 
 ## Timing and resource observations
 
@@ -28,9 +29,12 @@ The 400 ms deadline now starts with the book-open request and continues through 
 
 Tab controls retain their identities. Closing controls become inert immediately while their visuals finish; reopening during that interval reuses the visual with current action targets. Initial session restoration does not animate all tabs into place, and macOS Reduce Motion disables the transitions. Native Core Animation drives the 200 ms position, width, opacity and selection-background transitions independently of the main run loop.
 
+Frame inspection exposed an endpoint snap caused by removing a live animation before Core Animation had finished. The final build lets the compositor complete live transitions naturally. A fresh recording of that build showed two tab insertions settling without the previous snap, followed by an active-tab close and close-all without residual tab images. The final sampled insertion steps were 1 and 3 pixels, compared with the earlier 31-pixel endpoint jump. Variable-frame-rate recording does not establish exact animation duration; this clip does not verify Reduce Motion, compact overflow or rapid retargeting.
+
 ScreenCaptureKit captured the actual QA window during reading and tab operations. These local recordings contain private book material and are not distributed. Their source hashes are retained for the local verification record:
 
 - Reading interval: `9f3b4dfcaecc57d1354455e9c17406df565f628b65ae0047e6f913dc7acb76a3`
 - Tab operations: `e5568ad35115e38fb4e3045e27fc851ec9137c2ccc78f78e23d867294eaac01f`
+- Final animation retest: `c46fe7f5d2c37f43a3a0a758ee98adbbeed5bc2a5713f3681ec925aa471ca999`
 
 This run does not establish sustained frame rate, behavior for every PDF, physical trackpad performance or a cold-system performance bound.
