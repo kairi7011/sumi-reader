@@ -164,16 +164,21 @@ impl Reader {
         PreparedDocument::open(path, password).map(|prepared| self.attach(prepared))
     }
     pub fn attach(&self, prepared: PreparedDocument) -> DocumentInfo {
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-attach-start");
         let mtm = MainThreadMarker::new().expect("Reader attachment must run on the main thread");
         let _busy = crate::busy::begin();
         let (document, info, outline, initial_page) = prepared.into_main_thread(mtm);
         {
             let mut state = self.state.borrow_mut();
             state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.cancel_capture(); state.captured = None;
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-attach-cleanup-end");
             state.current = initial_page; state.title = info.title.clone(); state.document = Some(document.clone()); state.outline = outline; state.factor = 1.; state.pan = None; state.space = false;
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-set-document-start");
             unsafe { let _: () = msg_send![&*state.view, setDocument: &*document]; }
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-set-document-end");
         }
         self.go_to(initial_page, false); self.focus();
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-attach-end");
         info
     }
     pub fn document(&self) -> Option<Retained<PDFDocument>> { self.state.borrow().document.clone() }
@@ -285,24 +290,34 @@ impl ReaderState {
     fn fit(&mut self) {
         if self.document.is_none() { return; }
         let _busy = crate::busy::begin();
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-start");
         unsafe {
             let _: () = msg_send![&*self.view, setAutoScales: true];
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-autoscale-end");
             let _: () = msg_send![&*self.view, layoutDocumentView];
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-layout-end");
             let scale: f64 = msg_send![&*self.view, scaleFactorForSizeToFit];
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-query-end");
             if scale.is_finite() && scale > 0. { self.fit_scale = scale; let _: () = msg_send![&*self.view, setScaleFactor: scale]; }
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-scale-end");
         }
         self.factor = 1.; self.pan = None; self.space = false;
         crate::enqueue("reader-zoom", 100);
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-fit-end");
     }
     fn go_to(&mut self, target: usize) {
         let Some(document) = &self.document else { return; };
         let _busy = crate::busy::begin();
         let target = target.clamp(1, document.page_count());
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-goto-start");
         if let Some(page) = document.page(target - 1) {
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-goto-page-ready");
             unsafe { let _: () = msg_send![&*self.view, goToPage: &*page]; }
+            #[cfg(debug_assertions)] crate::activity::trace_event("reader-goto-native-end");
             self.current = target; self.fit(); self.update_cursor();
             crate::enqueue("reader-page", target);
         }
+        #[cfg(debug_assertions)] crate::activity::trace_event("reader-goto-end");
     }
     fn step(&mut self, delta: isize) {
         if self.document.is_none() { return; }
