@@ -18,29 +18,39 @@ const OPACITY: f64 = 0.85;
 
 #[derive(Clone, Copy)]
 struct Visibility {
+    position: NSPoint,
     reveal_at: f64,
     from_opacity: f64,
     spin_origin: f64,
     fade: Option<(f64, f64)>,
 }
 impl Visibility {
-    fn begin(now: f64, elapsed: Duration, previous: Option<Self>) -> Self {
+    fn begin(now: f64, elapsed: Duration, position: NSPoint, previous: Option<Self>) -> Self {
+        // A header handoff and an unrelated reader operation must not move an
+        // already-visible ring between anchors when their scopes happen to overlap.
+        let previous = previous.filter(|visual| visual.position == position);
         let previous_opacity = previous.map_or(0., |visual| visual.opacity(now));
         let continuing = previous_opacity > 0.;
-        let reveal_at = now + if continuing { 0. } else { (REVEAL_DELAY - elapsed.as_secs_f64()).max(0.) };
+        let elapsed = elapsed.as_secs_f64();
+        let original_reveal = now + REVEAL_DELAY - elapsed;
+        let reveal_at = if continuing { now } else { original_reveal.max(now) };
         Self {
+            position,
             reveal_at,
-            from_opacity: previous_opacity,
-            spin_origin: if continuing { previous.unwrap().spin_origin } else { reveal_at },
+            from_opacity: if continuing { previous_opacity } else { OPACITY * ((elapsed - REVEAL_DELAY) / REVEAL_DURATION).clamp(0., 1.) },
+            spin_origin: if continuing { previous.unwrap().spin_origin } else { original_reveal },
             fade: None,
         }
+    }
+    fn reveal_duration(self) -> f64 {
+        (REVEAL_DURATION * (1. - self.from_opacity / OPACITY)).max(0.001)
     }
     fn opacity(self, now: f64) -> f64 {
         if let Some((start, opacity)) = self.fade {
             return opacity * (1. - (now - start) / DISMISS_DURATION).clamp(0., 1.);
         }
         if now < self.reveal_at { return 0.; }
-        self.from_opacity + (OPACITY - self.from_opacity) * ((now - self.reveal_at) / REVEAL_DURATION).clamp(0., 1.)
+        self.from_opacity + (OPACITY - self.from_opacity) * ((now - self.reveal_at) / self.reveal_duration()).clamp(0., 1.)
     }
     fn rotation(self, now: f64) -> f64 {
         -std::f64::consts::TAU * ((now - self.spin_origin).max(0.) / SPIN_DURATION).rem_euclid(1.)
@@ -122,7 +132,10 @@ pub fn layout(width: f64, height: f64) {
         let mut state = slot.borrow_mut();
         if state.size == Some((width, height)) { return None; }
         state.size = Some((width, height));
-        if state.positioned_for_operation { None } else { state.layer.clone() }
+        if state.positioned_for_operation { None } else {
+            if let Some(visual) = state.visibility.as_mut() { visual.position = default_position(width, height); }
+            state.layer.clone()
+        }
     });
     if let Some(layer) = layer { unsafe {
         transaction(|| { let _: () = msg_send![&*layer, setPosition: default_position(width, height)]; });
@@ -155,11 +168,12 @@ fn begin_scoped(elapsed: Duration, position: Option<NSPoint>) -> Guard {
         let (generation, first) = state.scopes.enter();
         let setup = if first {
             let now = unsafe { CACurrentMediaTime() };
-            let visual = Visibility::begin(now, elapsed, state.visibility);
+            let (width, height) = state.size.unwrap_or((0., 0.));
+            let anchor = position.unwrap_or_else(|| default_position(width, height));
+            let visual = Visibility::begin(now, elapsed, anchor, state.visibility);
             state.visibility = Some(visual);
             state.positioned_for_operation = position.is_some();
-            let (width, height) = state.size.unwrap_or((0., 0.));
-            Some((visual, now, position.unwrap_or_else(|| default_position(width, height))))
+            Some((visual, now, anchor))
         } else { None };
         Some((layer, root, generation, setup))
     });
@@ -228,7 +242,7 @@ unsafe fn arm(layer: &AnyObject, root: &NSView, visual: Visibility, now: f64, po
         let _: () = msg_send![layer, setPosition: position];
         let _: () = msg_send![layer, setOpacity: 0f32];
         let _: () = msg_send![layer, removeAllAnimations];
-        let opacity = basic("opacity", visual.from_opacity, OPACITY, reveal, REVEAL_DURATION);
+        let opacity = basic("opacity", visual.from_opacity, OPACITY, reveal, visual.reveal_duration());
         let _: () = msg_send![&*opacity, setFillMode: &*NSString::from_str("forwards")];
         let _: () = msg_send![&*opacity, setRemovedOnCompletion: false];
         let _: () = msg_send![layer, addAnimation: &*opacity, forKey: &*NSString::from_str("sumi-busy-visible")];
@@ -262,27 +276,39 @@ pub fn debug_block_once() {
 mod tests {
     use super::{Scopes, Visibility, DISMISS_DURATION, OPACITY};
     use std::time::Duration;
+    use objc2_foundation::NSPoint;
+    const HEADER: NSPoint = NSPoint::new(900., 700.);
     fn close(actual: f64, expected: f64) { assert!((actual - expected).abs() < 0.000_001, "{actual} != {expected}"); }
     #[test]
     fn main_thread_handoff_keeps_the_original_four_hundred_millisecond_deadline() {
-        let visual = Visibility::begin(10., Duration::from_millis(301), None);
+        let visual = Visibility::begin(10., Duration::from_millis(301), HEADER, None);
         close(visual.reveal_at, 10.099);
         close(visual.opacity(10.098), 0.);
         assert!(visual.opacity(10.110) > 0.);
-        let overdue = Visibility::begin(10., Duration::from_millis(800), None);
+        let overdue = Visibility::begin(10., Duration::from_millis(800), HEADER, None);
         close(overdue.reveal_at, 10.);
     }
     #[test]
+    fn an_already_visible_async_handoff_keeps_its_opacity_and_elapsed_rotation() {
+        let uninterrupted = Visibility::begin(9.2, Duration::ZERO, HEADER, None);
+        let overdue = Visibility::begin(10., Duration::from_millis(800), HEADER, None);
+        close(overdue.opacity(10.), OPACITY);
+        close(overdue.rotation(10.), uninterrupted.rotation(10.));
+        let halfway = Visibility::begin(10., Duration::from_millis(440), HEADER, None);
+        close(halfway.opacity(10.), OPACITY / 2.);
+        close(halfway.opacity(10.04), OPACITY);
+    }
+    #[test]
     fn fast_completion_cancels_the_unseen_ring_without_a_later_flash() {
-        let visual = Visibility::begin(0., Duration::ZERO, None);
+        let visual = Visibility::begin(0., Duration::ZERO, HEADER, None);
         assert!(visual.finish(0.399).is_none());
-        let next = Visibility::begin(0.5, Duration::ZERO, visual.finish(0.399));
+        let next = Visibility::begin(0.5, Duration::ZERO, HEADER, visual.finish(0.399));
         close(next.opacity(0.89), 0.);
         close(next.reveal_at, 0.9);
     }
     #[test]
     fn visible_completion_fades_for_one_hundred_twenty_milliseconds() {
-        let visual = Visibility::begin(0., Duration::ZERO, None);
+        let visual = Visibility::begin(0., Duration::ZERO, HEADER, None);
         let fade = visual.finish(0.8).unwrap();
         close(fade.opacity(0.8), OPACITY);
         close(fade.opacity(0.8 + DISMISS_DURATION / 2.), OPACITY / 2.);
@@ -295,14 +321,23 @@ mod tests {
     }
     #[test]
     fn restart_during_dismissal_preserves_opacity_and_spin_without_an_old_deadline() {
-        let fading = Visibility::begin(0., Duration::ZERO, None).finish(0.8).unwrap();
-        let resumed = Visibility::begin(0.86, Duration::ZERO, Some(fading));
+        let fading = Visibility::begin(0., Duration::ZERO, HEADER, None).finish(0.8).unwrap();
+        let resumed = Visibility::begin(0.86, Duration::ZERO, HEADER, Some(fading));
         close(resumed.reveal_at, 0.86);
         close(resumed.opacity(0.86), fading.opacity(0.86));
         close(resumed.rotation(0.86), fading.rotation(0.86));
         close(resumed.opacity(1.), OPACITY);
-        let fresh = Visibility::begin(1., Duration::ZERO, Some(fading));
+        let fresh = Visibility::begin(1., Duration::ZERO, HEADER, Some(fading));
         close(fresh.reveal_at, 1.4);
+    }
+    #[test]
+    fn an_unrelated_operation_does_not_move_a_visible_header_fade_to_the_reader() {
+        let fading = Visibility::begin(0., Duration::ZERO, HEADER, None).finish(0.8).unwrap();
+        assert!(fading.opacity(0.86) > 0.);
+        let reader = Visibility::begin(0.86, Duration::ZERO, NSPoint::new(900., 24.), Some(fading));
+        close(reader.opacity(0.86), 0.);
+        close(reader.reveal_at, 1.26);
+        assert!(reader.finish(0.9).is_none());
     }
     #[test]
     fn nested_work_keeps_one_deadline_until_the_final_guard_finishes() {
