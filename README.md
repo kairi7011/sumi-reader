@@ -2,7 +2,7 @@
 
 A small native PDF reader for macOS, with a bookshelf, reading tabs, and search across your books.
 
-[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.9.0) · [Watch real app operation](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4)
+[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.10.0) · [Watch real app operation](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4)
 
 ![Sumi's bookshelf with three original sample books](docs/media/bookshelf.png)
 

@@ -2,7 +2,7 @@
 
 本棚とタブで本を行き来しながら、読みたいページをすぐに開けるmacOS用PDFリーダーです。
 
-[macOS版をダウンロード](https://github.com/kairi7011/sumi-reader/releases/tag/v0.9.0) · [実際の操作を見る](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4) · [English](README.md)
+[macOS版をダウンロード](https://github.com/kairi7011/sumi-reader/releases/tag/v0.10.0) · [実際の操作を見る](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4) · [English](README.md)
 
 ![オリジナルのサンプル3冊を並べたSumiの本棚](docs/media/bookshelf.png)
 

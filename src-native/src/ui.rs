@@ -371,6 +371,7 @@ impl Ui {
         let timer:Retained<NSTimer>=msg_send![NSTimer::class(),scheduledTimerWithTimeInterval:0.0166666667,target:delegate,selector:sel!(tick:),userInfo:std::ptr::null::<AnyObject>(),repeats:true];NSRunLoop::mainRunLoop().addTimer_forMode(&timer,NSRunLoopCommonModes);
         ui.setup_menu();
         ui.restore_session(session);
+        ui.tab_strip.enable_animations();
         let args:Vec<PathBuf>=std::env::args_os().skip(1).filter(|arg| !arg.to_string_lossy().starts_with('-')).map(PathBuf::from).filter(|p|p.exists()).collect();if !args.is_empty(){ui.pending_open=args.first().filter(|p|p.is_file()).cloned();ui.import(args);}
         #[cfg(debug_assertions)]
         if let (Some(directory),Some(isolated))=(std::env::var_os("SUMI_NATIVE_SMOKE_DIR"),std::env::var_os("SUMI_LIBRARY_PATH")){
@@ -386,9 +387,11 @@ impl Ui {
             id:tab.book_id,title:entry.document.title,password:None,zoom:tab.zoom,find:tab.find,
         })).collect();
         self.active_tab=session.active_book_id.filter(|id|self.tabs.iter().any(|tab|&tab.id==id));
-        self.refresh_shelf();self.layout();
-        if let Some(id)=self.active_tab.clone(){self.open_book(&id,None);}
-        else{self.window.setTitle(&s(text("本棚 — Sumi","Library — Sumi")));}
+        if let Some(id)=self.active_tab.clone(){
+            self.screen=Screen::Reader;self.bookshelf.set_active(false);
+            if let Some(tab)=self.tabs.iter().find(|tab|tab.id==id){self.window.setTitle(&s(&format!("{} — Sumi",tab.title)));}
+            self.layout();self.open_book(&id,None);
+        }else{self.refresh_shelf();self.layout();self.window.setTitle(&s(text("本棚 — Sumi","Library — Sumi")));}
     }
     fn session(&self)->Session{
         Session{tabs:self.tabs.iter().map(|tab|SessionTab{book_id:tab.id.clone(),zoom:tab.zoom,find:tab.find.clone()}).collect(),active_book_id:self.active_tab.clone()}
@@ -446,7 +449,7 @@ impl Ui {
         let top_h=if focused{0.}else{38.};let bottom_h=if focused{0.}else{40.};
         self.reader.resize(rect(8.,bottom_h,size.width-16.,size.height-top_h-bottom_h-5.));
         self.reader.view().setHidden(shelf);self.reader.set_interaction_enabled(!shelf&&self.panel_kind==Panel::None&&self.opening.is_none());
-        self.top.setFrame(rect(0.,size.height-38.,size.width,38.));self.top.setHidden(focused);self.footer.setHidden(focused||shelf);
+        self.top.setFrame(rect(0.,size.height-38.,size.width,38.));self.top.setHidden(focused);self.footer.setHidden(focused||shelf||self.current.is_none());
         self.tab_strip.view().setFrameOrigin(NSPoint::new(88.,0.));
         let tabs:Vec<_>=self.tabs.iter().map(|tab|(tab.id.clone(),tab.title.clone())).collect();
         self.tab_strip.show(&tabs,self.active_tab.as_deref(),size.width-208.,38.);
@@ -498,7 +501,10 @@ impl Ui {
         if self.opening.as_ref().is_some_and(|task|task.id==self.tabs[index].id){self.cancel_open();}
         self.tabs.remove(index);
         if self.active_tab.as_ref().is_some_and(|id|!self.tabs.iter().any(|tab|&tab.id==id)){self.active_tab=None;}
-        if active{self.show_shelf();if !self.tabs.is_empty(){self.open_book(&self.tabs[index.min(self.tabs.len()-1)].id.clone(),None);}}else{self.layout();}self.persist_session();
+        if active{
+            if self.tabs.is_empty(){self.show_shelf();}
+            else{self.layout();self.open_book(&self.tabs[index.min(self.tabs.len()-1)].id.clone(),None);}
+        }else{self.layout();}self.persist_session();
     }
     unsafe fn close_all_tabs(&mut self){
         if self.tabs.is_empty()&&self.opening.is_none()&&self.pending_open.is_none(){return;}
@@ -567,6 +573,7 @@ impl Ui {
         self.layout();
     }
     unsafe fn tick(&mut self){
+        self.tab_strip.tick();
         let commands=COMMANDS.with(|q|q.borrow_mut().drain(..).collect::<Vec<_>>());
         for command in commands{match command{Command::Action(name,value)=>self.action(&name,value),Command::Files(paths)=>{if self.import_busy{self.toast(text("取り込み中です","Adding books…"));}else{self.pending_open=if paths.len()==1{paths.first().filter(|p|p.is_file()).cloned()}else{None};self.import(paths);}},Command::BookAction(action,id)=>self.book_action(action,&id),Command::Outside(point)=>self.outside_click(point)}}
         self.poll_open();
@@ -721,7 +728,7 @@ impl Ui {
     }
     unsafe fn cancel_open(&mut self){
         self.pending_open=None;self.opening=None;self.open_activity.finish();
-        if self.current.is_none(){self.active_tab=None;}
+        if self.current.is_none(){self.active_tab=None;self.screen=Screen::Shelf;self.refresh_shelf();self.window.setTitle(&s(text("本棚 — Sumi","Library — Sumi")));}
         self.reader.set_interaction_enabled(self.screen==Screen::Reader&&self.panel_kind==Panel::None);
     }
     unsafe fn open_book(&mut self,id:&str,page:Option<usize>){
@@ -766,11 +773,14 @@ impl Ui {
         });
         let Some((sequence,result))=completed else{return;};self.open_receiver=None;
         if !self.opening.as_ref().is_some_and(|task|task.sequence==sequence){self.start_open();return;}
+        let elapsed=self.open_activity.elapsed();
         let task=self.opening.take().unwrap();self.open_activity.finish();
         #[cfg(debug_assertions)] crate::activity::trace_event("open-prepared");
         match result{
             Ok(loaded)=>{
-                let _busy=crate::busy::begin();
+                show_progress(&self.activity_indicator,None);
+                let frame=self.activity_indicator.frame();
+                let _busy=crate::busy::begin_at_with_elapsed(elapsed,NSPoint::new(frame.origin.x+frame.size.width/2.,frame.origin.y+frame.size.height/2.));
                 if !self.tabs.iter().any(|tab|tab.id==task.id)&&self.store.entry(&task.id).is_err(){self.layout();return;}
                 if let Some(title)=loaded.title{let _=self.store.set_book_title(&task.id,&title);}
                 let Ok(entry)=self.store.entry(&task.id)else{self.layout();return;};
@@ -799,7 +809,7 @@ impl Ui {
                 if alert.runModal()==1000{self.opening=Some(OpenTask{password:Some(field.stringValue().to_string()),..task});self.open_activity.begin();self.start_open();}
                 else{self.cancel_open();self.layout();self.persist_session();}
             },
-            Err(error)=>{if self.current.is_none(){self.active_tab=None;}self.toast(&error);self.layout();self.reader.focus();self.persist_session();},
+            Err(error)=>{self.cancel_open();self.toast(&error);self.layout();self.reader.focus();self.persist_session();},
         }
     }
     unsafe fn book_action(&mut self,action:usize,id:&str){

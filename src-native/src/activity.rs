@@ -9,6 +9,7 @@ pub struct Activity {
 
 impl Activity {
     pub fn begin(&mut self) { self.started = Some(Instant::now()); }
+    pub fn elapsed(&self) -> Duration { self.started.map_or(Duration::ZERO, |started| started.elapsed()) }
     pub fn finish(&mut self) { self.started = None; }
     pub fn set_active(&mut self, active: bool) {
         if !active { self.finish(); }
