@@ -1,11 +1,11 @@
 {
   "name": "sumi-reader",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "description": "A quiet, local PDF reader for macOS",
   "type": "module",
   "author": "kairi7011",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -26,5 +26,12 @@
   },
   "dependencies": {
     "pdfjs-dist": "6.4.299"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kairi7011/sumi-reader.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kairi7011/sumi-reader/issues"
   }
 }

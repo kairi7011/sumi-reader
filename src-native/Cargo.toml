@@ -1,9 +1,9 @@
 [package]
 name = "sumi-native"
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.99"
-license = "LicenseRef-Proprietary"
+license = "Apache-2.0"
 
 [dependencies]
 objc2 = "=0.6.5"

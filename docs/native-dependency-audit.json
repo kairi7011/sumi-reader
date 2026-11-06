@@ -2,8 +2,8 @@
   "checkedAt": "2026-11-05T07:05:28.374Z",
   "target": "aarch64-apple-darwin",
   "minimumAgeHours": 72,
-  "lockSha256": "b9ecde5ef532756749e88b74d798ba9988fb08836714d3bb6ba60213cbaea8c6",
-  "manifestSha256": "39a042932416e30199814b7c29960dee875b240055545bf025b6a36190c0cda0",
+  "lockSha256": "7706c2d0712fd914f9a181a78c00befe764d10d074ef306d3406e7bc6dfe33d5",
+  "manifestSha256": "36cb98ab59fd91530a4d16b3874811f57a4c1494e80436dcefc00bef34315191",
   "packageCount": 31,
   "priorAudit": "docs/tauri-dependency-audit.json",
   "priorAdvisoryCheck": "2026-11-04T03:32:13.347Z",
@@ -551,6 +551,12 @@
       "externalPackageCount": 31,
       "dependencyResolutionPerformed": false,
       "newDownloads": 0
+    },
+    {
+      "date": "2026-11-06",
+      "reason": "Public release 0.7.0 and Apache-2.0 project license; external dependencies unchanged",
+      "previousManifestSha256": "39a042932416e30199814b7c29960dee875b240055545bf025b6a36190c0cda0",
+      "previousLockSha256": "b9ecde5ef532756749e88b74d798ba9988fb08836714d3bb6ba60213cbaea8c6"
     }
   ]
 }

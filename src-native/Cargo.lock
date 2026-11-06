@@ -256,7 +256,7 @@ dependencies = [
 
 [[package]]
 name = "sumi-native"
-version = "0.6.1"
+version = "0.7.0"
 dependencies = [
  "block2",
  "objc2",
