@@ -1,6 +1,14 @@
 # Sumi
 
-A local PDF reader for macOS, designed around the page.
+Find a passage across your PDFs, then jump straight to its page.
+
+[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.7.0)
+
+Command K searches the text of imported PDFs in one place. Results include the book title and page number, so you can open the passage without first remembering which book contains it. Search requires selectable text and respects PDF copy permissions; it is keyword search, not regular-expression grep.
+
+![Search across three original sample PDFs](docs/media/cross-book-search.png)
+
+[Watch the short walkthrough](https://github.com/kairi7011/sumi-reader/releases/download/v0.7.0/Sumi-0.7.0-demo.mp4). Screenshots and video use original sample documents, not purchased books.
 
 Sumi is written in Rust with native AppKit controls and Apple's PDFKit renderer. It has no browser engine, account, telemetry, cloud upload, or built-in AI service. The interface is currently Japanese.
 

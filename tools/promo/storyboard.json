@@ -1,0 +1,65 @@
+{
+  "title": "Sumi",
+  "subtitle": "PDFを横断して、一節を探す。",
+  "transition": 0.35,
+  "scenes": [
+    {
+      "image": "../../docs/media/screenshots/01-bookshelf.png",
+      "heading": "本をまたいで、探す。",
+      "caption": "読み込んだPDFを、ひとつの本棚に。",
+      "duration": 4,
+      "card": true,
+      "layout": "focus"
+    },
+    {
+      "image": "../../docs/media/screenshots/02-palette.png",
+      "heading": "Command Kで、検索を開く。",
+      "caption": "書名を思い出す前に、本文の言葉から。",
+      "duration": 3,
+      "card": false,
+      "layout": "focus"
+    },
+    {
+      "image": "../../docs/media/screenshots/03-search-results.png",
+      "heading": "複数のPDFから、同じ言葉を。",
+      "caption": "本文を横断検索。書名とページ番号を見て選べます。",
+      "duration": 8,
+      "card": true,
+      "layout": "focus",
+      "cropRect": {
+        "x": 266,
+        "y": 90,
+        "width": 1188,
+        "height": 800
+      }
+    },
+    {
+      "image": "../../docs/media/screenshots/04-selected-result.png",
+      "heading": "複数のPDFから、同じ言葉を。",
+      "caption": "本文を横断検索。書名とページ番号を見て選べます。",
+      "duration": 2,
+      "card": false,
+      "layout": "focus",
+      "cropRect": {
+        "x": 266,
+        "y": 90,
+        "width": 1188,
+        "height": 800
+      }
+    },
+    {
+      "image": "../../docs/media/screenshots/05-reading-page.png",
+      "heading": "見つけた\n一節から、\nそのページへ。",
+      "caption": "検索結果を選ぶと、該当する本のページが開きます。",
+      "duration": 7,
+      "card": true,
+      "layout": "aside",
+      "cropRect": {
+        "x": 560,
+        "y": 78,
+        "width": 600,
+        "height": 814
+      }
+    }
+  ]
+}

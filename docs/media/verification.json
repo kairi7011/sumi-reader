@@ -1,0 +1,133 @@
+{
+  "audio_tracks": 0,
+  "codec": "avc1",
+  "decoded_frames": 720,
+  "decoder_completed": true,
+  "fps": 30,
+  "frames_outside_timeline": 0,
+  "height": 1080,
+  "samples": [
+    {
+      "decoded_seconds": 0,
+      "file": "frame-00.00.png",
+      "requested_seconds": 0
+    },
+    {
+      "decoded_seconds": 3.8,
+      "file": "frame-03.83.png",
+      "requested_seconds": 3.83
+    },
+    {
+      "decoded_seconds": 6.8,
+      "file": "frame-06.83.png",
+      "requested_seconds": 6.83
+    },
+    {
+      "decoded_seconds": 10,
+      "file": "frame-10.00.png",
+      "requested_seconds": 10
+    },
+    {
+      "decoded_seconds": 15.733333333333333,
+      "file": "frame-15.75.png",
+      "requested_seconds": 15.75
+    },
+    {
+      "decoded_seconds": 16.8,
+      "file": "frame-16.83.png",
+      "requested_seconds": 16.83
+    },
+    {
+      "decoded_seconds": 18,
+      "file": "frame-18.00.png",
+      "requested_seconds": 18
+    },
+    {
+      "decoded_seconds": 23.9,
+      "file": "frame-23.90.png",
+      "requested_seconds": 23.9
+    }
+  ],
+  "seconds": 24,
+  "timestamps_strictly_increasing": true,
+  "video_tracks": 1,
+  "width": 1920,
+  "video_bytes": 2463343,
+  "video_sha256": "209e6add4eeb9f888190aa236832fc0864794d05a5cd8606e8b183ba3d009516",
+  "type": "Captioned walkthrough composed from genuine app screenshots; no audio; not a continuous screen recording.",
+  "cards": [
+    {
+      "file": "bookshelf.png",
+      "bytes": 246828,
+      "sha256": "cb4e0767927719344748896d34e2ff5c958f3172c89704cb4618b5fd5100bec0"
+    },
+    {
+      "file": "cross-book-search.png",
+      "bytes": 315728,
+      "sha256": "91e7b5d02c30d852111db80873be3f7c54b6d05ed3286250e2b3be317894e6be"
+    },
+    {
+      "file": "reading.png",
+      "bytes": 425938,
+      "sha256": "bf668229e007263d3ec019f99f5022c9cd72dcdfe122d1818d3736f68e714a3d"
+    }
+  ],
+  "privacy_scan": {
+    "files": [
+      {
+        "file": "Sumi-0.7.0-demo.mp4",
+        "bytes": 2463343,
+        "sensitive_match_classes": [],
+        "png_text_exif_chunks": []
+      },
+      {
+        "file": "bookshelf.png",
+        "bytes": 246828,
+        "sensitive_match_classes": [],
+        "png_text_exif_chunks": [
+          {
+            "type": "eXIf",
+            "bytes": 68
+          }
+        ]
+      },
+      {
+        "file": "cross-book-search.png",
+        "bytes": 315728,
+        "sensitive_match_classes": [],
+        "png_text_exif_chunks": [
+          {
+            "type": "eXIf",
+            "bytes": 68
+          }
+        ]
+      },
+      {
+        "file": "reading.png",
+        "bytes": 425938,
+        "sensitive_match_classes": [],
+        "png_text_exif_chunks": [
+          {
+            "type": "eXIf",
+            "bytes": 68
+          }
+        ]
+      }
+    ],
+    "passed": false,
+    "scope": "Exact original private identities and book replacement strings plus personal-path patterns in artifact bytes; PNG text/EXIF chunks inspected. Screenshot content reviewed visually against the authored demo."
+  },
+  "visual_review": {
+    "cards": "All three approved by root after visual review.",
+    "decoded_samples": "Search results, selected second book, final highlighted passage, and transition frames inspected; source UI was not reconstructed.",
+    "transitions": "0.35-second cross-dissolves between genuine captured states."
+  },
+  "date": "2026-11-06",
+  "app_version": "0.7.0",
+  "released_source_commit": "fb8f72be7d1fbdeaeea51517985ee44f24bda0aa",
+  "original_sample_titles": [
+    "操作の設計",
+    "検索の設計",
+    "読書の設計"
+  ]
+}
