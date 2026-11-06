@@ -419,9 +419,11 @@ impl Ui {
     unsafe fn refresh_language(&mut self){
         for (button,title) in [(&self.nav_button,text("本を追加","Add Books")),(&self.command_button,text("検索・操作","Search and Commands")),(&self.page_button,text("ページを選ぶ","Choose a Page")),(&self.zoom_button,text("全体表示に戻す","Fit Page"))] {
             button.setTitle(&s(title));button.setToolTip(Some(&s(title)));button.setAccessibilityLabel(Some(&s(title)));
+            if button.image().is_some(){button.setImagePosition(NSCellImagePosition::ImageOnly);}
         }
         if let Ok(close)=self.panel.subviews().objectAtIndex(1).downcast::<NSButton>() {
             let title=text("閉じる · Esc","Close · Esc");close.setTitle(&s(title));close.setToolTip(Some(&s(title)));close.setAccessibilityLabel(Some(&s(title)));
+            close.setImagePosition(NSCellImagePosition::ImageOnly);
         }
         self.empty_shelf.setStringValue(&s(text("PDFをドロップ","Drop PDFs Here")));
         if self.screen==Screen::Shelf{self.window.setTitle(&s(text("本棚 — Sumi","Library — Sumi")));}
