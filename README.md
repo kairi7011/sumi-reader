@@ -1,107 +1,53 @@
 # Sumi
 
-A personal PDF reader for macOS, built for long reading sessions and taking excerpts into your own AI conversations.
+A local PDF reader for macOS, designed around the page.
 
-Sumi 0.6 is a native Rust application using AppKit controls and the system PDFKit renderer. The packaged reader contains no WebView, browser engine, JavaScript runtime, or PDF.js. This is a private project owned by **kairi7011**. The reader has no account, telemetry, cloud upload, or AI API integration.
+Sumi is written in Rust with native AppKit controls and Apple's PDFKit renderer. It has no browser engine, account, telemetry, cloud upload, or built-in AI service. The interface is currently Japanese.
 
-## Development
+- A cover bookshelf and tabs for the books you are reading.
+- Single pages or facing spreads, page turns, and a scrollable thumbnail picker.
+- In-place zoom, text selection, and rectangular image capture.
+- One search palette for books, pages, document text, and app actions.
+- An optional local index that exposes selected book excerpts to your own AI client through MCP.
 
-The native build targets Apple Silicon and macOS 13 or later. It requires Apple's Command Line Tools, Node.js 22.13 or later, the reviewed Rust 1.99.1 toolchain, and the reviewed Cargo cache. Python 3.9 or later is needed for the local-library tests and optional MCP tools.
+## Requirements
 
-From your checkout, for example `~/programs/sumi-reader`:
+Apple Silicon Mac, macOS 13 or later. Intel Macs, Windows, and Linux are not supported. The packaged reader needs no Node.js, Rust, or Python installation. The optional book-index tool has its own [requirements](docs/local-library.md).
+
+## Getting started
+
+Open Sumi, then drop a PDF or folder onto the window, or press **Command O**. Files stay in their original locations. Use **Command K** for search and actions, **Command L** for the bookshelf, and the page counter to jump through thumbnails.
+
+See the [reading guide](docs/usage.md) for navigation, tabs, search, capture, and keyboard shortcuts.
+
+## Build from source
+
+Install Apple's Command Line Tools, Node.js 22.13 or later, and Rust 1.99.1 for `aarch64-apple-darwin`. Python 3.9 or later is required for tests. Native builds do not need npm dependencies.
 
 ```sh
-cd ~/programs/sumi-reader
-npm start
+git clone https://github.com/kairi7011/sumi-reader.git
+cd sumi-reader
+# Populate the pinned Cargo cache once; this step downloads dependencies.
+cargo +1.99.1 fetch --locked --manifest-path src-native/Cargo.toml --target aarch64-apple-darwin
 npm run check
 npm test
 npm run package:mac
 ```
 
-`npm start` builds and launches the native debug app. `npm run check` checks the build scripts and Rust sources; `npm test` runs the Rust and local-library tests. `npm run test:native` runs only the Rust tests. The native scripts use Node's built-in modules, so they do not require `npm ci`.
+Builds use `--locked --offline`. The build scripts support an installed pinned rustup toolchain, matching tools on PATH, or explicit `SUMI_RUST_BIN` / `CARGO_HOME` paths. They do not install compilers or search private workspace folders. See the [dependency review](docs/dependency-review-native.md) before changing dependencies.
 
-The build uses `--locked --offline` and downloads no code. Set `SUMI_RUST_BIN` to the directory containing the verified `rustc` and `cargo`, and `CARGO_HOME` to its reviewed cache if they are not already discoverable locally. Read the [native dependency review](docs/dependency-review-native.md) before adding dependencies or changing the lockfile.
+The result is `dist/Sumi.app`. This project currently produces **ad-hoc signed, unnotarized preview builds**. They are not Developer ID releases; a downloaded build may be blocked by Gatekeeper. Do not disable macOS security checks globally. Release preparation and signing requirements are documented in [distribution](docs/distribution.md).
 
-## Your bookshelf
+## Data and privacy
 
-Sumi starts on its pinned Home tab, showing the bookshelf covers. Click a cover to read, or move the selection with the arrow keys and press Enter. Open books appear in the tab strip alongside Home. Select a book tab to switch reading context; select Home or press Command L to return to the shelf. Escape dismisses an open panel while keeping Home selected.
+Sumi stores book paths, reading positions, bookmarks, and preferences on your Mac. It does not copy PDFs into the app or upload them. The optional MCP index is opt-in; excerpts sent to an external AI client are subject to that client's data handling. See [privacy](PRIVACY.md) for storage locations and deletion.
 
-The compact import icon adds books; the search icon opens the combined book-and-action palette. The shelf uses this palette for search, through the icon, Command K or Command F. The empty shelf also accepts dropped PDFs or folders.
+OCR, annotation editing, continuous-scroll reading, cloud sync, automatic updates, and tab restoration after relaunch are not included. See [security](SECURITY.md) for the current scope and reporting guidance.
 
-Use Command O to select multiple PDFs or folders, or drop them onto the window. Folder import includes PDFs in nested folders and reports files it cannot read. Import records their locations; it does not move, copy, or modify the originals. Repeated paths and aliases are deduplicated. Separate copies at different paths remain separate library entries. Bulk import keeps you on the shelf so you can choose what to read. Opening a PDF explicitly from Finder opens that book, including one already imported.
+## Contributing and license
 
-The library uses book titles from PDF metadata when available and keeps filenames unchanged. Each book retains its reading position and bookmarks. Appearance, single-page/spread layout, and reading direction apply across the app.
+Small fixes and reproducible bug reports are welcome. See [contributing](CONTRIBUTING.md). Please use synthetic PDFs in reports and tests; do not upload purchased books or private documents.
 
-Right-click a book in the library to reveal it in Finder, choose its new location after moving it, or remove it from the library. Relinking preserves its reading position and bookmarks. Removal deletes the library record, position, and bookmarks; the PDF remains on disk. Return to Home with Command L before removing the book currently being read.
+Copyright 2026 kairi7011. Sumi's source, original assets, and original fixtures are licensed under [Apache License 2.0](LICENSE). Third-party code and icons retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Reading and navigation
-
-The top bar holds the pinned Home tab, open-book tabs and compact import/search icons. The bottom control is the page counter; a **全体に戻す** button appears beside it only while enlarged. Display settings, the outline, bookmarks and copy actions live in the Command K palette.
-
-- Read one page or a facing spread, with left-to-right or right-to-left page turns. The normal view fits the complete page or spread.
-- Turn pages with the arrow keys, Space, a click at the page edge or outer margin, or a horizontal two-finger trackpad gesture. The corner can also follow a drag and return to its starting position. Reduced Motion skips the animation.
-- Press G or Command G, or click the page counter, to open the page picker. Scroll vertically through thumbnails for every page, enter a page number for a direct jump, or select a thumbnail. The picker renders the visible area and nearby previews with a bounded cache, so long books do not require rendering every thumbnail at once.
-- Zoom in place with pinch or Command + / −. Command 0 or the contextual reset button restores the complete page. Hold Space and drag to move an enlarged page; scrolling pans while zoomed.
-- Command L, Command T or Command 1 selects the pinned Home tab. Command W closes the current book tab; Control Tab cycles through Home and open books, and Control Shift Tab cycles backward. Command Shift F hides the reader chrome for focused reading; Escape restores it after dismissing any active panel or zoom. macOS standard full-screen behavior is separate.
-- Command K offers explicit actions such as **見開きにする**, **1ページにする**, and **右から左に読む**. Appearance and reading direction are app-wide. Light, sepia and dark change the window and reading background; the PDF's paper, text and illustration colors remain unchanged.
-
-## Search
-
-On Home, Command F opens the combined search palette. While reading, Command F toggles search within the current book. Enter opens the selected result; pressing it again advances to the next result, and Shift Enter goes back. Up and down select a result. Escape or Command F closes search. Clicking outside also closes an empty search field; a nonempty search stays open while you inspect the page. The previous query is retained when reopening search.
-
-Command K, or the search icon, searches book titles, imported-book text and app commands. While reading, it also searches page numbers and the current book's outline. Enter a page number for a direct jump, or an action such as `拡大` or `画像を保存` to find the corresponding command. Text search runs in a cancellable background worker and returns bounded page snippets. Unicode width, case, and common line wrapping are normalized. Results are grouped by matching page, with at most 80 text results per request.
-
-If the optional local book index contains the same file, search can reuse it after checking the file fingerprint. Otherwise it extracts text directly with PDFKit. Importing a book does not create an AI index or configure an AI client.
-
-## Copying and capture
-
-Select text and use Command C for native copying. Command K also offers copying the selection or the current page with the book title and PDF page number attached.
-
-Press Command Shift X, then drag a rectangle to copy the visible region as an image. To save the last captured region as PNG, choose `切り抜いた画像を保存…` in Command K. The last capture is held only for the current app session; save it before quitting. Scanned pages can be captured as images, but OCR is not included.
-
-Password-protected PDFs request a password for the current session. Passwords are not persisted. Text copying follows the PDF's copy permissions, and extraction follows its text order; complex multicolumn layouts can need cleanup after copying.
-
-## Keyboard shortcuts
-
-| Action | Shortcut |
-| --- | --- |
-| Import PDFs or folders | Command O |
-| Combined search on Home / current-book find while reading | Command F |
-| Select the pinned Home tab | Command L / T / 1 |
-| Close the current book tab | Command W |
-| Next / previous tab, including Home | Control Tab / Control Shift Tab |
-| Search books, text, pages, and commands | Command K |
-| Open selected search result / next result | Enter |
-| Previous current-book search result | Shift Enter |
-| Previous / next page | Left / right arrow; Shift Space / Space |
-| Visual page navigator | G or Command G |
-| Bookmark current page | Command D |
-| Zoom in place | Command + / − or pinch |
-| Fit the complete page or spread | Command 0 |
-| Move an enlarged page | Space + drag |
-| Hide reader chrome for focused reading | Command Shift F |
-| Capture a rectangle | Command Shift X |
-| Copy selected text | Command C |
-| Close panel / cancel capture or turn / leave zoom or focus | Escape |
-
-## Packaging and local data
-
-`npm run package:mac` produces `dist/Sumi.app` with the native executable, app icon, and optional local-library tools. It is an Apple Silicon build, ad-hoc signed and not notarized. Node.js is needed for development scripts, not for running the packaged reader.
-
-The library, import, search and close icons use four pinned Lucide 0.468.0 assets, drawn as native vectors without an icon runtime or npm dependency. Their [source and provenance](assets/icons/lucide/provenance.json), [ISC license](assets/icons/lucide/LICENSE), and [Feather MIT license](assets/icons/lucide/FEATHER-LICENSE) are retained in `assets/icons/lucide` and included in the app bundle.
-
-Library records and app preferences are stored in `~/Library/Application Support/com.kairi7011.sumi/library.json`. Existing history in `~/Library/Application Support/Sumi/library.json` is migrated when the current library does not yet exist. PDFs remain at their original locations and are not added to the app bundle or Git.
-
-## Local books for AI agents
-
-The optional [local book library](docs/local-library.md) indexes personally owned PDFs with macOS PDFKit and SQLite. Its read-only stdio MCP server lets an agent search Japanese keywords, inspect a table of contents, and retrieve a few cited pages. It needs no API key, embedding model, network service, or Python packages. Client configuration is explicit; Sumi does not alter Codex or Claude settings.
-
-The index stays on the Mac. Excerpts returned to a cloud-based AI client can enter that client's model context. Use a fully local client and model if the extracted text must also remain entirely local.
-
-## Verification and retained versions
-
-See the [0.6 tabs and page-picker validation status](docs/tabs-verification.md), the [0.5 bookshelf validation baseline](docs/bookshelf-verification.md), the [0.4 native validation baseline](docs/native-verification.md), the [native dependency review](docs/dependency-review-native.md), and the [sanitized native search measurements](docs/native-search.json). Personal PDFs, extracted book contents, and private screenshots are excluded from the repository.
-
-The earlier Tauri/WebKit implementation remains for comparison under `src/`, `src-tauri/`, and the `legacy:*` npm scripts. Its PDF.js dependency and frontend preparation are used only by those legacy scripts; the default build and package commands use the native app.
-
-OCR, annotation editing, continuous reading scroll, and cloud sync are not included.
+The earlier Tauri implementation remains under `src/`, `src-tauri/`, and the `legacy:*` scripts as an unsupported prototype. It is not included in the native app. Historical verification reports describe their stated versions, not the current release.
