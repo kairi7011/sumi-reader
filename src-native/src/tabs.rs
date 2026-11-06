@@ -183,7 +183,8 @@ impl NativeTabStrip {
         self.size = NSSize::new(width, height);self.appearance = appearance;
         self.fit_content();
         let active_index = active_id.and_then(|id| items.iter().position(|(item, _)| item == id));
-        let next_offset = reveal_offset(old_offset, layout, active_index, active_changed || resized);
+        let closing_only_extent = (items.is_empty() && !self.closing.is_empty()).then(||self.content.frame().size.width);
+        let next_offset = transition_offset(old_offset, layout, active_index, active_changed || resized, closing_only_extent);
         let clip = self.scroll.contentView();clip.scrollToPoint(NSPoint::new(next_offset, 0.));self.scroll.reflectScrolledClipView(&clip);
         self.active_id = active_id.map(str::to_owned);
         if animating { self.animation_until = Some(now + TRANSITION); }
@@ -195,6 +196,10 @@ impl NativeTabStrip {
             let frame = presentation_frame(&tab.buttons.background);frame.origin.x + frame.size.width
         }).fold(layout.content, f64::max);
         transaction(|| self.content.setFrame(rect(0., 0., width, self.size.height)));
+        let clip = self.scroll.contentView();
+        let current = clip.bounds().origin.x;
+        let offset = reveal_offset(current, Geometry {content:width,..layout}, None, false);
+        if offset != current {clip.scrollToPoint(NSPoint::new(offset,0.));self.scroll.reflectScrolledClipView(&clip);}
         self.scroll.setHidden(self.items.is_empty() && self.closing.is_empty());
     }
 
@@ -356,9 +361,26 @@ fn reveal_offset(current: f64, geometry: Geometry, active: Option<usize>, reveal
     offset.clamp(0., (geometry.content - geometry.viewport).max(0.))
 }
 
+fn transition_offset(current: f64, geometry: Geometry, active: Option<usize>, reveal: bool, closing_only_extent: Option<f64>) -> f64 {
+    // Closing every tab must fade the currently visible tabs, not jump to the first ghosts.
+    let geometry = Geometry {content:closing_only_extent.unwrap_or(geometry.content),..geometry};
+    reveal_offset(current, geometry, active, reveal)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{geometry, reconcile_plan, reveal_offset, Origin, GAP, HOME_WIDTH, MIN_TAB_WIDTH, MAX_TAB_WIDTH};
+    use super::{geometry, reconcile_plan, reveal_offset, transition_offset, Origin, GAP, HOME_WIDTH, MIN_TAB_WIDTH, MAX_TAB_WIDTH};
+    #[test]
+    fn closing_all_overflowed_tabs_holds_the_visible_end_until_retirement() {
+        for width in [280.,472.,620.] {
+            let opened = geometry(14,width);
+            let offset = reveal_offset(0.,opened,Some(13),true);
+            assert!(offset > 0.);
+            let empty = geometry(0,width);
+            assert_eq!(transition_offset(offset,empty,None,true,Some(opened.content)),offset);
+            assert_eq!(transition_offset(offset,empty,None,true,None),0.);
+        }
+    }
     #[test]
     fn closing_a_middle_tab_preserves_neighbor_controls_in_the_new_action_order() {
         assert_eq!(reconcile_plan(&["first","closed","last"], &[], &["first","last","added"]),
