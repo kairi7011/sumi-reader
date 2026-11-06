@@ -214,7 +214,11 @@ impl Reader {
         unsafe { let _: () = msg_send![&*state.view, setBackgroundColor: &*color]; }
     }
     pub fn zoom(&self, delta: i32) { let mut state = self.state.borrow_mut(); let next = if delta > 0 { state.factor * 1.25 } else { state.factor / 1.25 }; state.set_zoom(next); }
-    pub fn restore_zoom(&self,factor:f64){self.state.borrow_mut().set_zoom(factor);}
+    pub fn restore_zoom(&self,factor:f64){
+        let mut state=self.state.borrow_mut();
+        if factor.clamp(1.,4.)<=1.001 && state.factor<=1.001 {return;}
+        state.set_zoom(factor);
+    }
     pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.fit(); state.update_cursor(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.state.borrow().outline.clone() }
     pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { let document=self.document()?;let index=page.checked_sub(1)?;let _busy=crate::busy::begin();document.page(index).map(|page|page.thumbnail(size)) }
