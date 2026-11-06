@@ -178,6 +178,10 @@ fn run_search(job: Job, shared: &Shared, sender: &SyncSender<SearchResult>, fing
     let index = NativeIndex::open_default();
     for book in job.request.books.iter().take(MAX_BOOKS) {
         if cancelled(shared, job.id) || result.hits.len() >= limit { break; }
+        if !book.path.canonicalize().is_ok_and(|path| path==book.path) {
+            warning(&mut result, if is_japanese(){format!("「{}」の場所を確認してください。",book.title)}else{format!("Check the file location for “{}”.",book.title)});
+            continue;
+        }
         if let Some(indexed) = index.as_ref().and_then(|index| index.search(book, &query, limit - result.hits.len(), shared, job.id, fingerprints)) {
             result.scanned_pages += indexed.page_count;
             result.hits.extend(indexed.hits);

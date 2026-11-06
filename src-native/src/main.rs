@@ -3,6 +3,7 @@ mod reader;
 mod bookshelf;
 mod tabs;
 mod icons;
+mod activity;
 use sumi_native::search;
 mod ui;
 
