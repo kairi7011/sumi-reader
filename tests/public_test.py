@@ -40,6 +40,32 @@ class PublicDistribution(unittest.TestCase):
         result = check.inspect(self.root, history=True)
         self.assertIn("public-author-email-required", {row["rule"] for row in result["findings"]})
 
+    def test_deleted_private_document_is_rejected_without_a_secret_pattern(self):
+        document = self.root / "private.pdf"
+        document.write_bytes(b"%PDF-1.7\nSynthetic document without credential or path patterns")
+        self.git("add", "private.pdf")
+        self.git("commit", "-qm", "Add synthetic document")
+        document.unlink()
+        self.git("add", "-u")
+        self.git("commit", "-qm", "Remove synthetic document")
+        self.assertTrue(check.inspect(self.root)["passed"])
+        result = check.inspect(self.root, history=True)
+        findings = [row for row in result["findings"] if row["rule"] == "private-data-file"]
+        self.assertTrue(findings)
+        self.assertTrue(all(row["location"].startswith("git:") and "private.pdf" not in row["location"] for row in findings))
+
+    def test_deleted_symlink_is_rejected_without_following_its_target(self):
+        link = self.root / "shortcut"
+        link.symlink_to("missing-synthetic-target")
+        self.git("add", "shortcut")
+        self.git("commit", "-qm", "Add synthetic symlink")
+        link.unlink()
+        self.git("add", "-u")
+        self.git("commit", "-qm", "Remove synthetic symlink")
+        self.assertTrue(check.inspect(self.root)["passed"])
+        result = check.inspect(self.root, history=True)
+        self.assertIn("source-symlink", {row["rule"] for row in result["findings"]})
+
     def test_binary_paths_and_missing_bundle_notices_are_rejected(self):
         self.commit("A synthetic note")
         bundle = self.root / "app"

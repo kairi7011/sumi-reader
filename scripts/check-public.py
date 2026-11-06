@@ -58,6 +58,20 @@ def inspect(root, history=False, bundle=None):
                 if header[1] == b"blob":
                     counts["history_blobs"] += 1
                     scan(data, location)
+                elif header[1] == b"tree":
+                    offset = 0
+                    object_id_bytes = len(header[0]) // 2
+                    while offset < len(data):
+                        end = data.find(b"\0", offset)
+                        if end < 0 or end + 1 + object_id_bytes > len(data):
+                            raise RuntimeError("Could not inspect a reachable Git tree entry")
+                        mode, raw_name = data[offset:end].split(b" ", 1)
+                        name = Path(raw_name.decode("utf-8", errors="surrogateescape"))
+                        if mode != b"40000" and (name.name in PRIVATE_NAMES or name.suffix.lower() in PRIVATE_SUFFIXES):
+                            findings.append({"rule": "private-data-file", "location": location})
+                        if mode == b"120000":
+                            findings.append({"rule": "source-symlink", "location": location})
+                        offset = end + 1 + object_id_bytes
                 elif header[1] == b"commit":
                     counts["commits"] += 1
                     scan(data, location)
