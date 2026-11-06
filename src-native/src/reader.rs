@@ -1,15 +1,42 @@
 use std::{cell::RefCell, path::{Path, PathBuf}, ptr::NonNull, rc::Rc, time::{Duration, Instant}};
 use block2::RcBlock;
-use objc2::{msg_send, ClassType, MainThreadMarker, MainThreadOnly, AnyThread};
+use objc2::{define_class, msg_send, ClassType, MainThreadMarker, MainThreadOnly, AnyThread};
 use objc2::rc::{Allocated, Retained};
 use objc2::runtime::{AnyObject, AnyClass};
 use objc2_app_kit::{NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSEventPhase, NSImage, NSPasteboard, NSPasteboardTypeString, NSScrollView, NSView, NSGraphicsContext, NSCursor, NSDeviceRGBColorSpace, NSWorkspace};
-use objc2_foundation::{NSPoint, NSRange, NSRect, NSSize, NSString, NSArray};
+use objc2_foundation::{NSPoint, NSRange, NSRect, NSSize, NSString, NSArray, NSObject, NSObjectProtocol, NSURL};
 use objc2_core_graphics::CGContext;
 #[path = "animation.rs"]
 mod animation;
 use animation::{Curl, Overlay, PageImage, Visual, EdgeHint};
 use crate::pdf::{PDFDocument, PDFPage, PDFSelection, PDFView};
+
+fn allowed_pdf_link(url: &NSURL) -> bool {
+    let scheme = url.scheme().map(|value| value.to_string().to_ascii_lowercase());
+    match scheme.as_deref() {
+        Some("http" | "https") => url.host().is_some_and(|value| !value.is_empty()),
+        Some("mailto") => true,
+        _ => false,
+    }
+}
+
+define_class!(
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    struct LinkDelegate;
+    unsafe impl NSObjectProtocol for LinkDelegate {}
+    impl LinkDelegate {
+        #[unsafe(method(PDFViewWillClickOnLink:withURL:))]
+        fn click_link(&self, _view: &PDFView, url: &NSURL) {
+            // PDFKit otherwise forwards URI and Launch actions to any installed URL handler.
+            if allowed_pdf_link(url) {
+                NSWorkspace::sharedWorkspace().openURL(url);
+            } else {
+                objc2_app_kit::NSBeep();
+            }
+        }
+    }
+);
 
 #[derive(Clone, Debug)]
 pub struct DocumentInfo {
@@ -74,6 +101,7 @@ pub struct Reader {
     container: Retained<NSView>,
     state: Rc<RefCell<ReaderState>>,
     monitor: Option<Retained<AnyObject>>,
+    _link_delegate: Retained<LinkDelegate>,
 }
 
 impl Reader {
@@ -83,7 +111,9 @@ impl Reader {
             let allocated: Allocated<PDFView> = msg_send![PDFView::class(), alloc];
             msg_send![allocated, initWithFrame: NSRect::new(NSPoint::new(0., 0.), frame.size)]
         };
+        let link_delegate: Retained<LinkDelegate> = unsafe { msg_send![LinkDelegate::alloc(mtm), init] };
         unsafe {
+            let _: () = msg_send![&*view, setDelegate: &*link_delegate];
             let _: () = msg_send![&*view, setDisplayMode: 0isize];
             let _: () = msg_send![&*view, setDisplaysAsBook: true];
             let _: () = msg_send![&*view, setMinScaleFactor: 0.000001f64];
@@ -105,7 +135,7 @@ impl Reader {
             if handle_event(&state, event) { std::ptr::null_mut() } else { pointer.as_ptr() }
         });
         let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::Any, &block) };
-        let reader = Self { container, state, monitor };
+        let reader = Self { container, state, monitor, _link_delegate: link_delegate };
         reader.set_theme("paper");
         reader
     }
@@ -648,8 +678,19 @@ fn edge_click_commits(press:EdgePress,point:NSPoint,side:Option<i8>)->bool {side
 
 #[cfg(test)]
 mod input_tests {
-    use super::{PagingGesture,EdgePress,edge_side,edge_click_commits};
-    use objc2_foundation::{NSPoint,NSRect,NSSize};
+    use super::{PagingGesture,EdgePress,edge_side,edge_click_commits,allowed_pdf_link};
+    use objc2_foundation::{NSPoint,NSRect,NSSize,NSString,NSURL};
+    #[test]
+    fn pdf_links_cannot_launch_files_or_custom_application_handlers() {
+        for value in ["https://example.com/book#chapter", "HTTP://example.com/", "mailto:reader@example.com"] {
+            let url=NSURL::URLWithString(&NSString::from_str(value)).unwrap();
+            assert!(allowed_pdf_link(&url), "{value}");
+        }
+        for value in ["file:///Applications/Calculator.app", "smb://server/share", "javascript:alert(1)", "x-apple.systempreferences:com.apple.preference.security", "sumi://open?path=/tmp/book.pdf", "../other.pdf", "https:/missing-host"] {
+            let url=NSURL::URLWithString(&NSString::from_str(value)).unwrap();
+            assert!(!allowed_pdf_link(&url), "{value}");
+        }
+    }
     #[test]
     fn horizontal_trackpad_gesture_can_return_to_its_origin_and_cancel() {
         let mut gesture=PagingGesture::new(500.,0.);

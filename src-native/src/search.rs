@@ -194,6 +194,10 @@ fn run_search(job: Job, shared: &Shared, sender: &SyncSender<SearchResult>, fing
                 warning(&mut result, format!("「{}」の検索にはパスワードが必要です。", book.title));
                 return;
             }
+            if !document.allows_copying() {
+                warning(&mut result, format!("「{}」では文章の取り出しが許可されていないため、本文検索を省略しました。", book.title));
+                return;
+            }
             let count = document.page_count();
             if count > MAX_PAGES { warning(&mut result, format!("「{}」は先頭の20,000ページを検索します。", book.title)); }
             for index in 0..count.min(MAX_PAGES) {
@@ -542,8 +546,13 @@ fn normalize_edition(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use objc2::{msg_send, runtime::AnyObject};
+    use objc2_foundation::{NSDictionary, NSNumber, NSURL};
 
     unsafe extern "C" {
+        static PDFDocumentOwnerPasswordOption: &'static NSString;
+        static PDFDocumentUserPasswordOption: &'static NSString;
+        static PDFDocumentAccessPermissionsOption: &'static NSString;
         fn sqlite3_exec(database: *mut SqliteConnection, sql: *const c_char, callback: Option<unsafe extern "C" fn(*mut c_void, c_int, *mut *mut c_char, *mut *mut c_char) -> c_int>, context: *mut c_void, error: *mut *mut c_char) -> c_int;
     }
 
@@ -565,6 +574,37 @@ mod tests {
     }
 
     fn quoted(value: &str) -> String { format!("'{}'", value.replace('\'', "''")) }
+
+    #[test]
+    fn search_does_not_extract_snippets_when_the_pdf_disallows_copying() {
+        let directory = FixtureDirectory::new();
+        let path = directory.0.join("restricted.pdf");
+        autoreleasepool(|_| unsafe {
+            let document = crate::pdf::fixture_document("", vec![]);
+            let owner = NSString::from_str("fixture-owner");
+            let user = NSString::from_str("");
+            let permissions = NSNumber::new_usize(0);
+            let options = NSDictionary::<NSString, AnyObject>::from_slices(
+                &[PDFDocumentOwnerPasswordOption, PDFDocumentUserPasswordOption, PDFDocumentAccessPermissionsOption],
+                &[&*owner, &*user, &*permissions],
+            );
+            let url = NSURL::fileURLWithPath(&NSString::from_str(path.to_str().unwrap()));
+            let written: bool = msg_send![&*document, writeToURL: &*url, withOptions: &*options];
+            assert!(written);
+            let restricted = PDFDocument::from_path(&path).unwrap();
+            assert!(!restricted.is_locked());
+            assert!(!restricted.allows_copying());
+            assert!(restricted.page(0).unwrap().text().contains("Permission fixture"));
+        });
+        let book = SearchBook { id: "restricted-fixture".into(), path, title: "Restricted fixture".into(), password: None };
+        let (sender, receiver) = mpsc::sync_channel(4);
+        run_search(Job { id: 1, request: SearchRequest { query: "Permission".into(), books: vec![book], limit: 10 } }, &shared(1), &sender, &mut HashMap::new());
+        let result = receiver.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(result.complete);
+        assert!(result.hits.is_empty());
+        assert_eq!(result.scanned_pages, 0);
+        assert_eq!(result.warnings.len(), 1);
+    }
 
     #[test]
     fn japanese_wraps_and_width_variants_match_without_losing_display_case() {
