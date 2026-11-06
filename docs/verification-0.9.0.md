@@ -1,6 +1,6 @@
 # Native 0.9.0 verification
 
-Verified on an Apple Silicon Mac on 2026-11-06 using a separately identified QA app and an isolated library containing the project's three original demo PDFs. No private books or normal user-library records were used for these checks.
+Verified on an Apple Silicon Mac on 2026-11-06 using a separately identified QA app and an isolated library containing the project's three original demo PDFs. The automated, isolated UI and recording checks below used no private books or normal user-library records. The separate local-update check is described at the end.
 
 ## Automated checks
 
@@ -43,4 +43,9 @@ An earlier recording did not exercise the intended main-thread delay and was exc
 
 - This run does not separately prove suppression for a controlled 200 ms operation. It also does not measure general PDF-opening speed, idle CPU usage, memory use or sustained display frame rate.
 - PDF passwords are excluded from the persisted session model; the UI checks above do not claim a new encrypted-document relaunch test.
-- These results cover the isolated QA app. They do **not** establish that the normal application installation has been replaced or that its existing user library has been verified after the update. Local installation and distribution verification are separate steps.
+
+## Local installation check
+
+The previous app and user data were backed up before installing the verified 0.9.0 bundle into `/Applications/Sumi.app`. The installed executable matched the packaged executable by SHA-256, kept the existing bundle identifier, passed strict code-signature and native-package checks, and was observed running from that installed path.
+
+The normal library retained its book IDs, reading states, bookmarks, shared preferences and last-opened book. The existing search-index directory was unchanged by a file-hash comparison. A saved book opened at its existing reading position; quitting and reopening the installed app restored that selected tab and position. The app was then returned to its pre-update Home selection with no open tabs. Private book metadata and user-data contents are excluded from this report and the release artifacts.
