@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import selectors
 import sqlite3
 import subprocess
 import sys
@@ -19,6 +20,9 @@ DEFAULT_INDEX = Path.home() / "Library/Application Support/Sumi/library-index"
 DATABASE = "books.sqlite3"
 MAX_PDF_BYTES = 250 * 1024 * 1024
 MAX_MESSAGE_BYTES = 256 * 1024
+MAX_EXTRACT_BYTES = 64 * 1024 * 1024
+EXTRACT_TIMEOUT = 300
+QUERY_TIMEOUT = 5
 LEGACY_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 MODERN_VERSION = "2026-07-28"
 SERVER_INFO = {"name": "sumi-local-library", "version": "1.0.0"}
@@ -65,6 +69,8 @@ def connect(index_dir, writable=False):
             raise LibraryError("The local index is missing. Run the index command first.")
         connection = sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=5)
         connection.execute("PRAGMA query_only = ON")
+        deadline = time.monotonic() + QUERY_TIMEOUT
+        connection.set_progress_handler(lambda: time.monotonic() >= deadline, 2000)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
@@ -137,6 +143,47 @@ def source_files(sources, pattern):
     return sorted(found)
 
 
+def extract_records(extractor, filename):
+    # A compressed PDF can expand far beyond its file size. Bound both pipes while
+    # reading so the subprocess cannot fill memory before page validation runs.
+    output, errors = bytearray(), bytearray()
+    with subprocess.Popen([str(extractor), str(filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE) as process:
+        try:
+            deadline = time.monotonic() + EXTRACT_TIMEOUT
+            with selectors.DefaultSelector() as streams:
+                streams.register(process.stdout, selectors.EVENT_READ, True)
+                streams.register(process.stderr, selectors.EVENT_READ, False)
+                while streams.get_map():
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise LibraryError("PDF extraction exceeded the 5-minute time limit.")
+                    for key, _ in streams.select(min(remaining, 0.25)):
+                        chunk = os.read(key.fileobj.fileno(), 65536)
+                        if not chunk:
+                            streams.unregister(key.fileobj)
+                        elif key.data:
+                            if len(output) + len(chunk) > MAX_EXTRACT_BYTES:
+                                raise LibraryError("Extracted PDF data exceeds the 64 MB limit; the old index was retained.")
+                            output.extend(chunk)
+                        else:
+                            errors.extend(chunk)
+                            del errors[:-2000]
+            process.wait(timeout=max(0.001, deadline - time.monotonic()))
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+    if process.returncode:
+        raise LibraryError(f"Could not extract {filename.name}: " + errors.decode("utf-8", errors="replace"))
+    try:
+        records = [json.loads(line) for line in output.splitlines() if line.strip()]
+    except (ValueError, UnicodeDecodeError, RecursionError) as error:
+        raise LibraryError("The PDF extractor returned invalid JSON.") from error
+    if any(not isinstance(record, dict) for record in records):
+        raise LibraryError("The PDF extractor returned an invalid record.")
+    return records
+
+
 def store_book(connection, filename, digest, records):
     if not records or records[0].get("type") != "metadata":
         raise LibraryError("The PDF extractor returned no metadata.")
@@ -188,13 +235,7 @@ def index_files(index_dir, sources, pattern="oreilly-*.pdf", force=False):
             results.append({"book_id": previous["id"], "filename": filename.name, "status": "unchanged"})
             continue
         print(f"Indexing {filename.name}", file=sys.stderr)
-        completed = subprocess.run([str(extractor), str(filename)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300, check=False)
-        if completed.returncode:
-            raise LibraryError(f"Could not extract {filename.name}: " + completed.stderr.decode("utf-8", errors="replace")[-1000:])
-        try:
-            records = [json.loads(line) for line in completed.stdout.splitlines() if line.strip()]
-        except (json.JSONDecodeError, UnicodeDecodeError) as error:
-            raise LibraryError("The PDF extractor returned invalid JSON.") from error
+        records = extract_records(extractor, filename)
         results.append({**store_book(connection, filename, fingerprint, records), "status": "indexed"})
     connection.close()
     return {"index_directory": str(Path(index_dir).expanduser().resolve()), "books": results}
@@ -317,7 +358,11 @@ class MCPServer:
                     self.ready = True
                 return None
             if isinstance(request_id, bool) or not isinstance(request_id, (str, int)):
+                request_id = None
                 raise RPCError(-32600, "Request ID must be a string or integer.")
+            if isinstance(request_id, str) and len(request_id) > 256:
+                request_id = None
+                raise RPCError(-32600, "Request ID exceeds 256 characters.")
             meta = params.get("_meta", {})
             if not isinstance(meta, dict):
                 raise RPCError(-32602, "_meta must be an object.")
@@ -378,6 +423,27 @@ class MCPServer:
             return {"jsonrpc": "2.0", "id": request_id, "error": detail}
 
 
+def decode_request(line):
+    depth, quoted, escaped = 0, False, False
+    for byte in line:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif byte == 92:
+                escaped = True
+            elif byte == 34:
+                quoted = False
+        elif byte == 34:
+            quoted = True
+        elif byte in (91, 123):
+            depth += 1
+            if depth > 64:
+                raise ValueError("JSON nesting exceeds the local limit.")
+        elif byte in (93, 125):
+            depth -= 1
+    return json.loads(line)
+
+
 def serve(index_dir, incoming=None, outgoing=None):
     incoming = incoming or sys.stdin.buffer
     outgoing = outgoing or sys.stdout
@@ -390,9 +456,9 @@ def serve(index_dir, incoming=None, outgoing=None):
             print("MCP message exceeds the local size limit.", file=sys.stderr)
             return
         try:
-            request = json.loads(line)
+            request = decode_request(line)
             response = server.process(request)
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             response = {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Invalid JSON."}}
         if response is not None:
             outgoing.write(json.dumps(response, ensure_ascii=False, separators=(",", ":")) + "\n")

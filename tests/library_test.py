@@ -2,8 +2,10 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1] / "tools/library/sumi_library.py"
 SPEC = importlib.util.spec_from_file_location("sumi_library", SOURCE)
@@ -150,6 +152,58 @@ class LocalLibraryTests(unittest.TestCase):
         replies = [json.loads(line) for line in output.getvalue().splitlines()]
         self.assertEqual(replies[0]["error"]["code"], -32700)
         self.assertEqual(replies[1]["result"], {})
+
+    def test_stdio_recovers_from_deeply_nested_json(self):
+        nested = b'[' * 3000 + b'0' + b']' * 3000 + b'\n'
+        ping = json.dumps(self.request("ping", identifier="after-invalid-json")).encode() + b"\n"
+        output = io.StringIO()
+        library.serve(self.folder, io.BytesIO(nested + ping), output)
+        replies = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(replies[0]["error"]["code"], -32700)
+        self.assertEqual(replies[1]["id"], "after-invalid-json")
+        self.assertEqual(replies[1]["result"], {})
+        literal = self.request("ping", identifier='["\\' * 60)
+        self.assertEqual(library.decode_request(json.dumps(literal).encode()), literal)
+
+    def test_invalid_request_ids_are_not_reflected_as_objects_or_unbounded_strings(self):
+        server = self.legacy_server()
+        for identifier in ({"private": "value"}, [1], True, "x" * 257):
+            response = server.process(self.request("ping", identifier=identifier))
+            self.assertIsNone(response["id"])
+            self.assertEqual(response["error"]["code"], -32600)
+
+    def helper(self, code):
+        helper = self.folder / "extract-fixture"
+        helper.write_text(f"#!{sys.executable}\n" + code)
+        helper.chmod(0o700)
+        return helper
+
+    def test_expanding_extraction_is_terminated_without_replacing_the_old_index(self):
+        self.path.write_bytes(b"%PDF-1.7\nfixture")
+        helper = self.helper("import os\nwhile True: os.write(1, b'x' * 65536)\n")
+        with patch.object(library, "MAX_EXTRACT_BYTES", 1024), patch.object(library, "build_extractor", return_value=helper):
+            with self.assertRaisesRegex(library.LibraryError, "exceeds.*limit"):
+                library.index_files(self.folder, [str(self.path)], force=True)
+        self.assertEqual(library.read_book_pages(self.connection, self.id, 2)["pages"][0]["text"], self.records[2]["text"])
+
+    def test_extractor_drains_verbose_stderr_without_blocking_valid_output(self):
+        helper = self.helper("import os\nos.write(2, b'warning' * 20000)\nos.write(1, b'{\"type\":\"metadata\"}\\n')\n")
+        self.assertEqual(library.extract_records(helper, self.path), [{"type": "metadata"}])
+
+    def test_extractor_stops_when_no_progress_exceeds_the_deadline(self):
+        helper = self.helper("import time\ntime.sleep(20)\n")
+        with patch.object(library, "EXTRACT_TIMEOUT", 0.05):
+            with self.assertRaisesRegex(library.LibraryError, "time limit"):
+                library.extract_records(helper, self.path)
+
+    def test_read_only_query_budget_interrupts_expensive_queries(self):
+        with patch.object(library, "QUERY_TIMEOUT", -1):
+            connection = library.connect(self.folder)
+        try:
+            with self.assertRaisesRegex(library.sqlite3.OperationalError, "interrupted"):
+                connection.execute("WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<1000000) SELECT sum(x) FROM n").fetchone()
+        finally:
+            connection.close()
 
 
 if __name__ == "__main__":
