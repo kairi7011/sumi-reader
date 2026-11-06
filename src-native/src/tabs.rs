@@ -15,6 +15,7 @@ const GAP: f64 = 4.;
 const MIN_TAB_WIDTH: f64 = 100.;
 const MAX_TAB_WIDTH: f64 = 170.;
 const TRANSITION: Duration = Duration::from_millis(200);
+const RETIRE_MARGIN: Duration = Duration::from_millis(32);
 
 fn string(value: &str) -> Retained<NSString> { NSString::from_str(value) }
 fn rect(x: f64, y: f64, width: f64, height: f64) -> NSRect {
@@ -66,7 +67,7 @@ impl TabButtons {
         for view in [&*self.background as &NSView, &*self.select, &*self.close] { finish_animation(view); }
     }
 }
-struct ClosingTab { buttons: TabButtons, until: Instant }
+struct ClosingTab { buttons: TabButtons, until: Option<Instant> }
 
 pub struct NativeTabStrip {
     mtm: MainThreadMarker,
@@ -126,12 +127,15 @@ impl NativeTabStrip {
         let reduced = reduce_motion();
         let old_count = self.closing.len();
         self.closing.retain(|tab| {
-            if reduced || now >= tab.until { tab.buttons.background.removeFromSuperview();false } else {true}
+            if reduced || tab.until.is_some_and(|until|now >= until) { tab.buttons.background.removeFromSuperview();false } else {true}
         });
         if reduced || now >= until {
             self.animation_until = None;
-            finish_animation(&self.home);
-            for buttons in &self.buttons { buttons.finish_animation(); }
+            // Layout can delay CA's commit. A wall-clock deadline must not cut its easing short.
+            if reduced {
+                finish_animation(&self.home);
+                for buttons in &self.buttons { buttons.finish_animation(); }
+            }
         }
         if self.closing.len() != old_count {
             self.fit_content();
@@ -152,9 +156,8 @@ impl NativeTabStrip {
         let animated = self.animations_enabled && !reduce_motion();
         let old_offset = self.scroll.contentView().bounds().origin.x;
         let layout = geometry(items.len(), width);
-        let now = Instant::now();
         let mut animating = false;
-        if changed { animating |= self.reconcile(items, layout, height, animated, now); }
+        if changed { animating |= self.reconcile(items, layout, height, animated); }
         transaction(|| {
             self.view.setFrameSize(NSSize::new(width, height));
             self.home.setFrame(rect(2., 4., (HOME_WIDTH - 4.).min(width), height - 8.));
@@ -187,7 +190,12 @@ impl NativeTabStrip {
         let next_offset = transition_offset(old_offset, layout, active_index, active_changed || resized, closing_only_extent);
         let clip = self.scroll.contentView();clip.scrollToPoint(NSPoint::new(next_offset, 0.));self.scroll.reflectScrolledClipView(&clip);
         self.active_id = active_id.map(str::to_owned);
-        if animating { self.animation_until = Some(now + TRANSITION); }
+        if animating {
+            let installed = Instant::now();
+            // The closing controls are already inert; leave room for the next CA commit to start.
+            for tab in &mut self.closing {if tab.until.is_none(){tab.until=Some(installed + TRANSITION + RETIRE_MARGIN);}}
+            self.animation_until = Some(self.closing.iter().filter_map(|tab|tab.until).fold(installed + TRANSITION, Instant::max));
+        }
     }
 
     fn fit_content(&self) {
@@ -203,7 +211,7 @@ impl NativeTabStrip {
         self.scroll.setHidden(self.items.is_empty() && self.closing.is_empty());
     }
 
-    fn reconcile(&mut self, items: &[(String, String)], layout: Geometry, height: f64, animated: bool, now: Instant) -> bool {
+    fn reconcile(&mut self, items: &[(String, String)], layout: Geometry, height: f64, animated: bool) -> bool {
         let live_ids: Vec<_> = self.buttons.iter().map(|tab|tab.id.as_str()).collect();
         let closing_ids: Vec<_> = self.closing.iter().map(|tab|tab.buttons.id.as_str()).collect();
         let next_ids: Vec<_> = items.iter().map(|(id,_)|id.as_str()).collect();
@@ -243,7 +251,7 @@ impl NativeTabStrip {
                 let frame = presentation_frame(&buttons.background);
                 animate_frame(&buttons.background, rect(frame.origin.x, frame.origin.y, 1., frame.size.height), true);
                 animate_opacity(&buttons.background, 0., true);
-                self.closing.push(ClosingTab { buttons, until: now + TRANSITION });animating = true;
+                self.closing.push(ClosingTab { buttons, until: None });animating = true;
             } else { buttons.background.removeFromSuperview(); }
         }
         self.items = items.to_vec();
