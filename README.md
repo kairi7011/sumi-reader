@@ -1,22 +1,34 @@
 # Sumi
 
-Find a passage across your PDFs, then jump straight to its page.
+A small native PDF reader for macOS, with a bookshelf, reading tabs, and search across your books.
 
-[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.7.0)
+[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.8.0) · [Watch real app operation](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4)
 
-Command K searches the text of imported PDFs in one place. Results include the book title and page number, so you can open the passage without first remembering which book contains it. Search requires selectable text and respects PDF copy permissions; it is keyword search, not regular-expression grep.
+![Sumi's bookshelf with three original sample books](docs/media/bookshelf.png)
 
-![Search across three original sample PDFs](docs/media/cross-book-search.png)
+## Read with less in the way
 
-[Watch the short walkthrough](https://github.com/kairi7011/sumi-reader/releases/download/v0.7.0/Sumi-0.7.0-demo.mp4). Screenshots and video use original sample documents, not purchased books.
+Keep several books open in tabs and switch back to the same page and zoom. Read a complete page or facing spread without scrolling at the fitted size. Turn pages from the edges, keyboard, or horizontal trackpad gestures; use a vertical thumbnail grid to jump anywhere in the book. Zoom in place to inspect a detail, then return with Command 0 or Escape.
 
-Sumi is written in Rust with native AppKit controls and Apple's PDFKit renderer. It has no browser engine, account, telemetry, cloud upload, or built-in AI service. The interface is currently Japanese.
+The import and search icons stay compact. Command K holds the less frequent actions, and focus mode hides the reader controls. Appearance and language are shared across all books. Choose English, Japanese, or the system language from the Sumi menu.
 
-- A cover bookshelf and tabs for the books you are reading.
-- Single pages or facing spreads, page turns, and a scrollable thumbnail picker.
-- In-place zoom, text selection, and rectangular image capture.
-- One search palette for books, pages, document text, and app actions.
-- An optional local index that exposes selected book excerpts to your own AI client through MCP.
+![Native reading view with pages fitted in the window](docs/media/reading.png)
+
+## Find the passage, even when you forgot the book
+
+Type in Command K to search titles, page text, and app actions together. Text results include the book title, page number, and a short excerpt. Choose one to open the matching page. Command F searches the current book.
+
+![One query returns passages from several PDFs](docs/media/cross-book-search.png)
+
+The video records actual typing, results from multiple PDFs, and opening a selected result, followed by reading operations. It uses original sample documents. It is not a sequence of still images or a benchmark.
+
+Search requires selectable text and respects PDF copy permissions. It is keyword search, not regular-expression grep; OCR is not included.
+
+## Bring a passage into your work
+
+Select and copy text, or copy a passage with its book title and page number. Drag a rectangle to capture a diagram as an image without opening another window. An optional local index exposes selected excerpts to your own AI client through MCP; see [local library tools](docs/local-library.md). Sumi does not include an AI service or send books to one automatically.
+
+Sumi is written in Rust with native AppKit controls and Apple's PDFKit renderer. It has no browser engine, account, telemetry, or cloud upload. The interface supports English and Japanese.
 
 ## Requirements
 
