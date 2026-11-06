@@ -93,11 +93,11 @@ impl PreviewWorker {
         let state = shared.clone();
         thread::Builder::new().name("sumi-previews".into()).spawn(move || {
             let mut document: Option<(PreviewSource, Retained<PDFDocument>)> = None;
-            loop {
+            'worker: loop {
                 let next = {
                     let mut queue = state.queue.lock().unwrap_or_else(|error|error.into_inner());
                     loop {
-                        if queue.stopped { return; }
+                        if queue.stopped { drop(queue);break 'worker; }
                         if let Some(next) = queue.start() { break Some(next); }
                         if queue.pending.is_empty() && document.is_some() { break None; }
                         queue = state.wake.wait(queue).unwrap_or_else(|error|error.into_inner());
@@ -105,11 +105,12 @@ impl PreviewWorker {
                 };
                 let Some((generation, request)) = next else {
                     // PDFKit destruction can also be expensive; keep it outside the UI-facing lock.
-                    document = None;continue;
+                    autoreleasepool(|_| document = None);continue;
                 };
                 let result = autoreleasepool(|_| render_preview(request, &mut document));
                 state.queue.lock().unwrap_or_else(|error|error.into_inner()).finish(generation, result);
             }
+            autoreleasepool(|_| drop(document));
         }).expect("Could not start the preview worker");
         Self { shared }
     }
@@ -249,7 +250,15 @@ impl ThumbnailGrid {
     pub fn refresh_language(&mut self) { self.refresh_buttons(); self.update_selection(); }
     pub fn remaining(&self) -> usize { self.active_indices().into_iter().filter(|index| !self.is_cached(self.pages[*index])).count() }
     pub fn is_loading(&self) -> bool { self.active && self.source.is_some() && self.visible_range().any(|index|!self.is_cached(self.pages[index])) }
-    pub fn set_active(&mut self, active: bool) { if self.active != active { self.active = active;if !active {self.worker.cancel();} } }
+    pub fn set_active(&mut self, active: bool) {
+        if self.active == active { return; }
+        self.active = active;
+        if active {
+            // A new visit retries transient failures; ordinary ticks keep negative cache entries.
+            self.cache.retain(|(_, image)| image.is_some());
+            self.refresh_buttons();
+        } else { self.worker.cancel(); }
+    }
 
     pub fn prioritize(&mut self, page: usize) { self.priority = Some(page); }
 

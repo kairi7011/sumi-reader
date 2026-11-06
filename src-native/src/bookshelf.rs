@@ -63,6 +63,15 @@ struct Cover {
     status: CoverStatus,
 }
 
+fn cover_for_show(cache: &mut VecDeque<Cover>, key: &CoverKey) -> Option<Cover> {
+    let index = cache.iter().position(|cover| &cover.key == key)?;
+    let cover = cache.remove(index)?;
+    // File access can recover without changing the library's stored file revision.
+    if cover.status != CoverStatus::Ready { return None; }
+    cache.push_back(cover.clone());
+    Some(cover)
+}
+
 struct CardView {
     book: BookCard,
     key: CoverKey,
@@ -126,8 +135,7 @@ impl Bookshelf {
         for card in self.cards.drain(..) { card.button.removeFromSuperview(); }
         for (index, book) in books.iter().enumerate() {
             let key = CoverKey::for_book(book);
-            let cached = self.cache.iter().position(|cover| cover.key == key).and_then(|index| self.cache.remove(index));
-            if let Some(cover) = &cached { self.cache.push_back(cover.clone()); }
+            let cached = cover_for_show(&mut self.cache, &key);
             let status = cached.as_ref().map_or(CoverStatus::Pending, |cover| cover.status);
             let button = unsafe { NSButton::buttonWithTitle_target_action(&string(""), Some(&*self.target), Some(sel!(activateBook:)), self.mtm) };
             button.setTag(index as isize);
@@ -368,6 +376,22 @@ fn placeholder() -> Retained<NSImage> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reopening_shelf_retries_failed_covers_without_discarding_loaded_neighbors() {
+        let key = |id: &str| CoverKey { id: id.into(), path: PathBuf::from(format!("/synthetic/{id}.pdf")), revision: (100, 7) };
+        let mut cache: VecDeque<_> = [("ready", CoverStatus::Ready), ("missing", CoverStatus::Missing), ("unavailable", CoverStatus::Unavailable), ("locked", CoverStatus::Locked)]
+            .into_iter().map(|(id, status)| Cover { key: key(id), image: None, pages: Some(5), status }).collect();
+        for id in ["missing", "unavailable", "locked"] {
+            assert!(cover_for_show(&mut cache, &key(id)).is_none());
+            assert!(!cache.iter().any(|cover| cover.key == key(id)));
+        }
+        let loaded = cover_for_show(&mut cache, &key("ready")).expect("loaded cover remains reusable");
+        assert!(loaded.status == CoverStatus::Ready);
+        assert_eq!(loaded.pages, Some(5));
+        assert_eq!(cache.len(), 1);
+        assert!(cover_for_show(&mut cache, &key("ready")).is_some());
+    }
 
     #[test]
     fn compact_and_wide_shelves_keep_cover_cards_inside_the_viewport() {
