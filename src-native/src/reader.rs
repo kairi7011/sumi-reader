@@ -309,6 +309,8 @@ impl ReaderState {
         let _busy = crate::busy::begin();
         self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn();
         let target = step_target(self.current, self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1), self.spread, delta);
+        #[cfg(debug_assertions)]
+        if target != self.current { crate::busy::debug_block_once(); }
         self.navigate(target, true);
     }
     fn set_zoom(&mut self, factor: f64) {

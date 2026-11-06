@@ -155,6 +155,8 @@ unsafe fn arm(layer: &AnyObject, root: &NSView) {
     // timed animations do not need the main run loop to reach the 400 ms mark.
     // https://developer.apple.com/documentation/quartzcore/catransaction/flush()
     let _: () = msg_send![AnyClass::get(c"CATransaction").unwrap(), flush];
+    #[cfg(debug_assertions)]
+    crate::activity::trace_event("busy-armed");
 }
 
 #[cfg(debug_assertions)]
@@ -165,7 +167,9 @@ pub fn debug_block_once() {
     let delay = std::env::var("SUMI_NATIVE_BLOCK_DELAY_MS").ok().and_then(|value| value.parse::<u64>().ok()).unwrap_or(0).min(10_000);
     if !isolated || delay == 0 || USED.with(|used| used.replace(true)) { return; }
     let _busy = begin();
+    crate::activity::trace_event("blocking-start");
     std::thread::sleep(std::time::Duration::from_millis(delay));
+    crate::activity::trace_event("blocking-end");
 }
 
 #[cfg(test)]
