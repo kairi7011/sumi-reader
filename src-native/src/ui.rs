@@ -323,7 +323,7 @@ impl Ui {
     }
     unsafe fn tick(&mut self){
         let commands=COMMANDS.with(|q|q.borrow_mut().drain(..).collect::<Vec<_>>());
-        for command in commands{match command{Command::Action(name,value)=>self.action(&name,value),Command::Files(paths)=>{if self.import_busy{self.toast("取り込み中です");}else{self.pending_open=if paths.len()==1{paths.first().filter(|p|p.is_file()).cloned()}else{None};self.import(paths);}},Command::BookAction(action,id)=>self.book_action(action,&id),Command::Outside(point)=>{if self.panel_kind!=Panel::None && !contains(self.panel.frame(),point) && point.y<self.size.height-38. && (self.panel_kind!=Panel::Find||self.query.stringValue().to_string().trim().is_empty()){self.close_panel();}}}}
+        for command in commands{match command{Command::Action(name,value)=>self.action(&name,value),Command::Files(paths)=>{if self.import_busy{self.toast("取り込み中です");}else{self.pending_open=if paths.len()==1{paths.first().filter(|p|p.is_file()).cloned()}else{None};self.import(paths);}},Command::BookAction(action,id)=>self.book_action(action,&id),Command::Outside(point)=>self.outside_click(point)}}
         self.reader.tick();if self.screen==Screen::Shelf&&self.panel_kind==Panel::None{self.bookshelf.render_next();}if self.panel_kind==Panel::Pages{self.thumbnails.render_next();}
         if self.search_due.is_some_and(|t|Instant::now()>=t){self.search_due=None;self.begin_search();}
         while let Some(result)=self.search.try_recv(){if result.request_id==self.request_id && matches!(self.panel_kind,Panel::Find|Panel::Palette){self.search_running=!result.complete;self.text_hits=result.hits;let count=self.text_hits.len();self.panel_hint.setStringValue(&s(&if result.complete{if result.warnings.is_empty(){format!("{count}件　↑↓ 選択　↵ 移動　Esc 閉じる")}else{format!("{count}件 · {}",result.warnings[0])}}else{format!("検索中… {count}件")}));self.populate_rows();}}
@@ -333,6 +333,11 @@ impl Ui {
         if self.dirty.is_some_and(|t|Instant::now()>=t)&&!self.reader.is_turning(){self.save();}
         if self.toast_until.is_some_and(|t|Instant::now()>=t){self.toast_until=None;self.status.setHidden(true);}
         #[cfg(debug_assertions)] self.smoke_tick();
+    }
+    unsafe fn outside_click(&mut self,point:NSPoint){
+        if self.panel_kind!=Panel::None&&contains(self.panel.frame(),point){return;}
+        if self.screen==Screen::Shelf{let hit=self.root.hitTest(point);if self.bookshelf.clear_selection_outside(hit.as_deref())&&point.y<self.size.height-38.{self.window.makeFirstResponder(Some(self.bookshelf.view()));}}
+        if self.panel_kind!=Panel::None&&point.y<self.size.height-38.&&(self.panel_kind!=Panel::Find||self.query.stringValue().to_string().trim().is_empty()){self.close_panel();}
     }
     #[cfg(debug_assertions)]
     unsafe fn smoke_tick(&mut self){

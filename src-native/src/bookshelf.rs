@@ -127,9 +127,7 @@ impl Bookshelf {
             self.content.addSubview(&button);
             self.cards.push(CardView { book: book.clone(), key, button, pages: cached.and_then(|cover| cover.pages), status });
         }
-        self.selected = selected_id.and_then(|id| self.cards.iter().position(|card| card.book.id == id))
-            .or_else(|| self.cards.iter().position(|card| card.book.current))
-            .or_else(|| (!self.cards.is_empty()).then_some(0));
+        self.selected = selected_id.and_then(|id| self.cards.iter().position(|card| card.book.id == id));
         self.layout(width, height);
         self.scroll_to_top_offset(if same_order { old_top } else { 0. });
         for index in 0..self.cards.len() { self.update_title(index); }
@@ -166,8 +164,21 @@ impl Bookshelf {
     pub fn move_selection(&mut self, horizontal: isize, vertical: isize) {
         if self.cards.is_empty() { return; }
         let delta = horizontal + vertical * self.columns as isize;
-        let index = self.selected.unwrap_or(0).saturating_add_signed(delta).min(self.cards.len() - 1);
+        let viewport = self.scroll.documentVisibleRect();
+        let index = self.selected.map(|index| index.saturating_add_signed(delta).min(self.cards.len() - 1))
+            .unwrap_or_else(|| self.cards.iter().position(|card| {
+                let frame = card.button.frame();
+                frame.origin.y >= viewport.origin.y && frame.origin.y + frame.size.height <= viewport.origin.y + viewport.size.height
+            }).or_else(|| self.cards.iter().position(|card| intersects(card.button.frame(), viewport))).unwrap_or(0));
         self.select(index);
+    }
+
+    pub fn clear_selection_outside(&mut self, hit: Option<&NSView>) -> bool {
+        let scroller: Option<Retained<NSView>> = unsafe { msg_send![&*self.scroll, verticalScroller] };
+        if hit.is_some_and(|hit| self.cards.iter().any(|card| hit.isDescendantOf(&card.button))
+            || scroller.as_ref().is_some_and(|scroller| hit.isDescendantOf(scroller))) { return false; }
+        if self.selected.take().is_some() { self.update_selection(); }
+        true
     }
 
     pub fn activate_selected(&self) {
@@ -271,6 +282,7 @@ impl Bookshelf {
 
     fn update_selection(&self) {
         for (index, card) in self.cards.iter().enumerate() {
+            card.button.setAccessibilitySelected(Some(index) == self.selected);
             card.button.setWantsLayer(true);
             let color = if Some(index) == self.selected { NSColor::controlAccentColor().colorWithAlphaComponent(0.11) } else { NSColor::clearColor() };
             unsafe {
