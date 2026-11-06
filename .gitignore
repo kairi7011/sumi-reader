@@ -15,3 +15,24 @@ src-tauri/gen/
 
 src-native/target/
 dist-qa/
+
+# Private development configuration and local book data
+.native-toolchain.json
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+library.json
+library-index/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.epub
+*.mobi
+outputs/
+release-artifacts/
+work/
