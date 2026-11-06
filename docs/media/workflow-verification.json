@@ -1,0 +1,71 @@
+{
+  "version": "0.8.0",
+  "recording": {
+    "audio_tracks": 0,
+    "bundle_id": "com.kairi7011.sumi.livepromo",
+    "cursor": true,
+    "file": "workflow-en-final-raw.mov",
+    "finished_at": "2026-11-06T04:25:47.259Z",
+    "height": 960,
+    "provenance": "ScreenCaptureKit recording of the explicitly selected app window and its child windows; no audio or synthetic frames.",
+    "requested_fps": 30,
+    "requested_seconds": 70,
+    "seconds": 70.03,
+    "source_sha256": "10d00b9fd6e6e677595351cc6ce50aa0cada73b21f2c63d6a5430165a195c4fa",
+    "started_at": "2026-11-06T04:24:37.222Z",
+    "width": 1720,
+    "window_id": 152290
+  },
+  "export": {
+    "audio_tracks": 0,
+    "average_decoded_frames_per_second": 5.401069518716578,
+    "codec": "avc1",
+    "crop_top_left_pixels": [
+      0,
+      0,
+      1720,
+      960
+    ],
+    "decode_completed": true,
+    "decoded_frames": 202,
+    "file": "Sumi-0.8.0-workflow-en.mp4",
+    "frame_interval_max_seconds": 1.9666666666666666,
+    "frame_interval_min_seconds": 0.03166666666666629,
+    "height": 960,
+    "nominal_fps": 5.738332271575928,
+    "output_sha256": "d13a84134c2977e7b1a82e36c154b6bddb65640ff40b45d6368e5c4367b3bbdf",
+    "processing": "Continuous live footage: trim, fixed crop, proportional resize, H.264 encoding. No generated UI, freeze frames, transitions, captions, or speed changes.",
+    "seconds": 37.4,
+    "source_display_size": [
+      1720,
+      960
+    ],
+    "source_end_seconds": 59.2,
+    "source_file": "workflow-en-final-raw.mov",
+    "source_sha256": "10d00b9fd6e6e677595351cc6ce50aa0cada73b21f2c63d6a5430165a195c4fa",
+    "source_start_seconds": 21.8,
+    "speed": 1,
+    "timestamps_increasing": true,
+    "width": 1720
+  },
+  "ui_input": "Actual keyboard, click, and drag operations in the packaged native app; no UI reconstruction.",
+  "sample_books": [
+    "Interaction Design",
+    "Search Design",
+    "Reading Design"
+  ],
+  "sample_query": "feedback",
+  "selected_result": {
+    "book": "Search Design",
+    "pdf_page": 4
+  },
+  "other_operations": [
+    "facing pages",
+    "page turns",
+    "zoom then Escape to fit",
+    "thumbnail picker and page-number jump",
+    "reading tabs",
+    "rectangular image copy",
+    "focus mode"
+  ]
+}

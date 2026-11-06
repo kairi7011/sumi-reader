@@ -1,33 +1,31 @@
 # Sumi promotional media
 
-These images show the native Sumi 0.7.0 app with three original Japanese sample PDFs. No purchased book, personal bookshelf, or private reading history appears in them. The sample generator and original prose are in `tools/promo/create-demo-books.swift`.
+The current images show native Sumi 0.8.0 in English with three original sample PDFs. The source prose and generator are in `tools/promo/create-demo-books.swift`. Purchased books, the personal library, and private reading history are not used.
 
-## Files
+## Actual app operation
 
-- `screenshots/01-bookshelf.png`: the three sample books on the shelf.
-- `screenshots/02-palette.png`: Command K opens search and actions.
-- `screenshots/03-search-results.png`: the same phrase found in three different PDFs, with book titles and page numbers.
-- `screenshots/04-selected-result.png`: the second book's result selected.
-- `screenshots/05-reading-page.png`: that result opens page 4, with the matched phrase selected in the real PDF renderer.
-- `bookshelf.png`, `cross-book-search.png`, and `reading.png`: 1920 × 1080 promotional cards composed from those screenshots.
+[Watch the 37-second workflow](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4).
 
-The search phrase is `操作の結果を伝える`. It occurs once in each sample PDF. This is literal full-text keyword search, not regular-expression search.
+This is a continuous ScreenCaptureKit recording of the demo app window. It shows typing `feedback`, matches from three PDFs, selecting Search Design and opening PDF page 4, facing pages, page turns, in-place zoom and Escape to fit, the thumbnail picker and page-number jump, reading tabs, rectangular image copying, and focus mode.
 
-The screenshots were captured from the running app in a separate demo library. The app executable is the released 0.7.0 executable; only the local demo bundle's identifier/display name was changed so it could run alongside the normal reader. No UI pixels were reconstructed. Cards contain scaling/cropping, captions, and a background around the original screenshots.
+Only the idle beginning and ending were trimmed. The clip retains real timing: no screenshot montage, reconstructed UI, inserted freeze frames, transitions, or speed changes. The action inputs were automated through the running app's keyboard and accessibility controls; the video is not a physical trackpad demonstration or a performance benchmark. The video contains no audio.
 
-The 24-second video presents these real screenshots with short captions and crossfades. Scene durations are chosen for explanation, not a speed measurement. The downloadable H.264 MP4 and a media ZIP are attached to the [0.7.0 release](https://github.com/kairi7011/sumi-reader/releases/tag/v0.7.0).
+The app executable matches the packaged 0.8.0 executable. The local demo bundle has a separate identifier and an isolated sample library so recording does not change the reader's personal library. Language, layout, search, and all reading operations use the release app's normal implementation.
 
-## Rebuild the cards and video
+The recording source, trim bounds, hashes, and decoding results are recorded in `workflow-verification.json`. Reproducible capture and processing instructions are in [tools/promo](../../tools/promo/README.md).
 
-On macOS with Apple's Command Line Tools:
+## Images
 
-```sh
-mkdir -p test-artifacts/promo-render
-swift tools/promo/render-promo.swift tools/promo/storyboard.json \
-  --output test-artifacts/promo-render/demo.mp4 \
-  --cards test-artifacts/promo-render/cards
-```
+- `bookshelf.png`: the original books and open reading tabs.
+- `cross-book-search.png`: `feedback` found in three different PDFs, with book titles and page numbers.
+- `reading.png`: two complete PDF pages fitted to the window with two reading tabs.
+- `screenshots/en-03-result-page.png`: the selected result opens Search Design page 4 with the matching word selected.
+- `screenshots/en-04-page-picker.png`: the native thumbnail picker.
 
-The renderer uses system AppKit and AVFoundation, without extra packages or network requests. `--cards-only` generates just the PNG cards. The source screenshots and `tools/promo/storyboard.json` are checked in; generated demo PDFs and video intermediates remain ignored.
+These are unmodified app-window screenshots at 1720 × 960. PDF contents and labels are rendered by the app, not redrawn for promotion.
 
-Original demo prose, screenshots, cards, renderer, and video are offered under the repository's Apache License 2.0. macOS-rendered fonts are used in the images; font files are not distributed. The app's third-party notices remain applicable to the software shown.
+## Earlier media
+
+The Japanese screenshots named `screenshots/01-*` through `05-*` were captured from 0.7.0. Its historical release includes a screenshot slideshow, not an actual-operation recording. The old `render-promo.swift` and `storyboard.json` reproduce that older material; current promotion uses the real recording above.
+
+Original demo prose, screenshots, capture tools, and video are offered under the repository's Apache License 2.0. Font files are not distributed. The app's third-party notices remain applicable to the software shown.
