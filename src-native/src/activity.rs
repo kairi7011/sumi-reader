@@ -20,6 +20,18 @@ impl Activity {
     }
 }
 
+#[cfg(debug_assertions)]
+pub fn trace_event(event: &str) {
+    use std::{fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt, path::PathBuf, time::{SystemTime, UNIX_EPOCH}};
+    if std::env::var("SUMI_NATIVE_TRACE").ok().as_deref()!=Some("1"){return;}
+    let Some(library)=std::env::var_os("SUMI_LIBRARY_PATH").map(PathBuf::from)else{return;};
+    if !library.is_absolute()||!library.components().any(|part|part.as_os_str()=="test-artifacts"){return;}
+    let Some(parent)=library.parent()else{return;};
+    let Ok(mut file)=OpenOptions::new().create(true).append(true).mode(0o600).open(parent.join("timing.jsonl"))else{return;};
+    let time=SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs_f64();
+    let _=writeln!(file,"{}",serde_json::json!({"event":event,"time":time}));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

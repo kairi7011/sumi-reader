@@ -4,6 +4,7 @@ mod bookshelf;
 mod tabs;
 mod icons;
 mod activity;
+mod busy;
 use sumi_native::search;
 mod ui;
 

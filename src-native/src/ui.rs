@@ -295,8 +295,14 @@ unsafe fn progress_indicator(mtm:MainThreadMarker)->Retained<NSProgressIndicator
 unsafe fn show_progress(indicator:&NSProgressIndicator, message:Option<&str>){
     if let Some(message)=message{
         indicator.setToolTip(Some(&s(message)));indicator.setAccessibilityLabel(Some(&s(message)));
-        if indicator.isHidden(){indicator.setHidden(false);indicator.startAnimation(None);}
-    }else if !indicator.isHidden(){indicator.stopAnimation(None);indicator.setHidden(true);}
+        if indicator.isHidden(){
+            #[cfg(debug_assertions)] crate::activity::trace_event("progress-show");
+            indicator.setHidden(false);indicator.startAnimation(None);
+        }
+    }else if !indicator.isHidden(){
+        #[cfg(debug_assertions)] crate::activity::trace_event("progress-hide");
+        indicator.stopAnimation(None);indicator.setHidden(true);
+    }
 }
 unsafe fn button(delegate:&Delegate,text:&str,symbol:Option<&str>,tag:usize)->Retained<NSButton>{
     let b=NSButton::buttonWithTitle_target_action(&s(text),Some(delegate),Some(sel!(activateControl:)),delegate.mtm());
@@ -340,6 +346,7 @@ impl Ui {
         let thumbnails=ThumbnailGrid::new(mtm,delegate);
         let activity_indicator=progress_indicator(mtm);root.addSubview(&activity_indicator);
         let panel_indicator=progress_indicator(mtm);panel.addSubview(&panel_indicator);
+        crate::busy::install(&root);
         let mut ui=Self{#[cfg(debug_assertions)]smoke:None,mtm,delegate:Retained::retain(delegate as *const Delegate as *mut Delegate).unwrap(),window,root,reader,store,preferences,current:None,password:None,tabs:vec![],active_tab:None,tab_strip,status,page_button,zoom_button,nav_button,command_button,top,footer,panel,query,panel_title,panel_hint,rows_scroll,rows_view,thumbnails,screen:Screen::Shelf,bookshelf,empty_shelf,panel_kind:Panel::None,rows:vec![],row_buttons:vec![],selected:0,search:SearchEngine::new(),request_id:0,search_due:None,search_running:false,text_hits:vec![],dirty:None,last_page:0,last_zoom:0,size:NSSize::new(0.,0.),focus:false,toast_until:None,last_capture:None,capture_name:String::new(),last_find:String::new(),last_find_selected:None,pending_open:None,opening:None,open_receiver:None,open_sequence:0,open_activity:Activity::default(),import_activity:Activity::default(),search_activity:Activity::default(),cover_activity:Activity::default(),thumbnail_activity:Activity::default(),activity_indicator,panel_indicator,import_receiver:None,import_busy:false};
         ui.apply_preferences();ui.layout();ui.window.center();ui.window.makeKeyAndOrderFront(None);
         let app=NSApplication::sharedApplication(mtm);app.setActivationPolicy(NSApplicationActivationPolicy::Regular);#[allow(deprecated)]app.activateIgnoringOtherApps(true);
@@ -369,6 +376,7 @@ impl Ui {
         Session{tabs:self.tabs.iter().map(|tab|SessionTab{book_id:tab.id.clone(),zoom:tab.zoom,find:tab.find.clone()}).collect(),active_book_id:self.active_tab.clone()}
     }
     fn persist_session(&mut self)->bool{
+        let _busy=crate::busy::begin();
         if let Err(error)=self.store.save_session(&self.session()){
             self.dirty=Some(Instant::now()+Duration::from_secs(2));
             unsafe{self.toast(&format!("{}: {error}",text("タブを保存できません","Could not save your tabs")));}false
@@ -413,7 +421,7 @@ impl Ui {
         NSApplication::sharedApplication(self.mtm).setMainMenu(Some(&bar));
     }
     unsafe fn layout(&mut self){
-        let size=self.root.bounds().size;self.size=size;
+        let size=self.root.bounds().size;self.size=size;crate::busy::layout(size.width,size.height);
         let shelf=self.screen==Screen::Shelf;
         let focused=self.focus&&!shelf;
         let top_h=if focused{0.}else{38.};let bottom_h=if focused{0.}else{40.};
@@ -455,6 +463,7 @@ impl Ui {
         if let Some(book)=&self.current{self.active_tab=Some(book.id.clone());self.screen=Screen::Reader;self.window.setTitle(&s(&format!("{} — Sumi",book.title)));self.layout();self.reader.focus();self.persist_session();}
     }
     unsafe fn refresh_shelf(&mut self){
+        let _busy=crate::busy::begin();
         if let Ok(library)=self.store.snapshot(){
             let current=self.current.as_ref().map(|b|b.id.as_str()).or(library.last_opened_id.as_deref());
             let cards:Vec<BookCard>=library.recent.into_iter().map(|entry|{let book=entry.document;BookCard{id:book.id.clone(),title:book.title,path:entry.path,revision:(book.size,book.modified_at.to_bits()),page:book.state["page"].as_u64().unwrap_or(1)as usize,current:current==Some(book.id.as_str())}}).collect();
@@ -482,6 +491,7 @@ impl Ui {
         self.last_page=0;self.last_zoom=0;
     }
     unsafe fn change_language(&mut self,language:&str){
+        let _busy=crate::busy::begin();
         match self.store.save_preferences(&json!({"language":language})) {
             Ok(preferences)=>self.preferences=preferences,
             Err(error)=>{self.toast(&error);return;}
@@ -603,7 +613,7 @@ impl Ui {
             "import"=>self.choose_import(),_=>{}
         }
     }
-    unsafe fn persist_preferences(&mut self){if let Err(e)=self.store.save_preferences(&json!({"theme":self.preferences.theme,"mode":self.preferences.mode,"direction":self.preferences.direction,"language":self.preferences.language})){self.toast(&e);}self.apply_preferences();if self.panel_kind==Panel::Palette{self.populate_rows();}}
+    unsafe fn persist_preferences(&mut self){let _busy=crate::busy::begin();if let Err(e)=self.store.save_preferences(&json!({"theme":self.preferences.theme,"mode":self.preferences.mode,"direction":self.preferences.direction,"language":self.preferences.language})){self.toast(&e);}self.apply_preferences();if self.panel_kind==Panel::Palette{self.populate_rows();}}
     fn save_before_close(&mut self)->bool{
         self.reader.set_interaction_enabled(false);
         let saved=self.save();
@@ -611,6 +621,7 @@ impl Ui {
         saved
     }
     fn save(&mut self)->bool{
+        let _busy=crate::busy::begin();
         self.dirty=None;
         if self.panel_kind==Panel::Find{self.last_find=self.query.stringValue().to_string();}
         if let Some(tab)=self.current.as_ref().and_then(|book|self.tabs.iter_mut().find(|tab|tab.id==book.id)){
@@ -631,6 +642,7 @@ impl Ui {
     }
     unsafe fn close_panel(&mut self){if self.panel_kind==Panel::Find{self.last_find=self.query.stringValue().to_string();}self.panel_kind=Panel::None;self.panel.setHidden(true);self.search.cancel();self.search_due=None;self.search_running=false;self.reader.set_interaction_enabled(self.screen==Screen::Reader&&self.opening.is_none());if self.screen==Screen::Reader{self.reader.focus();}else{self.window.makeFirstResponder(Some(self.bookshelf.view()));}}
     unsafe fn populate_rows(&mut self){
+        let _busy=crate::busy::begin();
         let query=self.query.stringValue().to_string();let query=query.trim().to_lowercase();let mut rows=vec![];
         if self.panel_kind==Panel::Palette {
             for command in palette_commands(&self.preferences) {
@@ -658,6 +670,7 @@ impl Ui {
     unsafe fn highlight_row(&mut self){if self.panel_kind==Panel::Pages{self.thumbnails.set_selected(self.selected,true);return;}for(i,b)in self.row_buttons.iter().enumerate(){let color=if i==self.selected{NSColor::controlAccentColor().colorWithAlphaComponent(0.13)}else{NSColor::clearColor()};decorate(b,&color,7.);let tint=NSColor::labelColor();b.setContentTintColor(Some(&tint));if self.panel_kind!=Panel::Pages{if let Some(row)=self.rows.get(i){b.setAttributedTitle(&row_title(row,self.mtm));}}}if let Some(b)=self.row_buttons.get(self.selected){let frame=b.convertRect_toView(b.bounds(),Some(&self.rows_view));self.rows_view.scrollRectToVisible(frame);}}
     unsafe fn accept(&mut self){let action=self.rows.get(self.selected).map(|r|r.action.clone());match action{Some(RowAction::Command(action))=>{self.close_panel();self.action(action,0);},Some(RowAction::Book(id))=>{self.close_panel();self.open_book(&id,None);},Some(RowAction::Page(page))=>{self.close_panel();self.reader.go_to(page,false);},Some(RowAction::Hit(hit))=>{let query=self.query.stringValue().to_string();let keep=self.panel_kind==Panel::Find;if !keep{self.close_panel();}if self.current.as_ref().is_some_and(|b|b.id==hit.book_id){self.cancel_open();self.reader.go_to(hit.page,false);if self.screen==Screen::Shelf{self.show_reader();}}else{self.open_book(&hit.book_id,Some(hit.page));}if let Some(task)=self.opening.as_mut(){task.highlight=Some(query);}else{self.reader.highlight(&query);}if keep{self.last_find_selected=Some(self.selected);}},_=>{}}}
     unsafe fn begin_search(&mut self){
+        let _busy=crate::busy::begin();
         let query=self.query.stringValue().to_string();if query.trim().is_empty(){return;}
         let mut books=vec![];
         if let Ok(library)=self.store.snapshot(){for entry in library.recent{
@@ -683,6 +696,7 @@ impl Ui {
         if !self.save(){self.reader.set_interaction_enabled(self.screen==Screen::Reader);return;}
         self.open_sequence=self.open_sequence.wrapping_add(1);
         self.opening=Some(OpenTask{sequence:self.open_sequence,id:id.into(),page,password:self.tabs.iter().find(|tab|tab.id==id).and_then(|tab|tab.password.clone()),highlight:None});
+        #[cfg(debug_assertions)] crate::activity::trace_event("open-request");
         self.open_activity.begin();self.start_open();
     }
     fn start_open(&mut self){
@@ -718,6 +732,7 @@ impl Ui {
         let task=self.opening.take().unwrap();self.open_activity.finish();
         match result{
             Ok(loaded)=>{
+                let _busy=crate::busy::begin();
                 if !self.tabs.iter().any(|tab|tab.id==task.id)&&self.store.entry(&task.id).is_err(){self.layout();return;}
                 if let Some(title)=loaded.title{let _=self.store.set_book_title(&task.id,&title);}
                 let Ok(entry)=self.store.entry(&task.id)else{self.layout();return;};
@@ -756,9 +771,12 @@ impl Ui {
     unsafe fn bookmark(&mut self){if let Some(book)=self.current.as_mut(){let page=self.reader.current_page().max(1);let mut marks=book.state["bookmarks"].as_array().cloned().unwrap_or_default();let exists=marks.iter().any(|v|v.as_u64()==Some(page as u64));marks.retain(|v|v.as_u64()!=Some(page as u64));if !exists{marks.push(json!(page));}marks.sort_by_key(|v|v.as_u64().unwrap_or(0));book.state["bookmarks"]=json!(marks);self.save();self.toast(if exists{text("しおりを外しました","Bookmark removed")}else{text("しおりを付けました","Bookmark added")});}}
     unsafe fn save_capture(&mut self){
         let Some(image)=self.last_capture.as_ref()else{self.toast(text("先に⌘⇧Xで範囲を選んでください","Select an area with ⌘⇧X first."));return;};
+        let panel=NSSavePanel::savePanel(self.mtm);panel.setTitle(Some(&s(text("切り抜いた画像を保存","Save Captured Image"))));panel.setNameFieldStringValue(&s(&self.capture_name.replace('/',"-")));#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("png")])));
+        if panel.runModal()!=1{return;}let Some(url)=panel.URL()else{return;};
+        let _busy=crate::busy::begin();
         let Some(tiff)=image.TIFFRepresentation()else{self.toast(text("画像を読み込めませんでした","Could not read the image."));return;};let class=objc2::runtime::AnyClass::get(c"NSBitmapImageRep").unwrap();let rep:Option<Retained<AnyObject>>=msg_send![class,imageRepWithData:&*tiff];let Some(rep)=rep else{self.toast(text("画像を読み込めませんでした","Could not read the image."));return;};
         let properties=objc2_foundation::NSDictionary::<NSString,AnyObject>::new();let png:Option<Retained<objc2_foundation::NSData>>=msg_send![&rep,representationUsingType:NSBitmapImageFileType::PNG,properties:&*properties];let Some(png)=png else{self.toast(text("PNGを作成できませんでした","Could not create the PNG."));return;};
-        let panel=NSSavePanel::savePanel(self.mtm);panel.setTitle(Some(&s(text("切り抜いた画像を保存","Save Captured Image"))));panel.setNameFieldStringValue(&s(&self.capture_name.replace('/',"-")));#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("png")])));if panel.runModal()==1{if let Some(url)=panel.URL(){let ok:bool=msg_send![&png,writeToURL:&*url,atomically:true];self.toast(if ok{text("画像を保存しました","Image saved")}else{text("画像を保存できませんでした","Could not save the image.")});}}
+        let ok:bool=msg_send![&png,writeToURL:&*url,atomically:true];self.toast(if ok{text("画像を保存しました","Image saved")}else{text("画像を保存できませんでした","Could not save the image.")});
     }
     unsafe fn choose_import(&mut self){if self.import_busy{self.toast(text("本を取り込み中です","Adding books…"));return;}let panel=NSOpenPanel::openPanel(self.mtm);panel.setCanChooseFiles(true);panel.setCanChooseDirectories(true);panel.setAllowsMultipleSelection(true);panel.setTitle(Some(&s(text("本を取り込む","Add Books"))));panel.setMessage(Some(&s(text("PDFまたはフォルダを選んでください。元のファイルは移動しません。","Choose PDFs or folders. The original files stay in place."))));panel.setPrompt(Some(&s(text("取り込む","Add"))));#[allow(deprecated)]panel.setAllowedFileTypes(Some(&NSArray::from_slice(&[&*s("pdf")])));let result=panel.runModal();if result==1{let paths=panel.URLs().iter().filter_map(|u|u.path().map(|p|PathBuf::from(p.to_string()))).collect();self.import(paths);}}
     unsafe fn import(&mut self,paths:Vec<PathBuf>){if paths.is_empty(){return;}if self.import_busy{self.toast(text("本を取り込み中です。完了してから追加してください","Books are being added. Wait for this import to finish."));return;}self.import_busy=true;self.import_activity.begin();self.layout();self.toast(text("本を取り込んでいます…","Adding books…"));let store=self.store.clone();let(tx,rx)=mpsc::channel();self.import_receiver=Some(rx);std::thread::spawn(move||{let result=store.import_paths(&paths).map(|report|{for entry in &report.added{if let Some(title)=crate::search::derive_title(&entry.path){let _=store.set_book_title(&entry.document.id,&title);}}report});let _=tx.send(result);});}
