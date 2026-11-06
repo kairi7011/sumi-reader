@@ -1,4 +1,4 @@
-use std::{cell::RefCell, marker::PhantomData, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc, time::Duration};
 use block2::RcBlock;
 use objc2::{msg_send, MainThreadMarker};
 use objc2::rc::Retained;
@@ -9,6 +9,47 @@ use objc2_foundation::{NSNumber, NSPoint, NSRect, NSSize, NSString};
 
 #[link(name = "QuartzCore", kind = "framework")]
 unsafe extern "C" { fn CACurrentMediaTime() -> f64; }
+
+const REVEAL_DELAY: f64 = 0.4;
+const REVEAL_DURATION: f64 = 0.08;
+const DISMISS_DURATION: f64 = 0.12;
+const SPIN_DURATION: f64 = 0.8;
+const OPACITY: f64 = 0.85;
+
+#[derive(Clone, Copy)]
+struct Visibility {
+    reveal_at: f64,
+    from_opacity: f64,
+    spin_origin: f64,
+    fade: Option<(f64, f64)>,
+}
+impl Visibility {
+    fn begin(now: f64, elapsed: Duration, previous: Option<Self>) -> Self {
+        let previous_opacity = previous.map_or(0., |visual| visual.opacity(now));
+        let continuing = previous_opacity > 0.;
+        let reveal_at = now + if continuing { 0. } else { (REVEAL_DELAY - elapsed.as_secs_f64()).max(0.) };
+        Self {
+            reveal_at,
+            from_opacity: previous_opacity,
+            spin_origin: if continuing { previous.unwrap().spin_origin } else { reveal_at },
+            fade: None,
+        }
+    }
+    fn opacity(self, now: f64) -> f64 {
+        if let Some((start, opacity)) = self.fade {
+            return opacity * (1. - (now - start) / DISMISS_DURATION).clamp(0., 1.);
+        }
+        if now < self.reveal_at { return 0.; }
+        self.from_opacity + (OPACITY - self.from_opacity) * ((now - self.reveal_at) / REVEAL_DURATION).clamp(0., 1.)
+    }
+    fn rotation(self, now: f64) -> f64 {
+        -std::f64::consts::TAU * ((now - self.spin_origin).max(0.) / SPIN_DURATION).rem_euclid(1.)
+    }
+    fn finish(self, now: f64) -> Option<Self> {
+        let opacity = self.opacity(now);
+        (opacity > 0.).then_some(Self { fade: Some((now, opacity)), ..self })
+    }
+}
 
 #[derive(Default)]
 struct Scopes { depth: usize, generation: u64 }
@@ -33,6 +74,8 @@ struct State {
     layer: Option<Retained<AnyObject>>,
     size: Option<(f64, f64)>,
     scopes: Scopes,
+    visibility: Option<Visibility>,
+    positioned_for_operation: bool,
 }
 
 thread_local! { static STATE: RefCell<State> = RefCell::new(State::default()); }
@@ -63,7 +106,7 @@ pub fn install(root: &NSView) {
         let _: () = msg_send![&*parent, addSublayer: &*layer];
         let previous = STATE.with(|slot| {
             let mut state = slot.borrow_mut();
-            state.scopes.reset(); state.size = None;
+            state.scopes.reset(); state.size = None; state.visibility = None; state.positioned_for_operation = false;
             state.root = Retained::retain(root as *const NSView as *mut NSView);
             state.layer.replace(layer)
         });
@@ -79,14 +122,30 @@ pub fn layout(width: f64, height: f64) {
         let mut state = slot.borrow_mut();
         if state.size == Some((width, height)) { return None; }
         state.size = Some((width, height));
-        state.layer.clone()
+        if state.positioned_for_operation { None } else { state.layer.clone() }
     });
     if let Some(layer) = layer { unsafe {
-        transaction(|| { let _: () = msg_send![&*layer, setPosition: NSPoint::new((width - 22.).max(8.), 24f64.min((height - 8.).max(8.)))]; });
+        transaction(|| { let _: () = msg_send![&*layer, setPosition: default_position(width, height)]; });
     } }
 }
 
 pub fn begin() -> Guard {
+    begin_with_elapsed(Duration::ZERO)
+}
+
+pub fn begin_with_elapsed(elapsed: Duration) -> Guard {
+    begin_scoped(elapsed, None)
+}
+
+pub fn begin_at_with_elapsed(elapsed: Duration, position: NSPoint) -> Guard {
+    begin_scoped(elapsed, Some(position))
+}
+
+fn default_position(width: f64, height: f64) -> NSPoint {
+    NSPoint::new((width - 22.).max(8.), 24f64.min((height - 8.).max(8.)))
+}
+
+fn begin_scoped(elapsed: Duration, position: Option<NSPoint>) -> Guard {
     let inactive = || Guard { generation: None, _main_thread: PhantomData };
     if MainThreadMarker::new().is_none() { return inactive(); }
     let state = STATE.with(|slot| {
@@ -94,24 +153,45 @@ pub fn begin() -> Guard {
         let layer = state.layer.clone()?;
         let root = state.root.clone()?;
         let (generation, first) = state.scopes.enter();
-        Some((layer, root, generation, first))
+        let setup = if first {
+            let now = unsafe { CACurrentMediaTime() };
+            let visual = Visibility::begin(now, elapsed, state.visibility);
+            state.visibility = Some(visual);
+            state.positioned_for_operation = position.is_some();
+            let (width, height) = state.size.unwrap_or((0., 0.));
+            Some((visual, now, position.unwrap_or_else(|| default_position(width, height))))
+        } else { None };
+        Some((layer, root, generation, setup))
     });
-    let Some((layer, root, generation, first)) = state else { return inactive(); };
-    if first { unsafe { arm(&layer, &root); } }
+    let Some((layer, root, generation, setup)) = state else { return inactive(); };
+    if let Some((visual, now, position)) = setup { unsafe { arm(&layer, &root, visual, now, position); } }
     Guard { generation: Some(generation), _main_thread: PhantomData }
 }
 
 impl Drop for Guard {
     fn drop(&mut self) {
         let Some(generation) = self.generation else { return; };
-        let layer = STATE.with(|slot| {
+        let finished = STATE.with(|slot| {
             let mut state = slot.borrow_mut();
-            if state.scopes.leave(generation) { state.layer.clone() } else { None }
+            if !state.scopes.leave(generation) { return None; }
+            let now = unsafe { CACurrentMediaTime() };
+            state.visibility = state.visibility.and_then(|visual| visual.finish(now));
+            state.layer.clone().map(|layer| (layer, state.visibility, now))
         });
-        if let Some(layer) = layer { unsafe {
+        if let Some((layer, visual, now)) = finished { unsafe {
             transaction(|| {
+                // The zero model opacity and finite animations need no deferred
+                // cleanup that could hide a newer operation after a rapid restart.
                 let _: () = msg_send![&*layer, removeAllAnimations];
                 let _: () = msg_send![&*layer, setOpacity: 0f32];
+                if let Some(visual) = visual {
+                    let time: f64 = msg_send![&*layer, convertTime: now, fromLayer: std::ptr::null::<AnyObject>()];
+                    let opacity = basic("opacity", visual.opacity(now), 0., time, DISMISS_DURATION);
+                    let _: () = msg_send![&*layer, addAnimation: &*opacity, forKey: &*NSString::from_str("sumi-busy-dismiss")];
+                    let phase = visual.rotation(now);
+                    let spin = basic("transform.rotation.z", phase, phase - std::f64::consts::TAU * DISMISS_DURATION / SPIN_DURATION, time, DISMISS_DURATION);
+                    let _: () = msg_send![&*layer, addAnimation: &*spin, forKey: &*NSString::from_str("sumi-busy-spin")];
+                }
             });
         } }
     }
@@ -125,29 +205,35 @@ unsafe fn transaction(action: impl FnOnce()) {
     let _: () = msg_send![class, commit];
 }
 
-unsafe fn arm(layer: &AnyObject, root: &NSView) {
+unsafe fn basic(path: &str, from: f64, to: f64, time: f64, duration: f64) -> Retained<AnyObject> {
     let class = AnyClass::get(c"CABasicAnimation").expect("QuartzCore is linked");
-    let time: f64 = msg_send![layer, convertTime: CACurrentMediaTime(), fromLayer: std::ptr::null::<AnyObject>()];
+    let animation: Retained<AnyObject> = msg_send![class, animationWithKeyPath: &*NSString::from_str(path)];
+    let _: () = msg_send![&*animation, setFromValue: &*NSNumber::new_f64(from)];
+    let _: () = msg_send![&*animation, setToValue: &*NSNumber::new_f64(to)];
+    let _: () = msg_send![&*animation, setBeginTime: time];
+    let _: () = msg_send![&*animation, setDuration: duration];
+    let linear: Retained<AnyObject> = msg_send![AnyClass::get(c"CAMediaTimingFunction").unwrap(), functionWithName: &*NSString::from_str("linear")];
+    let _: () = msg_send![&*animation, setTimingFunction: &*linear];
+    animation
+}
+
+unsafe fn arm(layer: &AnyObject, root: &NSView, visual: Visibility, now: f64, position: NSPoint) {
+    let time: f64 = msg_send![layer, convertTime: now, fromLayer: std::ptr::null::<AnyObject>()];
+    let reveal = time + (visual.reveal_at - now).max(0.);
     transaction(|| {
         root.effectiveAppearance().performAsCurrentDrawingAppearance(&RcBlock::new(|| {
             let color: *const CGColor = msg_send![&*NSColor::labelColor(), CGColor];
             let _: () = msg_send![layer, setStrokeColor: color];
         }));
+        let _: () = msg_send![layer, setPosition: position];
         let _: () = msg_send![layer, setOpacity: 0f32];
         let _: () = msg_send![layer, removeAllAnimations];
-        let opacity: Retained<AnyObject> = msg_send![class, animationWithKeyPath: &*NSString::from_str("opacity")];
-        let _: () = msg_send![&*opacity, setFromValue: &*NSNumber::new_f64(0.)];
-        let _: () = msg_send![&*opacity, setToValue: &*NSNumber::new_f64(0.85)];
-        let _: () = msg_send![&*opacity, setBeginTime: time + 0.4];
-        let _: () = msg_send![&*opacity, setDuration: 0.08f64];
+        let opacity = basic("opacity", visual.from_opacity, OPACITY, reveal, REVEAL_DURATION);
         let _: () = msg_send![&*opacity, setFillMode: &*NSString::from_str("forwards")];
         let _: () = msg_send![&*opacity, setRemovedOnCompletion: false];
         let _: () = msg_send![layer, addAnimation: &*opacity, forKey: &*NSString::from_str("sumi-busy-visible")];
-        let spin: Retained<AnyObject> = msg_send![class, animationWithKeyPath: &*NSString::from_str("transform.rotation.z")];
-        let _: () = msg_send![&*spin, setFromValue: &*NSNumber::new_f64(0.)];
-        let _: () = msg_send![&*spin, setToValue: &*NSNumber::new_f64(-std::f64::consts::TAU)];
-        let _: () = msg_send![&*spin, setBeginTime: time + 0.4];
-        let _: () = msg_send![&*spin, setDuration: 0.8f64];
+        let phase = visual.rotation(now);
+        let spin = basic("transform.rotation.z", phase, phase - std::f64::consts::TAU, reveal, SPIN_DURATION);
         let _: () = msg_send![&*spin, setRepeatCount: f32::INFINITY];
         let _: () = msg_send![layer, addAnimation: &*spin, forKey: &*NSString::from_str("sumi-busy-spin")];
     });
@@ -174,7 +260,50 @@ pub fn debug_block_once() {
 
 #[cfg(test)]
 mod tests {
-    use super::Scopes;
+    use super::{Scopes, Visibility, DISMISS_DURATION, OPACITY};
+    use std::time::Duration;
+    fn close(actual: f64, expected: f64) { assert!((actual - expected).abs() < 0.000_001, "{actual} != {expected}"); }
+    #[test]
+    fn main_thread_handoff_keeps_the_original_four_hundred_millisecond_deadline() {
+        let visual = Visibility::begin(10., Duration::from_millis(301), None);
+        close(visual.reveal_at, 10.099);
+        close(visual.opacity(10.098), 0.);
+        assert!(visual.opacity(10.110) > 0.);
+        let overdue = Visibility::begin(10., Duration::from_millis(800), None);
+        close(overdue.reveal_at, 10.);
+    }
+    #[test]
+    fn fast_completion_cancels_the_unseen_ring_without_a_later_flash() {
+        let visual = Visibility::begin(0., Duration::ZERO, None);
+        assert!(visual.finish(0.399).is_none());
+        let next = Visibility::begin(0.5, Duration::ZERO, visual.finish(0.399));
+        close(next.opacity(0.89), 0.);
+        close(next.reveal_at, 0.9);
+    }
+    #[test]
+    fn visible_completion_fades_for_one_hundred_twenty_milliseconds() {
+        let visual = Visibility::begin(0., Duration::ZERO, None);
+        let fade = visual.finish(0.8).unwrap();
+        close(fade.opacity(0.8), OPACITY);
+        close(fade.opacity(0.8 + DISMISS_DURATION / 2.), OPACITY / 2.);
+        close(fade.opacity(0.8 + DISMISS_DURATION), 0.);
+        close(fade.opacity(1.5), 0.);
+        let short = visual.finish(0.42).unwrap();
+        close(short.opacity(0.42), visual.opacity(0.42));
+        assert!(short.opacity(0.48) > 0.);
+        close(short.opacity(0.54), 0.);
+    }
+    #[test]
+    fn restart_during_dismissal_preserves_opacity_and_spin_without_an_old_deadline() {
+        let fading = Visibility::begin(0., Duration::ZERO, None).finish(0.8).unwrap();
+        let resumed = Visibility::begin(0.86, Duration::ZERO, Some(fading));
+        close(resumed.reveal_at, 0.86);
+        close(resumed.opacity(0.86), fading.opacity(0.86));
+        close(resumed.rotation(0.86), fading.rotation(0.86));
+        close(resumed.opacity(1.), OPACITY);
+        let fresh = Visibility::begin(1., Duration::ZERO, Some(fading));
+        close(fresh.reveal_at, 1.4);
+    }
     #[test]
     fn nested_work_keeps_one_deadline_until_the_final_guard_finishes() {
         let mut scopes = Scopes::default();
