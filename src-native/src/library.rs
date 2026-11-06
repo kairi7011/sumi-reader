@@ -46,6 +46,40 @@ pub struct Library {
     pub last_opened_id: Option<String>,
     #[serde(default)]
     pub preferences: Option<Value>,
+    #[serde(default, deserialize_with = "deserialize_session", skip_serializing_if = "Option::is_none")]
+    pub session: Option<Session>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Session {
+    pub tabs: Vec<SessionTab>,
+    pub active_book_id: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionTab {
+    pub book_id: String,
+    pub zoom: f64,
+    pub find: String,
+}
+
+impl SessionTab {
+    pub fn new(book_id: impl Into<String>) -> Self { Self { book_id: book_id.into(), zoom: 1., find: String::new() } }
+}
+
+fn deserialize_session<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<Session>, D::Error> {
+    let value = Value::deserialize(deserializer)?;
+    // A damaged session must neither discard the library nor revive a previously closed tab.
+    let tabs = value.get("tabs").and_then(Value::as_array).into_iter().flatten().filter_map(|tab| {
+        Some(SessionTab {
+            book_id: tab.get("bookId")?.as_str()?.into(),
+            zoom: tab.get("zoom").and_then(Value::as_f64).unwrap_or(1.),
+            find: tab.get("find").and_then(Value::as_str).unwrap_or_default().into(),
+        })
+    }).collect();
+    Ok(Some(Session { tabs, active_book_id: value.get("activeBookId").and_then(Value::as_str).map(str::to_owned) }))
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -77,7 +111,7 @@ pub struct Store {
 fn empty_state() -> Value { Value::Object(Map::new()) }
 
 impl Default for Library {
-    fn default() -> Self { Self { version: 1, recent: vec![], last_opened_id: None, preferences: Some(serde_json::to_value(ReaderPreferences::default()).unwrap()) } }
+    fn default() -> Self { Self { version: 1, recent: vec![], last_opened_id: None, preferences: Some(serde_json::to_value(ReaderPreferences::default()).unwrap()), session: Some(Session::default()) } }
 }
 
 fn read_library(path: &Path) -> Result<(Library, bool), String> {
@@ -85,14 +119,19 @@ fn read_library(path: &Path) -> Result<(Library, bool), String> {
     let mut data = Vec::new();
     file.take(MAX_LIBRARY_BYTES + 1).read_to_end(&mut data).map_err(|e| e.to_string())?;
     if data.len() as u64 > MAX_LIBRARY_BYTES { return Err(tr("本棚のデータが大きすぎます。", "The library data is too large.").into()); }
-    let mut library: Library = serde_json::from_slice(&data).map_err(|e| e.to_string())?;
+    let value: Value = serde_json::from_slice(&data).map_err(|e| e.to_string())?;
+    let original_session = value.get("session").cloned();
+    let mut library: Library = serde_json::from_value(value).map_err(|e| e.to_string())?;
     if library.version != 1 { return Err(tr("本棚のデータ形式を読み込めません。", "This library format is not supported.").into()); }
     library.recent.retain(|entry| entry.document.id.len() == 64 && entry.document.id.bytes().all(|c| c.is_ascii_hexdigit()) && entry.path.is_absolute());
     let mut ids = std::collections::HashSet::new();
     let mut paths = std::collections::HashSet::new();
     library.recent.retain(|entry| ids.insert(entry.document.id.clone()) && paths.insert(entry.path.clone()));
     if !library.recent.iter().any(|entry| Some(&entry.document.id) == library.last_opened_id.as_ref()) { library.last_opened_id = None; }
-    let migrated = library.preferences.as_ref().is_none_or(|value| value.get("language").is_none());
+    let session = session_of(&library);
+    let migrated = library.preferences.as_ref().is_none_or(|value| value.get("language").is_none())
+        || original_session.as_ref() != Some(&serde_json::to_value(&session).map_err(|e| e.to_string())?);
+    library.session = Some(session);
     let preferences = if let Some(value) = &library.preferences {
         sanitize_preferences(value, &ReaderPreferences::default()).unwrap_or_default()
     } else {
@@ -221,6 +260,29 @@ impl Store {
 
     pub fn preferences(&self) -> Result<ReaderPreferences, String> { Ok(preferences_of(&self.snapshot()?)) }
 
+    pub fn session(&self) -> Result<Session, String> { Ok(session_of(&self.snapshot()?)) }
+
+    pub fn save_session(&self, session: &Session) -> Result<(), String> {
+        self.save_reading_session(None, None, session)
+    }
+
+    /// The page and active tab belong to the same restore point, so they share one atomic write.
+    pub fn save_reading_session(&self, id: Option<&str>, state: Option<&Value>, session: &Session) -> Result<(), String> {
+        let reading = match (id, state) {
+            (Some(id), Some(state)) => Some((id, sanitize_state(state)?)),
+            (None, None) => None,
+            _ => return Err(tr("読書位置と本を一緒に指定してください。", "Provide the book and reading position together.").into()),
+        };
+        self.update(|library| {
+            if let Some((id, state)) = reading {
+                let entry = library.recent.iter_mut().find(|entry| entry.document.id == id).ok_or(tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library."))?;
+                entry.document.state = state;
+            }
+            library.session = Some(sanitize_session(session, library));
+            Ok(())
+        })
+    }
+
     pub fn entry(&self, id: &str) -> Result<Entry, String> {
         self.snapshot()?.recent.into_iter().find(|entry| entry.document.id == id).ok_or_else(|| tr("本棚にあるPDFを選んでください。", "Choose a PDF from the library.").into())
     }
@@ -314,6 +376,7 @@ impl Store {
             let before = library.recent.len();
             library.recent.retain(|entry| entry.document.id != id);
             if library.last_opened_id.as_deref() == Some(id) { library.last_opened_id = None; }
+            library.session = Some(session_of(library));
             Ok(before != library.recent.len())
         })
     }
@@ -347,6 +410,31 @@ impl Store {
 
 fn preferences_of(library: &Library) -> ReaderPreferences {
     library.preferences.as_ref().and_then(|value| sanitize_preferences(value, &ReaderPreferences::default()).ok()).unwrap_or_default()
+}
+
+fn session_of(library: &Library) -> Session {
+    let legacy;
+    let session = if let Some(session) = &library.session { session } else {
+        legacy = Session {
+            tabs: library.last_opened_id.iter().map(|id| SessionTab::new(id.clone())).collect(),
+            active_book_id: library.last_opened_id.clone(),
+        };
+        &legacy
+    };
+    sanitize_session(session, library)
+}
+
+fn sanitize_session(session: &Session, library: &Library) -> Session {
+    let available: std::collections::HashSet<_> = library.recent.iter().map(|entry| entry.document.id.as_str()).collect();
+    let mut seen = std::collections::HashSet::new();
+    // Check metadata only: a missing or protected PDF can be relinked without losing its tab.
+    let tabs: Vec<_> = session.tabs.iter().filter(|tab| available.contains(tab.book_id.as_str()) && seen.insert(tab.book_id.as_str())).map(|tab| SessionTab {
+        book_id: tab.book_id.clone(),
+        zoom: if tab.zoom.is_finite() && (1.0..=4.0).contains(&tab.zoom) { tab.zoom } else { 1. },
+        find: tab.find.chars().filter(|character| !character.is_control()).take(4096).collect(),
+    }).collect();
+    let active_book_id = session.active_book_id.as_ref().filter(|id| tabs.iter().any(|tab| &tab.book_id == *id)).cloned();
+    Session { tabs, active_book_id }
 }
 
 fn describe_pdf(path: &Path) -> Result<Entry, String> {
@@ -560,6 +648,124 @@ mod tests {
             assert_eq!(fs::read(&store.path).unwrap(), original);
         }
         assert_eq!(store.save_preferences(&json!({"language":"system"})).unwrap().language, "system");
+    }
+
+    #[test]
+    fn legacy_session_restores_last_read_once_without_losing_old_preferences_or_notes() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let first = store.open_authorized_path(&fixture.pdf("first.pdf")).unwrap();
+        let last = store.open_authorized_path(&fixture.pdf("last.pdf")).unwrap();
+        store.save_state(&last.document.id, &json!({"page":18,"bookmarks":[4,18]})).unwrap();
+        let mut data: Value = serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        data.as_object_mut().unwrap().remove("session");
+        data["preferences"] = json!({"theme":"night","mode":"spread","direction":"rtl"});
+        fs::write(&store.path, serde_json::to_vec(&data).unwrap()).unwrap();
+        let migrated = fixture.store();
+        assert_eq!(migrated.session().unwrap(), Session { tabs:vec![SessionTab::new(last.document.id.clone())], active_book_id:Some(last.document.id.clone()) });
+        assert_eq!(migrated.preferences().unwrap(), ReaderPreferences { theme:"night".into(),mode:"spread".into(),direction:"rtl".into(),language:"system".into() });
+        assert_eq!(migrated.entry(&last.document.id).unwrap().document.state, json!({"page":18,"bookmarks":[4,18]}));
+        assert!(migrated.entry(&first.document.id).is_ok());
+        let saved: Value = serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        assert_eq!(saved["version"], 1);
+        assert_eq!(saved["session"]["activeBookId"], last.document.id);
+        migrated.save_session(&Session::default()).unwrap();
+        assert_eq!(fixture.store().session().unwrap(), Session::default());
+        assert_eq!(fixture.store().snapshot().unwrap().last_opened_id.as_deref(), Some(last.document.id.as_str()));
+    }
+
+    #[test]
+    fn session_round_trip_preserves_tab_order_selection_home_zoom_and_find() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let first = store.open_authorized_path(&fixture.pdf("first.pdf")).unwrap();
+        let second = store.open_authorized_path(&fixture.pdf("second.pdf")).unwrap();
+        let mut session = Session {
+            tabs:vec![SessionTab {book_id:second.document.id.clone(),zoom:1.5625,find:"日本語の検索".into()}, SessionTab::new(first.document.id.clone())],
+            active_book_id:Some(first.document.id.clone()),
+        };
+        store.save_session(&session).unwrap();
+        assert_eq!(fixture.store().session().unwrap(), session);
+        session.active_book_id = None;
+        store.save_session(&session).unwrap();
+        assert_eq!(fixture.store().session().unwrap(), session);
+        assert_eq!(store.snapshot().unwrap().last_opened_id.as_deref(), Some(second.document.id.as_str()));
+        store.save_session(&Session::default()).unwrap();
+        assert_eq!(fixture.store().session().unwrap(), Session::default());
+    }
+
+    #[test]
+    fn session_prunes_duplicate_and_removed_metadata_but_retains_missing_files() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let first = store.open_authorized_path(&fixture.pdf("first.pdf")).unwrap();
+        let second = store.open_authorized_path(&fixture.pdf("second.pdf")).unwrap();
+        fs::remove_file(&first.path).unwrap();
+        let session = Session {
+            tabs:vec![SessionTab::new(first.document.id.clone()),SessionTab::new("f".repeat(64)),SessionTab::new(second.document.id.clone()),SessionTab {book_id:first.document.id.clone(),zoom:2.,find:"duplicate".into()}],
+            active_book_id:Some(first.document.id.clone()),
+        };
+        store.save_session(&session).unwrap();
+        let expected = Session { tabs:vec![SessionTab::new(first.document.id.clone()),SessionTab::new(second.document.id.clone())], active_book_id:Some(first.document.id.clone()) };
+        assert_eq!(fixture.store().session().unwrap(), expected);
+        store.remove(&first.document.id).unwrap();
+        assert_eq!(fixture.store().session().unwrap(), Session {tabs:vec![SessionTab::new(second.document.id.clone())],active_book_id:None});
+        assert!(second.path.exists());
+    }
+
+    #[test]
+    fn damaged_session_fields_do_not_reset_the_library_or_store_unknown_secrets() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let book = store.open_authorized_path(&fixture.pdf("book.pdf")).unwrap();
+        store.save_state(&book.document.id, &json!({"page":23,"bookmarks":[7]})).unwrap();
+        let original: Value = serde_json::from_slice(&fs::read(&store.path).unwrap()).unwrap();
+        for invalid in [Value::Null, json!(false), json!("broken"), json!({"tabs":42,"activeBookId":book.document.id})] {
+            let mut data = original.clone(); data["session"] = invalid;
+            fs::write(&store.path, serde_json::to_vec(&data).unwrap()).unwrap();
+            let reloaded = fixture.store();
+            assert_eq!(reloaded.session().unwrap(), Session::default());
+            assert_eq!(reloaded.entry(&book.document.id).unwrap().document.state, json!({"page":23,"bookmarks":[7]}));
+            assert!(reloaded.startup_warning.lock().unwrap().is_none());
+        }
+        let mut data = original;
+        data["session"] = json!({"tabs":[null,{}, {"bookId":3},{"bookId":book.document.id,"zoom":"large","find":false,"password":"never-store-this"}],"activeBookId":book.document.id,"password":"never-store-this"});
+        fs::write(&store.path, serde_json::to_vec(&data).unwrap()).unwrap();
+        let reloaded = fixture.store();
+        assert_eq!(reloaded.session().unwrap(), Session {tabs:vec![SessionTab::new(book.document.id.clone())],active_book_id:Some(book.document.id.clone())});
+        assert!(!fs::read_to_string(&store.path).unwrap().contains("never-store-this"));
+    }
+
+    #[test]
+    fn session_validates_zoom_and_find_and_does_not_select_an_unopened_tab() {
+        let fixture = Fixture::new(); let store = fixture.store();
+        let first = store.open_authorized_path(&fixture.pdf("first.pdf")).unwrap();
+        let second = store.open_authorized_path(&fixture.pdf("second.pdf")).unwrap();
+        for zoom in [f64::NAN,f64::INFINITY,0.,4.1] {
+            store.save_session(&Session {tabs:vec![SessionTab {book_id:first.document.id.clone(),zoom,find:format!("\0{}", "日".repeat(5000))}],active_book_id:Some(second.document.id.clone())}).unwrap();
+            let restored = fixture.store().session().unwrap();
+            assert_eq!(restored.active_book_id,None);
+            assert_eq!(restored.tabs[0].zoom,1.);
+            assert_eq!(restored.tabs[0].find,"日".repeat(4096));
+        }
+    }
+
+    #[test]
+    fn reading_position_and_session_commit_or_fail_together() {
+        let fixture = Fixture::new(); let mut store = fixture.store();
+        let book = store.open_authorized_path(&fixture.pdf("book.pdf")).unwrap();
+        let session = Session {tabs:vec![SessionTab {book_id:book.document.id.clone(),zoom:1.25,find:"remember".into()}],active_book_id:Some(book.document.id.clone())};
+        store.save_reading_session(Some(&book.document.id),Some(&json!({"page":12,"bookmarks":[3]})),&session).unwrap();
+        let restored = fixture.store();
+        assert_eq!(restored.session().unwrap(),session);
+        assert_eq!(restored.entry(&book.document.id).unwrap().document.state,json!({"page":12,"bookmarks":[3]}));
+        let original = fs::read(&store.path).unwrap();
+        for (id,state) in [(Some(book.document.id.as_str()),None),(None,Some(json!({"page":13}))),(Some("unknown"),Some(json!({"page":13}))),(Some(book.document.id.as_str()),Some(json!({"page":0})))] {
+            assert!(store.save_reading_session(id,state.as_ref(),&Session::default()).is_err());
+            assert_eq!(fs::read(&store.path).unwrap(),original);
+        }
+        let blocker = fixture.0.join("not-a-directory"); fs::write(&blocker,b"keep").unwrap();
+        store.path = blocker.join("library.json");
+        assert!(store.save_reading_session(Some(&book.document.id),Some(&json!({"page":99})),&Session::default()).is_err());
+        assert_eq!(store.session().unwrap(),session);
+        assert_eq!(store.entry(&book.document.id).unwrap().document.state,json!({"page":12,"bookmarks":[3]}));
+        assert_eq!(fs::read(fixture.0.join("state/library.json")).unwrap(),original);
     }
 
     #[test]
