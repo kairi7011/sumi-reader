@@ -1,0 +1,42 @@
+{
+  "version": "0.7.0",
+  "date": "2026-11-06",
+  "runtime_source_commit": "26340e7",
+  "architecture": "arm64",
+  "minimum_macos": "13.0",
+  "app_bytes": 2823380,
+  "zip_bytes": 642458,
+  "zip_sha256": "80713d91d80bef82dc10f145e393d5c6329ab8b012459e235a699271a851f3e7",
+  "license": "Apache-2.0",
+  "notarized": false,
+  "signature": "ad-hoc; strict verification passed",
+  "tests": {
+    "rust_passed": 38,
+    "rust_ignored": 1,
+    "library_python_passed": 20,
+    "public_distribution_passed": 6
+  },
+  "dependency_review": {
+    "packages": 31,
+    "actionable_advisories": 0,
+    "report": "public-dependency-audit.json"
+  },
+  "gui": [
+    "Original six-page fixture opened in isolated library",
+    "Page turn advanced from 1 to 2",
+    "Facing spread showed full pages 2 and 3",
+    "125 percent zoom reset to full-page fit",
+    "Current-book search returned matching pages; Escape dismissed the panel"
+  ],
+  "privacy": [
+    "All 35 application files scanned without private absolute build paths",
+    "Project, dependency, Rust standard-library and icon licenses bundled",
+    "No PDFs, local databases, user library, logs or personal MCP configurations in binary archive"
+  ],
+  "limits": [
+    "Not Developer ID signed or notarized",
+    "No sandbox isolation for the system PDFKit parser",
+    "Pattern and correlation checks are not exhaustive security or copyright certification",
+    "Older real-book regression suite not rerun for this release"
+  ]
+}
