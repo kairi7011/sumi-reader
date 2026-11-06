@@ -153,16 +153,19 @@ impl Reader {
     pub fn focus(&self) { let state = self.state.borrow(); if state.enabled {if let Some(window) = state.view.window() { window.setAcceptsMouseMovedEvents(true);window.makeFirstResponder(Some(&*state.view)); }} }
     pub fn resize(&self, frame: NSRect) {
         if self.container.frame() == frame { return; }
+        let _busy = crate::busy::begin();
         { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.pan = None; state.update_cursor(); }
         self.container.setFrame(frame);
         if self.zoom_factor() <= 1.001 { self.fit(); }
     }
     pub fn set_frame(&self, frame: NSRect) { self.resize(frame); }
     pub fn open(&self, path: &Path, password: Option<&str>) -> Result<DocumentInfo, String> {
+        let _busy = crate::busy::begin();
         PreparedDocument::open(path, password).map(|prepared| self.attach(prepared))
     }
     pub fn attach(&self, prepared: PreparedDocument) -> DocumentInfo {
         let mtm = MainThreadMarker::new().expect("Reader attachment must run on the main thread");
+        let _busy = crate::busy::begin();
         let (document, info, outline, initial_page) = prepared.into_main_thread(mtm);
         {
             let mut state = self.state.borrow_mut();
@@ -195,11 +198,11 @@ impl Reader {
     pub fn go_to(&self, page: usize, animated: bool) { self.state.borrow_mut().navigate(page, animated); }
     pub fn step(&self, delta: isize) { let mut state=self.state.borrow_mut();if state.enabled {state.step(delta);} }
     pub fn set_spread(&self, enabled: bool) {
-        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.spread = enabled;
+        let mut state = self.state.borrow_mut(); if state.spread == enabled { return; } let _busy = crate::busy::begin(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.spread = enabled;
         unsafe { let _: () = msg_send![&*state.view, setDisplayMode: if enabled { 2isize } else { 0isize }]; let _: () = msg_send![&*state.view, setDisplaysAsBook: true]; }
         let current = state.current; state.go_to(current);
     }
-    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
+    pub fn set_rtl(&self, enabled: bool) { let mut state = self.state.borrow_mut(); if state.rtl == enabled { return; } let _busy = crate::busy::begin(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.rtl = enabled; unsafe { let _: () = msg_send![&*state.view, setDisplaysRTL: enabled]; } state.fit(); }
     pub fn set_theme(&self, theme: &str) {
         let color = match theme { "night" => NSColor::colorWithSRGBRed_green_blue_alpha(0.09, 0.10, 0.10, 1.), "white" => NSColor::colorWithSRGBRed_green_blue_alpha(0.96, 0.96, 0.96, 1.), _ => NSColor::colorWithSRGBRed_green_blue_alpha(0.91, 0.91, 0.88, 1.) };
         let state=self.state.borrow();state.visual.borrow_mut().night=theme=="night";state.overlay.repaint();
@@ -209,9 +212,10 @@ impl Reader {
     pub fn restore_zoom(&self,factor:f64){self.state.borrow_mut().set_zoom(factor);}
     pub fn fit(&self) { let mut state = self.state.borrow_mut(); state.cancel_scroll();state.edge_press=None;state.set_edge_hint(None);state.finish_intended_turn(); state.fit(); state.update_cursor(); }
     pub fn outline(&self) -> Vec<(String, usize)> { self.state.borrow().outline.clone() }
-    pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { self.document()?.page(page.checked_sub(1)?).map(|page| page.thumbnail(size)) }
+    pub fn thumbnail(&self, page: usize, size: NSSize) -> Option<Retained<NSImage>> { let document=self.document()?;let index=page.checked_sub(1)?;let _busy=crate::busy::begin();document.page(index).map(|page|page.thumbnail(size)) }
     pub fn highlight(&self, query: &str) -> bool {
         let state = self.state.borrow();
+        let _busy = crate::busy::begin();
         let Some(page) = state.document.as_ref().and_then(|pdf| pdf.page(state.current.saturating_sub(1))) else { return false; };
         let Some((location,length)) = crate::search::first_match_range(&page.text(),query) else { return false; };
         unsafe {
@@ -223,6 +227,7 @@ impl Reader {
     pub fn copy_selection(&self) -> Result<(), String> {
         let state = self.state.borrow();
         let document = state.document.as_ref().ok_or(tr("PDFを開いてください。", "Open a PDF first."))?;
+        let _busy = crate::busy::begin();
         if !document.allows_copying() { return Err(tr("このPDFでは文章のコピーが許可されていません。", "This PDF does not allow text copying.").into()); }
         let selection: Option<Retained<PDFSelection>> = unsafe { msg_send![&*state.view, currentSelection] };
         let selection = selection.ok_or(tr("コピーする文章を選択してください。", "Select the text to copy."))?;
@@ -236,6 +241,7 @@ impl Reader {
     pub fn copy_page_text(&self) -> Result<(), String> {
         let state = self.state.borrow();
         let document = state.document.as_ref().ok_or(tr("PDFを開いてください。", "Open a PDF first."))?;
+        let _busy = crate::busy::begin();
         if !document.allows_copying() { return Err(tr("このPDFでは文章のコピーが許可されていません。", "This PDF does not allow text copying.").into()); }
         let text = document.page(state.current - 1).map(|page| page.text()).unwrap_or_default();
         if text.trim().is_empty() { return Err(tr("このページにはコピーできる文章がありません。", "This page has no text that can be copied.").into()); }
@@ -278,6 +284,7 @@ impl Drop for Reader { fn drop(&mut self) { if let Some(monitor) = &self.monitor
 impl ReaderState {
     fn fit(&mut self) {
         if self.document.is_none() { return; }
+        let _busy = crate::busy::begin();
         unsafe {
             let _: () = msg_send![&*self.view, setAutoScales: true];
             let _: () = msg_send![&*self.view, layoutDocumentView];
@@ -289,6 +296,7 @@ impl ReaderState {
     }
     fn go_to(&mut self, target: usize) {
         let Some(document) = &self.document else { return; };
+        let _busy = crate::busy::begin();
         let target = target.clamp(1, document.page_count());
         if let Some(page) = document.page(target - 1) {
             unsafe { let _: () = msg_send![&*self.view, goToPage: &*page]; }
@@ -297,11 +305,14 @@ impl ReaderState {
         }
     }
     fn step(&mut self, delta: isize) {
+        if self.document.is_none() { return; }
+        let _busy = crate::busy::begin();
         self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn();
         let target = step_target(self.current, self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(1), self.spread, delta);
         self.navigate(target, true);
     }
     fn set_zoom(&mut self, factor: f64) {
+        let _busy = self.document.as_ref().map(|_| crate::busy::begin());
         self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn(); self.pan = None;
         if self.document.is_none() { return; }
         self.factor = factor.clamp(1., 4.);
@@ -385,9 +396,12 @@ fn handle_event(state: &Rc<RefCell<ReaderState>>, event: &NSEvent) -> bool {
         }
         return true;
     }
-    if event_type == NSEventType::LeftMouseDown && inside && !state.space && state.factor <= 1.001 && !state.page_content_at(overlay_point) {
-        if state.corner_turn(overlay_point) {return true;}
-        if let Some((side,rect))=state.edge_at(overlay_point) {state.edge_press=Some(EdgePress{side,start:overlay_point,distance:0.});state.set_edge_hint(Some(EdgeHint{side,rect,pressed:true}));state.update_cursor();return true;}
+    if event_type == NSEventType::LeftMouseDown && inside && !state.space && state.factor <= 1.001 {
+        let _busy = crate::busy::begin();
+        if !state.page_content_at(overlay_point) {
+            if state.corner_turn(overlay_point) {return true;}
+            if let Some((side,rect))=state.edge_at(overlay_point) {state.edge_press=Some(EdgePress{side,start:overlay_point,distance:0.});state.set_edge_hint(Some(EdgeHint{side,rect,pressed:true}));state.update_cursor();return true;}
+        }
     }
     if event_type == NSEventType::LeftMouseDragged && state.edge_press.is_some() {
         let mut press=state.edge_press.unwrap();press.distance=press.distance.max((overlay_point.x-press.start.x).hypot(overlay_point.y-press.start.y));state.edge_press=Some(press);
@@ -429,10 +443,13 @@ impl ReaderState {
         pages.iter().take(2).map(|page| (document.index_of(&page) + 1, page.clone(), self.page_rect(&page))).collect()
     }
     fn snapshot(&self, page: &PDFPage, rect: NSRect) -> PageImage {
+        let _busy = crate::busy::begin();
         let scale = (1_800_000. / (rect.size.width * rect.size.height).max(1.)).sqrt().min(1.5);
         PageImage { image: page.thumbnail(NSSize::new(rect.size.width * scale, rect.size.height * scale)), rect }
     }
     fn navigate(&mut self, target: usize, animated: bool) {
+        if self.document.is_none() { return; }
+        let _busy = crate::busy::begin();
         self.cancel_scroll();self.edge_press=None;self.set_edge_hint(None);self.finish_intended_turn(); self.cancel_capture();
         let count = self.document.as_ref().map(|doc|doc.page_count()).unwrap_or(0); if count == 0 { return; }
         let target = target.clamp(1,count); if target == self.current { self.go_to(target); return; }
@@ -443,6 +460,7 @@ impl ReaderState {
     fn begin_turn(&mut self, target: usize, corner: f64, start: NSPoint) -> bool {
         let Some(document) = self.document.clone() else { return false; };
         if target == self.current || target == 0 || target > document.page_count() { return false; }
+        let _busy = crate::busy::begin();
         self.set_edge_hint(None);
         let direction = if (target > self.current) != self.rtl { 1. } else { -1. };
         let mut old = self.visible(); old.sort_by(|a,b|a.2.origin.x.total_cmp(&b.2.origin.x));
@@ -529,6 +547,7 @@ impl ReaderState {
     }
     fn finish_turn(&mut self, commit: bool) {
         let Some(turn)=self.turn.take()else{return;};
+        let _busy = crate::busy::begin();
         #[cfg(debug_assertions)] let endpoint = Instant::now();
         let target=if commit{turn.target}else{turn.old};
         if !commit {if let Some(page)=self.document.as_ref().and_then(|doc|doc.page(target-1)){unsafe{let _:()=msg_send![&*self.view,goToPage:&*page];}self.fit();}}
@@ -553,6 +572,7 @@ impl ReaderState {
     }
     fn complete_capture(&mut self) {
         let rect=self.visual.borrow().capture;self.cancel_capture();let Some(rect)=rect else{return;};if rect.size.width<4.||rect.size.height<4.{return;}
+        let _busy = crate::busy::begin();
         let scale=(6_000_000./(rect.size.width*rect.size.height)).sqrt().min(2.);
         let width=(rect.size.width*scale).floor().max(1.)as isize;let height=(rect.size.height*scale).floor().max(1.)as isize;
         let bitmap:Option<Retained<AnyObject>>=unsafe { let Some(class)=AnyClass::get(c"NSBitmapImageRep") else{return;}; let allocated:Allocated<AnyObject>=msg_send![class,alloc]; msg_send![allocated,initWithBitmapDataPlanes:std::ptr::null_mut::<*mut u8>(),pixelsWide:width,pixelsHigh:height,bitsPerSample:8isize,samplesPerPixel:4isize,hasAlpha:true,isPlanar:false,colorSpaceName:NSDeviceRGBColorSpace,bytesPerRow:0isize,bitsPerPixel:32isize] };
