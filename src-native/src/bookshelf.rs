@@ -1,11 +1,11 @@
 use sumi_native::i18n::{text as tr, is_japanese};
-use crate::pdf::PDFDocument;
-use objc2::rc::{autoreleasepool, Retained};
+use sumi_native::thumbnails::{PreviewSource, PreviewRequest, PreviewStatus, PreviewWorker, preview_image};
+use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{define_class, msg_send, sel, AnyThread, MainThreadOnly};
 use objc2_app_kit::{NSAccessibility, NSBezierPath, NSBorderType, NSButton, NSCellImagePosition, NSColor, NSCompositingOperation, NSFont, NSImage, NSImageScaling, NSLineBreakMode, NSMenu, NSMenuItem, NSMutableParagraphStyle, NSScrollView, NSTextAlignment, NSView};
 use objc2_foundation::{MainThreadMarker, NSMutableAttributedString, NSPoint, NSRange, NSRect, NSSize, NSString};
-use std::{collections::VecDeque, path::PathBuf, time::SystemTime};
+use std::{collections::VecDeque, path::PathBuf};
 
 const CACHE_LIMIT: usize = 48;
 const COVER_WIDTH: f64 = 160.;
@@ -35,6 +35,7 @@ pub struct BookCard {
     pub id: String,
     pub title: String,
     pub path: PathBuf,
+    pub revision: (u64, u64),
     pub page: usize,
     pub current: bool,
 }
@@ -43,12 +44,11 @@ pub struct BookCard {
 struct CoverKey {
     id: String,
     path: PathBuf,
-    file: Option<(u64, Option<SystemTime>)>,
+    revision: (u64, u64),
 }
 impl CoverKey {
     fn for_book(book: &BookCard) -> Self {
-        let file = std::fs::metadata(&book.path).ok().filter(|value| value.is_file()).map(|value| (value.len(), value.modified().ok()));
-        Self { id: book.id.clone(), path: book.path.clone(), file }
+        Self { id: book.id.clone(), path: book.path.clone(), revision: book.revision }
     }
 }
 
@@ -82,6 +82,8 @@ pub struct Bookshelf {
     selected: Option<usize>,
     columns: usize,
     row_height: f64,
+    worker: PreviewWorker,
+    active: bool,
 }
 
 impl Bookshelf {
@@ -96,7 +98,7 @@ impl Bookshelf {
         let content = NSView::initWithFrame(NSView::alloc(mtm), rect(0., 0., 800., 600.));
         scroll.setDocumentView(Some(&content));
         let target = unsafe { Retained::retain(target as *const AnyObject as *mut AnyObject).expect("live bookshelf action target") };
-        Self { mtm, target, scroll, content, cards: Vec::new(), cache: VecDeque::new(), placeholder: placeholder(), selected: None, columns: 1, row_height: ROW_HEIGHT }
+        Self { mtm, target, scroll, content, cards: Vec::new(), cache: VecDeque::new(), placeholder: placeholder(), selected: None, columns: 1, row_height: ROW_HEIGHT, worker: PreviewWorker::new(), active: true }
     }
 
     pub fn view(&self) -> &NSScrollView { &self.scroll }
@@ -104,6 +106,10 @@ impl Bookshelf {
     pub fn selected_index(&self) -> Option<usize> { self.selected }
     pub fn columns(&self) -> usize { self.columns }
     pub fn set_background(&self, color: &NSColor) { self.scroll.setBackgroundColor(color); }
+    pub fn set_active(&mut self, active: bool) { if self.active != active {self.active = active;if !active {self.worker.cancel();}} }
+    pub fn is_loading(&self) -> bool {
+        self.active && self.cards.iter().any(|card|card.status==CoverStatus::Pending && intersects(card.button.frame(),self.scroll.documentVisibleRect()))
+    }
 
     pub fn refresh_language(&mut self) {
         for (index, card) in self.cards.iter().enumerate() {
@@ -113,6 +119,7 @@ impl Bookshelf {
     }
 
     pub fn show(&mut self, books: &[BookCard], width: f64, height: f64) {
+        self.worker.cancel();
         let same_order = self.cards.len() == books.len() && self.cards.iter().zip(books).all(|(old, new)| old.book.id == new.id);
         let selected_id = self.selected.and_then(|index| self.id_at(index)).map(str::to_owned);
         let old_top = self.top_offset();
@@ -121,7 +128,7 @@ impl Bookshelf {
             let key = CoverKey::for_book(book);
             let cached = self.cache.iter().position(|cover| cover.key == key).and_then(|index| self.cache.remove(index));
             if let Some(cover) = &cached { self.cache.push_back(cover.clone()); }
-            let status = cached.as_ref().map_or(if key.file.is_none() { CoverStatus::Missing } else { CoverStatus::Pending }, |cover| cover.status);
+            let status = cached.as_ref().map_or(CoverStatus::Pending, |cover| cover.status);
             let button = unsafe { NSButton::buttonWithTitle_target_action(&string(""), Some(&*self.target), Some(sel!(activateBook:)), self.mtm) };
             button.setTag(index as isize);
             button.setBordered(false);
@@ -196,48 +203,51 @@ impl Bookshelf {
     }
 
     pub fn render_next(&mut self) -> bool {
+        if !self.active {return false;}
+        let mut changed = false;
+        for result in self.worker.poll() {
+            let Some(index) = self.cards.iter().position(|card|card.key.path==result.request.source.path && card.key.revision==result.request.source.revision) else {continue;};
+            let image = result.png.as_deref().and_then(|png|preview_image(png,NSSize::new(COVER_WIDTH,COVER_HEIGHT)));
+            let status = match result.status {
+                PreviewStatus::Ready if image.is_some()=>CoverStatus::Ready,
+                PreviewStatus::Locked=>CoverStatus::Locked,
+                PreviewStatus::Missing=>CoverStatus::Missing,
+                _=>CoverStatus::Unavailable,
+            };
+            let key = self.cards[index].key.clone();
+            self.cache.retain(|cover|cover.key!=key);
+            self.cache.push_back(Cover {key,image:image.clone(),pages:result.pages,status});
+            self.cards[index].status=status;self.cards[index].pages=result.pages;
+            self.cards[index].button.setImage(Some(image.as_deref().unwrap_or(&self.placeholder)));
+            self.update_title(index);changed=true;
+        }
+        while self.cache.len()>CACHE_LIMIT {
+            if let Some(removed)=self.cache.pop_front() {
+                for index in 0..self.cards.len() {
+                    if self.cards[index].key==removed.key {
+                        self.cards[index].button.setImage(Some(&self.placeholder));
+                        self.cards[index].status=CoverStatus::Pending;
+                        self.update_title(index);
+                    }
+                }
+            }
+        }
+        let requests=self.active_indices().into_iter().filter(|index|self.cards[*index].status==CoverStatus::Pending).map(|index| {
+            let key=&self.cards[index].key;
+            PreviewRequest {source:PreviewSource{path:key.path.clone(),password:None,revision:key.revision},page:1,width:(COVER_WIDTH*2.)as usize,height:(COVER_HEIGHT*2.)as usize}
+        }).collect::<Vec<_>>();
+        self.worker.request(&requests);
+        changed
+    }
+
+    fn active_indices(&self) -> Vec<usize> {
         let viewport = self.scroll.documentVisibleRect();
         let near = rect(viewport.origin.x, viewport.origin.y - self.row_height, viewport.size.width, viewport.size.height + self.row_height * 2.);
         let mut active: Vec<_> = self.cards.iter().enumerate().filter(|(_, card)| intersects(card.button.frame(), near))
             .map(|(index, card)| (if Some(index) == self.selected && intersects(card.button.frame(), viewport) { 0 } else if intersects(card.button.frame(), viewport) { 1 } else { 2 }, index)).collect();
         active.sort_unstable();
         // Prefetch must fit the cache, or a tall window repeatedly evicts its own visible covers.
-        let candidate = active.into_iter().take(CACHE_LIMIT).find(|(_, index)| self.cards[*index].status == CoverStatus::Pending).map(|(_, index)| index);
-        let Some(index) = candidate else { return false; };
-        let key = self.cards[index].key.clone();
-        let cover = autoreleasepool(|_| {
-            let mut cover = Cover { key: key.clone(), image: None, pages: None, status: CoverStatus::Unavailable };
-            if !key.path.is_file() { cover.status = CoverStatus::Missing; return cover; }
-            let Some(document) = PDFDocument::from_path(&key.path) else { return cover; };
-            if document.is_locked() { cover.status = CoverStatus::Locked; return cover; }
-            let count = document.page_count();
-            cover.pages = (count > 0).then_some(count);
-            if let Some(page) = document.page(0) {
-                let thumbnail = page.thumbnail(NSSize::new(COVER_WIDTH * 2., COVER_HEIGHT * 2.));
-                cover.image = cover_image(&thumbnail);
-                if cover.image.is_some() { cover.status = CoverStatus::Ready; }
-            }
-            cover
-        });
-        self.cache.retain(|old| old.key != key);
-        self.cache.push_back(cover.clone());
-        self.cards[index].status = cover.status;
-        self.cards[index].pages = cover.pages;
-        self.cards[index].button.setImage(Some(cover.image.as_deref().unwrap_or(&self.placeholder)));
-        self.update_title(index);
-        while self.cache.len() > CACHE_LIMIT {
-            if let Some(removed) = self.cache.pop_front() {
-                if removed.image.is_some() {
-                    for card in &mut self.cards {
-                        if card.key == removed.key {
-                            card.button.setImage(Some(&self.placeholder));
-                            card.status = CoverStatus::Pending;
-                        }
-                    }
-                }
-            }
-        }
-        true
+        active.into_iter().take(CACHE_LIMIT).map(|(_,index)|index).collect()
     }
 
     fn context_menu(&self, id: &str) -> Retained<NSMenu> {
@@ -353,22 +363,6 @@ fn placeholder() -> Retained<NSImage> {
     image.unlockFocus();
     image.setSize(NSSize::new(COVER_WIDTH, COVER_HEIGHT));
     image
-}
-
-#[allow(deprecated)]
-fn cover_image(source: &NSImage) -> Option<Retained<NSImage>> {
-    let original = source.size();
-    if original.width <= 0. || original.height <= 0. { return None; }
-    let size = NSSize::new(COVER_WIDTH * 2., COVER_HEIGHT * 2.);
-    let scale = (size.width / original.width).min(size.height / original.height);
-    let width = original.width * scale;
-    let height = original.height * scale;
-    let image = NSImage::initWithSize(NSImage::alloc(), size);
-    image.lockFocus();
-    source.drawInRect_fromRect_operation_fraction(rect((size.width - width) / 2., 0., width, height), NSRect::new(NSPoint::new(0., 0.), original), NSCompositingOperation::SourceOver, 1.);
-    image.unlockFocus();
-    image.setSize(NSSize::new(COVER_WIDTH, COVER_HEIGHT));
-    Some(image)
 }
 
 #[cfg(test)]

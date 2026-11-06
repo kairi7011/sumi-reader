@@ -1,17 +1,187 @@
 use crate::i18n::{text as tr, is_japanese};
 use crate::pdf::PDFDocument;
 use objc2::rc::{autoreleasepool, Retained};
-use objc2::runtime::AnyObject;
-use objc2::{msg_send, sel, AnyThread, MainThreadOnly};
-use objc2_app_kit::{NSAccessibility, NSBezierPath, NSButton, NSCellImagePosition, NSColor, NSFont, NSImage, NSImageScaling, NSView};
-use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString};
-use std::{collections::VecDeque, ops::Range};
+use objc2::runtime::{AnyObject, AnyClass};
+use objc2::{msg_send, sel, AnyThread, ClassType, MainThreadOnly};
+use objc2_app_kit::{NSAccessibility, NSBezierPath, NSButton, NSCellImagePosition, NSColor, NSCompositingOperation, NSDeviceRGBColorSpace, NSFont, NSGraphicsContext, NSImage, NSImageScaling, NSView};
+use objc2_foundation::{MainThreadMarker, NSData, NSDictionary, NSPoint, NSRect, NSSize, NSString};
+use std::{collections::VecDeque, ops::Range, path::PathBuf, sync::{Arc, Condvar, Mutex}, thread};
 
 pub const COLUMNS: usize = 6;
 pub const CACHE_CAPACITY: usize = 36;
 const ROW_HEIGHT: f64 = 140.;
 const PADDING: f64 = 6.;
 const IMAGE_SIZE: NSSize = NSSize::new(176., 248.);
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct PreviewSource {
+    pub path: PathBuf,
+    pub password: Option<String>,
+    pub revision: (u64, u64),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct PreviewRequest {
+    pub source: PreviewSource,
+    pub page: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PreviewStatus { Ready, Locked, Missing, Unavailable }
+
+pub struct PreviewResult {
+    pub request: PreviewRequest,
+    pub png: Option<Vec<u8>>,
+    pub pages: Option<usize>,
+    pub status: PreviewStatus,
+}
+
+const QUEUE_CAPACITY: usize = 48;
+const RESULT_CAPACITY: usize = 2;
+
+#[derive(Default)]
+struct PreviewQueue {
+    generation: u64,
+    wanted: Vec<PreviewRequest>,
+    pending: VecDeque<PreviewRequest>,
+    busy: Option<(u64, PreviewRequest)>,
+    results: VecDeque<PreviewResult>,
+    stopped: bool,
+}
+impl PreviewQueue {
+    fn replace(&mut self, requests: &[PreviewRequest]) {
+        self.wanted.clear();
+        for request in requests.iter().take(QUEUE_CAPACITY) {
+            if !self.wanted.contains(request) { self.wanted.push(request.clone()); }
+        }
+        self.results.retain(|result| self.wanted.contains(&result.request));
+        self.pending = self.wanted.iter().filter(|request| {
+            !self.busy.as_ref().is_some_and(|(generation, busy)| *generation == self.generation && busy == *request)
+                && !self.results.iter().any(|result| result.request == **request)
+        }).cloned().collect();
+    }
+
+    fn cancel(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+        self.wanted.clear();self.pending.clear();self.results.clear();
+    }
+
+    fn start(&mut self) -> Option<(u64, PreviewRequest)> {
+        if self.stopped || self.busy.is_some() || self.results.len() >= RESULT_CAPACITY { return None; }
+        let request = self.pending.pop_front()?;
+        self.busy = Some((self.generation, request.clone()));
+        Some((self.generation, request))
+    }
+
+    fn finish(&mut self, generation: u64, result: PreviewResult) {
+        self.busy = None;
+        if !self.stopped && generation == self.generation && self.wanted.contains(&result.request) {
+            self.results.push_back(result);
+        }
+    }
+}
+
+struct PreviewShared { queue: Mutex<PreviewQueue>, wake: Condvar }
+
+pub struct PreviewWorker { shared: Arc<PreviewShared> }
+impl Default for PreviewWorker { fn default() -> Self { Self::new() } }
+impl PreviewWorker {
+    pub fn new() -> Self {
+        let shared = Arc::new(PreviewShared { queue: Mutex::new(PreviewQueue::default()), wake: Condvar::new() });
+        let state = shared.clone();
+        thread::Builder::new().name("sumi-previews".into()).spawn(move || {
+            let mut document: Option<(PreviewSource, Retained<PDFDocument>)> = None;
+            loop {
+                let next = {
+                    let mut queue = state.queue.lock().unwrap_or_else(|error|error.into_inner());
+                    loop {
+                        if queue.stopped { return; }
+                        if let Some(next) = queue.start() { break Some(next); }
+                        if queue.pending.is_empty() && document.is_some() { break None; }
+                        queue = state.wake.wait(queue).unwrap_or_else(|error|error.into_inner());
+                    }
+                };
+                let Some((generation, request)) = next else {
+                    // PDFKit destruction can also be expensive; keep it outside the UI-facing lock.
+                    document = None;continue;
+                };
+                let result = autoreleasepool(|_| render_preview(request, &mut document));
+                state.queue.lock().unwrap_or_else(|error|error.into_inner()).finish(generation, result);
+            }
+        }).expect("Could not start the preview worker");
+        Self { shared }
+    }
+    pub fn request(&self, requests: &[PreviewRequest]) {
+        self.shared.queue.lock().unwrap_or_else(|error|error.into_inner()).replace(requests);
+        self.shared.wake.notify_one();
+    }
+    pub fn poll(&self) -> Vec<PreviewResult> {
+        let results = self.shared.queue.lock().unwrap_or_else(|error|error.into_inner()).results.drain(..).collect();
+        self.shared.wake.notify_one();results
+    }
+    pub fn cancel(&self) {
+        self.shared.queue.lock().unwrap_or_else(|error|error.into_inner()).cancel();
+        self.shared.wake.notify_one();
+    }
+}
+impl Drop for PreviewWorker {
+    fn drop(&mut self) {
+        let mut queue = self.shared.queue.lock().unwrap_or_else(|error|error.into_inner());
+        queue.stopped = true;queue.cancel();self.shared.wake.notify_one();
+    }
+}
+
+fn render_preview(request: PreviewRequest, document: &mut Option<(PreviewSource, Retained<PDFDocument>)>) -> PreviewResult {
+    let mut result = PreviewResult { request, png: None, pages: None, status: PreviewStatus::Unavailable };
+    let source = &result.request.source;
+    if !document.as_ref().is_some_and(|(old,_)| old == source) {
+        *document = None;
+        if !source.path.is_file() { result.status = PreviewStatus::Missing;return result; }
+        let Some(pdf) = PDFDocument::from_path(&source.path) else { return result; };
+        if pdf.is_locked() && !source.password.as_deref().is_some_and(|password|pdf.unlock(password)) {
+            result.status = PreviewStatus::Locked;return result;
+        }
+        *document = Some((source.clone(), pdf));
+    }
+    let pdf = &document.as_ref().unwrap().1;
+    result.pages = Some(pdf.page_count());
+    if let Some(page) = result.request.page.checked_sub(1).and_then(|index|pdf.page(index)) {
+        let size = NSSize::new(result.request.width.clamp(1,512) as f64,result.request.height.clamp(1,512) as f64);
+        let thumbnail = page.thumbnail(size);
+        result.png = preview_png(&thumbnail, size);
+        if result.png.is_some() { result.status = PreviewStatus::Ready; }
+    }
+    result
+}
+
+fn preview_png(source: &NSImage, size: NSSize) -> Option<Vec<u8>> {
+    let original = source.size();
+    if !original.width.is_finite() || !original.height.is_finite() || original.width <= 0. || original.height <= 0. { return None; }
+    let scale = (size.width / original.width).min(size.height / original.height);
+    unsafe {
+        let class = AnyClass::get(c"NSBitmapImageRep")?;
+        let allocated: objc2::rc::Allocated<AnyObject> = msg_send![class,alloc];
+        let bitmap: Option<Retained<AnyObject>> = msg_send![allocated,initWithBitmapDataPlanes:std::ptr::null_mut::<*mut u8>(),pixelsWide:size.width as isize,pixelsHigh:size.height as isize,bitsPerSample:8isize,samplesPerPixel:4isize,hasAlpha:true,isPlanar:false,colorSpaceName:NSDeviceRGBColorSpace,bytesPerRow:0isize,bitsPerPixel:32isize];
+        let bitmap = bitmap?;
+        let context: Option<Retained<NSGraphicsContext>> = msg_send![NSGraphicsContext::class(),graphicsContextWithBitmapImageRep:&*bitmap];
+        let context = context?;
+        NSGraphicsContext::saveGraphicsState_class();NSGraphicsContext::setCurrentContext(Some(&context));
+        let cg = context.CGContext();
+        objc2_core_graphics::CGContext::clear_rect(Some(&cg), NSRect::new(NSPoint::new(0.,0.),size));
+        source.drawInRect_fromRect_operation_fraction(NSRect::new(NSPoint::new((size.width-original.width*scale)/2.,(size.height-original.height*scale)/2.),NSSize::new(original.width*scale,original.height*scale)),NSRect::new(NSPoint::new(0.,0.),original),NSCompositingOperation::SourceOver,1.);
+        NSGraphicsContext::restoreGraphicsState_class();
+        let properties: Retained<NSDictionary<NSString,AnyObject>> = NSDictionary::new();
+        let data: Option<Retained<NSData>> = msg_send![&*bitmap,representationUsingType:4usize,properties:&*properties];
+        data.filter(|data|data.len() <= 2*1024*1024).map(|data|data.to_vec())
+    }
+}
+
+pub fn preview_image(png: &[u8], size: NSSize) -> Option<Retained<NSImage>> {
+    let image = NSImage::initWithData(NSImage::alloc(), &NSData::with_bytes(png))?;
+    image.setSize(size);Some(image)
+}
 
 #[derive(Clone, Copy)]
 struct GridGeometry {
@@ -54,7 +224,9 @@ pub struct ThumbnailGrid {
     current: usize,
     selected: Option<usize>,
     priority: Option<usize>,
-    document: Option<Retained<PDFDocument>>,
+    source: Option<PreviewSource>,
+    worker: PreviewWorker,
+    active: bool,
     cache: VecDeque<(usize, Option<Retained<NSImage>>)>,
     placeholder: Retained<NSImage>,
 }
@@ -63,7 +235,7 @@ impl ThumbnailGrid {
     pub fn new(mtm: MainThreadMarker, target: &AnyObject) -> Self {
         let view = NSView::initWithFrame(NSView::alloc(mtm), NSRect::new(NSPoint::new(0., 0.), NSSize::new(564., ROW_HEIGHT)));
         let target = unsafe { Retained::retain(target as *const AnyObject as *mut AnyObject).expect("live thumbnail action target") };
-        Self { mtm, target, view, buttons: Vec::new(), realized: 0..0, pages: Vec::new(), current: 0, selected: None, priority: None, document: None, cache: VecDeque::new(), placeholder: paper_placeholder() }
+        Self { mtm, target, view, buttons: Vec::new(), realized: 0..0, pages: Vec::new(), current: 0, selected: None, priority: None, source: None, worker: PreviewWorker::new(), active: true, cache: VecDeque::new(), placeholder: paper_placeholder() }
     }
 
     pub fn view(&self) -> &NSView { &self.view }
@@ -76,6 +248,8 @@ impl ThumbnailGrid {
     pub fn cached_count(&self) -> usize { self.cache.len() }
     pub fn refresh_language(&mut self) { self.refresh_buttons(); self.update_selection(); }
     pub fn remaining(&self) -> usize { self.active_indices().into_iter().filter(|index| !self.is_cached(self.pages[*index])).count() }
+    pub fn is_loading(&self) -> bool { self.active && self.source.is_some() && self.visible_range().any(|index|!self.is_cached(self.pages[index])) }
+    pub fn set_active(&mut self, active: bool) { if self.active != active { self.active = active;if !active {self.worker.cancel();} } }
 
     pub fn prioritize(&mut self, page: usize) { self.priority = Some(page); }
 
@@ -99,21 +273,17 @@ impl ThumbnailGrid {
         self.cache.clear();
         self.selected = None;
         self.priority = None;
-        self.document = None;
+        self.source = None;
+        self.worker.cancel();
     }
 
-    pub fn show(&mut self, document: Option<Retained<PDFDocument>>, pages: &[usize], current: usize, width: f64) {
-        let same_document = match (&self.document, &document) {
-            (Some(old), Some(new)) => std::ptr::eq::<PDFDocument>(&**old, &**new),
-            (None, None) => true,
-            _ => false,
-        };
-        let total = document.as_ref().map_or(0, |pdf| pdf.page_count());
-        let pages: Vec<usize> = pages.iter().copied().filter(|page| *page > 0 && *page <= total).collect();
+    pub fn show(&mut self, source: Option<PreviewSource>, pages: &[usize], current: usize, width: f64) {
+        let same_document = self.source == source;
+        let pages: Vec<usize> = pages.iter().copied().filter(|page| *page > 0).collect();
         let same_pages = same_document && self.pages == pages;
-        if !same_document { self.cache.clear(); }
+        if !same_document { self.cache.clear();self.worker.cancel(); }
         if !same_pages { self.remove_buttons(); }
-        self.document = document;
+        self.source = source;
         self.current = current;
         self.pages = pages;
         if !same_pages {
@@ -126,20 +296,25 @@ impl ThumbnailGrid {
         self.refresh_buttons();
     }
 
-    /// Called once per UI tick while the chooser is visible; it never renders more than one page.
+    /// The UI tick only installs completed images and updates the bounded background queue.
     pub fn render_next(&mut self) -> bool {
-        let changed = self.sync_visible();
-        let candidate = self.active_indices().into_iter().find(|index| !self.is_cached(self.pages[*index]));
-        let Some(index) = candidate else { return changed; };
-        let Some(document) = &self.document else { return changed; };
-        let number = self.pages[index];
-        let image = autoreleasepool(|_| document.page(number - 1).map(|page| page.thumbnail(IMAGE_SIZE)));
-        self.cache.retain(|(page, _)| *page != number);
-        self.cache.push_back((number, image));
-        while self.cache.len() > CACHE_CAPACITY { self.cache.pop_front(); }
+        if !self.active { return false; }
+        let mut changed = self.sync_visible();
+        for result in self.worker.poll() {
+            if self.source.as_ref()!=Some(&result.request.source) || !self.pages.contains(&result.request.page) {continue;}
+            let image = result.png.as_deref().and_then(|png|preview_image(png,IMAGE_SIZE));
+            self.cache.retain(|(page,_)|*page!=result.request.page);
+            self.cache.push_back((result.request.page,image));
+            while self.cache.len()>CACHE_CAPACITY {self.cache.pop_front();}
+            changed = true;
+        }
+        let requests = self.source.as_ref().map(|source|self.active_indices().into_iter()
+            .filter(|index|!self.is_cached(self.pages[*index]))
+            .map(|index|PreviewRequest { source:source.clone(),page:self.pages[index],width:IMAGE_SIZE.width as usize,height:IMAGE_SIZE.height as usize }).collect::<Vec<_>>()).unwrap_or_default();
+        self.worker.request(&requests);
         // Buttons retain their NSImage, so eviction must also replace any visible reference.
-        self.refresh_buttons();
-        true
+        if changed {self.refresh_buttons();}
+        changed
     }
 
     fn geometry(&self) -> GridGeometry { GridGeometry { count: self.pages.len(), width: self.view.frame().size.width } }
@@ -248,6 +423,55 @@ mod tests {
     use super::*;
 
     fn viewport(y: f64, height: f64) -> NSRect { NSRect::new(NSPoint::new(0., y), NSSize::new(640., height)) }
+    fn request(page: usize, revision: u64) -> PreviewRequest {
+        PreviewRequest {source:PreviewSource{path:PathBuf::from("/synthetic/book.pdf"),password:None,revision:(100,revision)},page,width:176,height:248}
+    }
+    fn completed(request: PreviewRequest) -> PreviewResult {
+        PreviewResult {request,png:Some(vec![1,2,3]),pages:Some(200),status:PreviewStatus::Ready}
+    }
+
+    #[test]
+    fn changing_books_or_revisions_discards_a_decode_already_in_progress() {
+        let mut queue=PreviewQueue::default();queue.replace(&[request(1,1)]);
+        let (generation,old)=queue.start().unwrap();
+        queue.cancel();queue.replace(&[request(1,2)]);
+        assert!(queue.start().is_none());
+        queue.finish(generation,completed(old));
+        assert!(queue.results.is_empty());
+        let (generation,new)=queue.start().unwrap();assert_eq!(new.source.revision,(100,2));
+        queue.finish(generation,completed(new));assert_eq!(queue.results.len(),1);
+        queue.cancel();assert!(queue.results.is_empty());assert!(queue.pending.is_empty());
+    }
+
+    #[test]
+    fn rapid_scrolling_replaces_pending_work_and_rejects_offscreen_results() {
+        let mut queue=PreviewQueue::default();queue.replace(&[request(1,1),request(2,1)]);
+        let (generation,old)=queue.start().unwrap();
+        queue.replace(&[request(180,1),request(181,1)]);
+        queue.finish(generation,completed(old));assert!(queue.results.is_empty());
+        let (_,next)=queue.start().unwrap();assert_eq!(next.page,180);
+        assert_eq!(queue.pending.iter().map(|request|request.page).collect::<Vec<_>>(),vec![181]);
+    }
+
+    #[test]
+    fn background_backlog_and_completed_images_stay_bounded() {
+        let mut queue=PreviewQueue::default();
+        queue.replace(&(1..=200).map(|page|request(page,1)).collect::<Vec<_>>());
+        assert_eq!(queue.pending.len(),QUEUE_CAPACITY);
+        for _ in 0..RESULT_CAPACITY {let (generation,next)=queue.start().unwrap();queue.finish(generation,completed(next));}
+        assert!(queue.start().is_none());assert_eq!(queue.results.len(),RESULT_CAPACITY);
+        queue.results.clear();assert!(queue.start().is_some());
+    }
+
+    #[test]
+    fn queued_failures_are_delivered_once_instead_of_retried_while_waiting_for_the_ui() {
+        let mut queue=PreviewQueue::default();queue.replace(&[request(1,1),request(1,1)]);
+        assert_eq!(queue.pending.len(),1);
+        let (generation,next)=queue.start().unwrap();
+        queue.finish(generation,PreviewResult{request:next,png:None,pages:None,status:PreviewStatus::Missing});
+        queue.replace(&[request(1,1)]);
+        assert!(queue.pending.is_empty());assert_eq!(queue.results.len(),1);
+    }
 
     #[test]
     fn a_thousand_page_book_reaches_the_final_partial_row_by_scrolling() {
