@@ -1,6 +1,31 @@
 import AppKit
 import PDFKit
 
+enum Language: String { case ja, en }
+var language = Language.ja
+var outputPath: String?
+let arguments = Array(CommandLine.arguments.dropFirst())
+var argumentIndex = 0
+func usageError(_ message: String) -> Never {
+    FileHandle.standardError.write(Data((message + "\nUsage: create-demo-books.swift [--language en|ja] [--output DIRECTORY]\n").utf8))
+    exit(1)
+}
+while argumentIndex < arguments.count {
+    let argument = arguments[argumentIndex]
+    if argument == "--language" || argument == "--output" {
+        argumentIndex += 1
+        guard argumentIndex < arguments.count else { usageError("\(argument) needs a value.") }
+        if argument == "--language" {
+            guard let selected = Language(rawValue: arguments[argumentIndex]) else { usageError("Choose en or ja.") }
+            language = selected
+        } else { outputPath = arguments[argumentIndex] }
+    } else if argument.hasPrefix("-") { usageError("Unknown option: \(argument)") }
+    else if outputPath == nil { outputPath = argument }
+    else { usageError("Only one output directory is supported.") }
+    argumentIndex += 1
+}
+func localized(_ japanese: String, _ english: String) -> String { language == .ja ? japanese : english }
+
 // These notes are original demonstration material, independent of any real book.
 struct Section {
     let heading: String
@@ -26,7 +51,7 @@ func color(_ hex: UInt32) -> NSColor {
             blue: CGFloat(hex & 255) / 255, alpha: 1)
 }
 
-let books: [Book] = [
+let japaneseBooks: [Book] = [
     Book(filename: "interaction-design.pdf", title: "操作の設計",
          subtitle: "小さな応答から、迷わず使える画面へ。", color: color(0x43635A), chapters: [
         Chapter(title: "押した、その先を伝える",
@@ -110,6 +135,91 @@ let books: [Book] = [
     ])
 ]
 
+let englishBooks: [Book] = [
+    Book(filename: "interaction-design.pdf", title: "Interaction Design",
+         subtitle: "Small responses. Clear next steps.", color: color(0x43635A), chapters: [
+        Chapter(title: "Show what happened",
+                lead: "A click starts a conversation with the interface. The next visible state tells the reader whether the action was received.",
+                sections: [
+                    Section(heading: "Respond at the point of action", text: "Clear feedback connects an action to its result. A pressed button, a selected row, and a finished task should look different. Readers can then continue without clicking again to check."),
+                    Section(heading: "Keep the result close", text: "Put a short confirmation near the control that caused the change. Once it has done its job, let it recede so the page becomes the focus again.")
+                ], note: "TRY IT\nPress a control, hold it, move away, and release."),
+        Chapter(title: "Make waiting understandable",
+                lead: "Readers need to know whether work is continuing. A useful status is more valuable than an elaborate animation.",
+                sections: [
+                    Section(heading: "Report what is known", text: "If the app knows which document it is processing, show that fact. Avoid an exact countdown when the remaining time cannot be estimated reliably."),
+                    Section(heading: "Offer a way to stop", text: "A new query should replace the old one. Stopping a task should also leave the interface in a state the reader can understand and use.")
+                ], note: "CHECK\nDoes the status describe the work that is actually running?"),
+        Chapter(title: "Recover without starting over",
+                lead: "A missing file should not erase a useful title, a bookmark, or the place where someone stopped reading.",
+                sections: [
+                    Section(heading: "Preserve useful work", text: "Keep the information that is still valid. When a document has moved, let the reader choose its new location instead of rebuilding the entire library."),
+                    Section(heading: "Name the next action", text: "An error message should explain what can happen next. Retry, choose another file, and return to the page are concrete options that help someone recover.")
+                ], note: "CHECK\nCan the reader recover without entering the same information again?"),
+        Chapter(title: "Check the whole gesture",
+                lead: "A control can look correct in a still image and feel awkward when used. Test the moments between its settled states.",
+                sections: [
+                    Section(heading: "Change direction", text: "Begin a page turn, then move back before releasing. A short abandoned gesture should leave the reader on the original page."),
+                    Section(heading: "Keep reading comfortable", text: "Use motion to explain a change, then get out of the way. Readers who prefer reduced motion should reach the same destination with the same controls.")
+                ], note: "TRY IT\nTurn forward, turn back, and cancel a small drag.")
+    ]),
+    Book(filename: "search-design.pdf", title: "Search Design",
+         subtitle: "From a remembered word to the right page.", color: color(0x936A56), chapters: [
+        Chapter(title: "Start with a remembered word",
+                lead: "A reader may remember a phrase but forget the title of the book. Search should accept the clue they already have.",
+                sections: [
+                    Section(heading: "Look across the library", text: "Searching the text of several books saves the work of opening each one separately. Keep title matches and passage matches easy to distinguish."),
+                    Section(heading: "Show the source", text: "Include the book title and PDF page number with every passage. A result is easier to choose when its location is visible before the book opens.")
+                ], note: "TRY IT\nSearch for a short word, then make the query more specific."),
+        Chapter(title: "Keep enough context",
+                lead: "The words around a match help a reader decide whether it answers the question. A result is an entrance to a larger passage.",
+                sections: [
+                    Section(heading: "Let the excerpt explain itself", text: "A short excerpt should retain the subject of the sentence. Avoid showing only the matching word when nearby text can explain what the passage means."),
+                    Section(heading: "Open the same place", text: "Selecting a result should open its page and mark the relevant words. The excerpt and the destination must point to the same part of the document.")
+                ], note: "CHECK\nCan you find the excerpt immediately after opening its page?"),
+        Chapter(title: "Show results as they arrive",
+                lead: "A library search does not need to keep the screen empty until the last book has been checked.",
+                sections: [
+                    Section(heading: "Make progress visible", text: "Search feedback should distinguish a growing result list from a completed search. Show useful matches as they arrive, while keeping the selected result stable."),
+                    Section(heading: "Respect the latest query", text: "When a reader changes the query, stop using the previous results. The words in the search field should always describe the list underneath it.")
+                ], note: "TRY IT\nChoose a passage from another book and continue reading there."),
+        Chapter(title: "Explain an empty result",
+                lead: "No matching text and text that cannot be extracted are different outcomes. An empty list alone cannot explain both.",
+                sections: [
+                    Section(heading: "Allow ordinary variations", text: "Letter case, full-width characters, and PDF line breaks can make similar text look different to a search engine. Normalize those differences when possible."),
+                    Section(heading: "State the search limits", text: "An image-only page may contain no selectable text. Explain which books could be searched, and keep the page picker and outline available as other ways to explore.")
+                ], note: "CHECK\nCan the reader tell a missing match from unavailable text?")
+    ]),
+    Book(filename: "reading-design.pdf", title: "Reading Design",
+         subtitle: "Keep your place. Follow the idea.", color: color(0x566A7D), chapters: [
+        Chapter(title: "Give the page room",
+                lead: "The page is the part of a reader that stays in view longest. Controls should remain easy to find without competing with the text.",
+                sections: [
+                    Section(heading: "Keep a few clear entrances", text: "Leave page navigation nearby and collect less frequent actions in one predictable place. Adding more buttons does not always make a reading task easier."),
+                    Section(heading: "Fit the complete page", text: "A complete page gives a stable sense of position. Enlarge a small diagram when needed, then return to the fitted view with one familiar action.")
+                ], note: "TRY IT\nEnlarge the text, inspect a detail, then return to the whole page."),
+        Chapter(title: "Return to your place",
+                lead: "Reading includes comparing chapters and moving between books. The app should keep track of the places a reader leaves behind.",
+                sections: [
+                    Section(heading: "Use the shape of a page", text: "A large heading or an illustration can be easier to remember than a page number. A visual page picker offers another route back to a familiar passage."),
+                    Section(heading: "Make a book switch clear", text: "Brief feedback can show the new book title and page number without interrupting the text. Keeping the previous book open makes it easy to compare ideas and return.")
+                ], note: "TRY IT\nSwitch books, inspect a facing spread, and return to your first tab."),
+        Chapter(title: "Take a useful excerpt",
+                lead: "An excerpt is easier to revisit when its source travels with it. Keep the words and their location together.",
+                sections: [
+                    Section(heading: "Include the source", text: "Record the book title and page number beside the selected passage. This makes it possible to return to the surrounding explanation before drawing a conclusion."),
+                    Section(heading: "Choose text or an image", text: "Copy text when you want to search or edit the excerpt. Capture a small region when a diagram or the arrangement of the page carries part of the meaning.")
+                ], note: "KEEP\nThe passage, its source, and the question you want to explore."),
+        Chapter(title: "Keep a steady reading rhythm",
+                lead: "Opening a page, checking a detail, and moving on should feel like parts of the same reading session.",
+                sections: [
+                    Section(heading: "Make the return path obvious", text: "A zoomed page should have a clear way back to its complete view. Keep navigation predictable so inspecting a detail does not become a separate task."),
+                    Section(heading: "Preserve the context", text: "After a search or a book switch, keep enough of the previous state to resume naturally. A small number of reliable controls can support a long reading session.")
+                ], note: "CHECK\nCan you resume reading immediately after using a tool?")
+    ])
+]
+let books = language == .ja ? japaneseBooks : englishBooks
+
 let pageSize = CGSize(width: 500, height: 700)
 let ink = color(0x252B29)
 let muted = color(0x68716C)
@@ -117,7 +227,7 @@ let paper = color(0xFBFAF6)
 let margin: CGFloat = 46
 
 func font(_ size: CGFloat, bold: Bool = false) -> NSFont {
-    NSFont(name: bold ? "HiraginoSans-W6" : "HiraginoSans-W3", size: size)
+    NSFont(name: language == .en ? (bold ? "HelveticaNeue-Medium" : "HelveticaNeue") : (bold ? "HiraginoSans-W6" : "HiraginoSans-W3"), size: size)
         ?? NSFont.systemFont(ofSize: size, weight: bold ? .semibold : .regular)
 }
 
@@ -148,19 +258,19 @@ func cover(_ book: Book, number: Int) {
     fill(CGRect(origin: .zero, size: pageSize), paper)
     fill(CGRect(x: 0, y: 0, width: 500, height: 494), book.color)
     let light = color(0xF6F4EB)
-    text("読むための技術ノート", top: 45, size: 11, line: 18, color: light)
+    text(localized("読むための技術ノート", "NOTES FOR THOUGHTFUL READING"), top: 45, size: 11, line: 18, color: light)
     text(String(format: "%02d", number), top: 90, size: 94, line: 110, bold: true,
          color: light.withAlphaComponent(0.24))
     fill(CGRect(x: margin, y: 238, width: 408, height: 1), light.withAlphaComponent(0.45))
-    text(book.title, top: 268, size: 53, line: 70, bold: true, color: light)
+    text(book.title, top: 268, size: language == .en ? 40 : 53, line: 70, bold: true, color: light)
     text(book.subtitle, top: 367, size: 14, line: 25, color: light)
-    text("Sumi サンプルブック", top: 440, size: 10, line: 16, color: light.withAlphaComponent(0.8))
+    text(localized("Sumi サンプルブック", "Sumi sample book"), top: 440, size: 10, line: 16, color: light.withAlphaComponent(0.8))
     for (index, chapter) in book.chapters.enumerated() {
         let y = CGFloat(523 + index * 29)
         text(String(format: "%02d", index + 1), top: y, width: 28, size: 10, line: 18, color: book.color)
         text(chapter.title, x: 84, top: y, width: 366, size: 12, line: 19)
     }
-    text("公開デモ用に制作したオリジナルの文章です。", top: 662, size: 8.5, line: 14, color: muted)
+    text(localized("公開デモ用に制作したオリジナルの文章です。", "Original material written for a public product demonstration."), top: 662, size: 8.5, line: 14, color: muted)
 }
 
 func bodyPage(_ book: Book, chapter: Chapter, index: Int) {
@@ -181,11 +291,11 @@ func bodyPage(_ book: Book, chapter: Chapter, index: Int) {
     fill(CGRect(x: margin, y: 570, width: 2, height: 68), book.color.withAlphaComponent(0.6))
     text(chapter.note, x: 61, top: 580, width: 378, size: 10.5, line: 20, color: book.color)
     fill(CGRect(x: margin, y: 657, width: 408, height: 0.5), color(0xD9DDD6))
-    text("読むための技術ノート", top: 668, size: 8, line: 13, color: muted)
-    text("\(index + 2) / 5", x: 398, top: 668, width: 56, size: 8, line: 13, color: muted, alignment: .right)
+    text(localized("読むための技術ノート", "Notes for thoughtful reading"), top: 668, size: 8, line: 13, color: muted)
+    text("\(index + 2) / \(book.chapters.count + 1)", x: 398, top: 668, width: 56, size: 8, line: 13, color: muted, alignment: .right)
 }
 
-let folder = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "test-artifacts/promo-fixtures", isDirectory: true).standardizedFileURL
+let folder = URL(fileURLWithPath: outputPath ?? localized("test-artifacts/promo-fixtures", "test-artifacts/promo-fixtures-en"), isDirectory: true).standardizedFileURL
 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 var report: [[String: Any]] = []
 for (number, book) in books.enumerated() {
@@ -205,7 +315,7 @@ for (number, book) in books.enumerated() {
     guard let document = PDFDocument(url: destination) else { fatalError("Cannot reopen PDF") }
     document.documentAttributes = [PDFDocumentAttribute.titleAttribute: book.title,
                                    PDFDocumentAttribute.authorAttribute: "Sumi",
-                                   PDFDocumentAttribute.subjectAttribute: "公開デモ用のオリジナル技術ノート",
+                                   PDFDocumentAttribute.subjectAttribute: localized("公開デモ用のオリジナル技術ノート", "Original notes for a public product demonstration"),
                                    PDFDocumentAttribute.creatorAttribute: "Sumi demo corpus generator"]
     let outline = PDFOutline()
     for (index, chapter) in book.chapters.enumerated() {
@@ -219,10 +329,11 @@ for (number, book) in books.enumerated() {
     let verified = PDFDocument(url: destination)!
     let pageTexts = (0..<verified.pageCount).map { verified.page(at: $0)?.string ?? "" }
     let searchableTexts = pageTexts.map { $0.replacingOccurrences(of: "\n", with: "") }
-    let hits = searchableTexts.enumerated().compactMap { $0.element.contains("フィードバック") ? $0.offset + 1 : nil }
-    let phrase = "操作の結果を伝える"
-    let phraseCount = searchableTexts.reduce(0) { $0 + $1.components(separatedBy: phrase).count - 1 }
-    precondition(verified.pageCount == 5 && hits.count >= 3, "Missing demo search text")
+    let query = localized("フィードバック", "feedback")
+    let hits = searchableTexts.enumerated().compactMap { $0.element.lowercased().contains(query) ? $0.offset + 1 : nil }
+    let phrase = localized("操作の結果を伝える", "feedback")
+    let phraseCount = searchableTexts.reduce(0) { $0 + $1.lowercased().components(separatedBy: phrase).count - 1 }
+    precondition(verified.pageCount == 5 && (language == .en ? hits.count == 1 : hits.count >= 3), "Missing demo search text or too many matching pages")
     precondition(pageTexts.allSatisfy { $0.count > 100 }, "Missing selectable text")
     precondition(phraseCount == 1, "The cross-book phrase must occur once per book")
     precondition(verified.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == book.title, "Missing title")
@@ -232,9 +343,9 @@ for (number, book) in books.enumerated() {
         let filename = destination.deletingPathExtension().lastPathComponent + "-page-\(pageIndex + 1).png"
         try bitmap.representation(using: .png, properties: [:])!.write(to: folder.appendingPathComponent(filename))
     }
-    report.append(["file": book.filename, "title": book.title, "pages": verified.pageCount,
+    report.append(["file": book.filename, "title": book.title, "language": language.rawValue, "pages": verified.pageCount,
                    "charactersPerPage": pageTexts.map(\.count), "feedbackPages": hits,
-                   "crossBookPhraseCount": phraseCount])
+                   "crossBookQuery": phrase, "crossBookPhraseCount": phraseCount])
 }
 let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
 try data.write(to: folder.appendingPathComponent("verification.json"))
