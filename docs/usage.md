@@ -2,7 +2,9 @@
 
 ## Your bookshelf
 
-Sumi starts on its pinned Home tab, showing the bookshelf covers. Click a cover to read, or move the selection with the arrow keys and press Enter. Open books appear in the tab strip alongside Home. Select a book tab to switch reading context; select Home or press Command L to return to the shelf. Escape dismisses an open panel while keeping Home selected.
+On first launch, Sumi shows its pinned Home tab and bookshelf. On later launches, it restores the saved tab order and selected book or Home. Each book tab retains its page, zoom, and in-book search query. If you close every book tab before quitting, the next launch keeps only Home. When upgrading from a version without saved tabs, Sumi opens the last-read book as one tab.
+
+Click a cover to read, or move the selection with the arrow keys and press Enter. Open books appear in the tab strip alongside Home. Select a book tab to switch reading context; select Home or press Command L to return to the shelf. Escape dismisses an open panel while keeping Home selected.
 
 The compact import icon adds books; the search icon opens the combined book-and-action palette. The shelf uses this palette for search, through the icon, Command K or Command F. The empty shelf also accepts dropped PDFs or folders.
 
@@ -11,6 +13,8 @@ Use Command O to select multiple PDFs or folders, or drop them onto the window. 
 The library uses book titles from PDF metadata when available and keeps filenames unchanged. Each book retains its reading position and bookmarks. Appearance, single-page/spread layout, and reading direction apply across the app.
 
 Right-click a book in the library to reveal it in Finder, choose its new location after moving it, or remove it from the library. Relinking preserves its reading position and bookmarks. Removal deletes the library record, position, and bookmarks; the PDF remains on disk. Return to Home with Command L before removing the book currently being read.
+
+Opening a book, searching, importing, and loading covers or page thumbnails each show a loading indicator if the work is still pending after 400 ms. Faster operations finish without showing the indicator. It disappears when the work finishes or is cancelled. Escape cancels a pending book opening.
 
 ## Reading and navigation
 
@@ -41,7 +45,7 @@ Select text and use Command C for native copying. Command K also offers copying 
 
 Press Command Shift X, then drag a rectangle to copy the visible region as an image. To save the last captured region as PNG, choose `Save captured image…` in Command K. The last capture is held only for the current app session; save it before quitting. Scanned pages can be captured as images, but OCR is not included.
 
-Password-protected PDFs request a password for the current session. Passwords are not persisted. Text copying follows the PDF's copy permissions, and extraction follows its text order; complex multicolumn layouts can need cleanup after copying.
+Password-protected PDFs request a password for the current app session. Passwords are never persisted, including in saved tabs; opening a protected book after relaunch asks for the password again. Text copying follows the PDF's copy permissions, and extraction follows its text order; complex multicolumn layouts can need cleanup after copying.
 
 ## Keyboard shortcuts
 

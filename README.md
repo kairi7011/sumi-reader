@@ -2,7 +2,7 @@
 
 A small native PDF reader for macOS, with a bookshelf, reading tabs, and search across your books.
 
-[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.8.0) · [Watch real app operation](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4)
+[日本語](README.ja.md) · [Download the macOS preview](https://github.com/kairi7011/sumi-reader/releases/tag/v0.9.0) · [Watch real app operation](https://github.com/kairi7011/sumi-reader/releases/download/v0.8.0/Sumi-0.8.0-workflow-en.mp4)
 
 ![Sumi's bookshelf with three original sample books](docs/media/bookshelf.png)
 
@@ -10,7 +10,11 @@ A small native PDF reader for macOS, with a bookshelf, reading tabs, and search 
 
 Keep several books open in tabs and switch back to the same page and zoom. Read a complete page or facing spread without scrolling at the fitted size. Turn pages from the edges, keyboard, or horizontal trackpad gestures; use a vertical thumbnail grid to jump anywhere in the book. Zoom in place to inspect a detail, then return with Command 0 or Escape.
 
+When you reopen Sumi, it restores your tab order, selected book or Home, and each tab's page, zoom, and in-book search query. If you close every book tab before quitting, Sumi reopens Home without any book tabs. PDF passwords are never saved; protected books ask again after relaunch.
+
 The import and search icons stay compact. Command K holds the less frequent actions, and focus mode hides the reader controls. Appearance and language are shared across all books. Choose English, Japanese, or the system language from the Sumi menu.
+
+If opening a book, searching, importing, or loading covers or page thumbnails takes longer than 400 ms, a loading indicator appears. It disappears when the operation finishes or is cancelled.
 
 ![Native reading view with pages fitted in the window](docs/media/reading.png)
 
@@ -20,7 +24,7 @@ Type in Command K to search titles, page text, and app actions together. Text re
 
 ![One query returns passages from several PDFs](docs/media/cross-book-search.png)
 
-The video records actual typing, results from multiple PDFs, and opening a selected result, followed by reading operations. It uses original sample documents. It is not a sequence of still images or a benchmark.
+The 0.8.0 video records actual typing, results from multiple PDFs, and opening a selected result, followed by reading operations. It uses original sample documents. It is not a sequence of still images or a benchmark.
 
 Search requires selectable text and respects PDF copy permissions. It is keyword search, not regular-expression grep; OCR is not included.
 
@@ -60,9 +64,9 @@ The result is `dist/Sumi.app`. This project currently produces **ad-hoc signed, 
 
 ## Data and privacy
 
-Sumi stores book paths, reading positions, bookmarks, and preferences on your Mac. It does not copy PDFs into the app or upload them. The optional MCP index is opt-in; excerpts sent to an external AI client are subject to that client's data handling. See [privacy](PRIVACY.md) for storage locations and deletion.
+Sumi stores book paths, reading positions, bookmarks, preferences, and your tab session on your Mac, including each tab's zoom and in-book search query. It does not copy PDFs into the app or upload them. The optional MCP index is opt-in; excerpts sent to an external AI client are subject to that client's data handling. See [privacy](PRIVACY.md) for storage locations and deletion.
 
-OCR, annotation editing, continuous-scroll reading, cloud sync, automatic updates, and tab restoration after relaunch are not included. See [security](SECURITY.md) for the current scope and reporting guidance.
+OCR, annotation editing, continuous-scroll reading, cloud sync, and automatic updates are not included. See [security](SECURITY.md) for the current scope and reporting guidance.
 
 ## Contributing and license
 

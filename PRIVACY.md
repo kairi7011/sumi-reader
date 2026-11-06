@@ -4,12 +4,12 @@ The native Sumi reader has no account, analytics, telemetry, upload service, cra
 
 ## Local storage
 
-- `~/Library/Application Support/com.kairi7011.sumi/library.json` contains document paths, titles, reading positions, bookmarks, and app preferences. History at `~/Library/Application Support/Sumi/library.json` may be migrated on first launch. Native library saves use an atomic replacement and owner-only file permissions.
+- `~/Library/Application Support/com.kairi7011.sumi/library.json` contains document paths, titles, reading positions, bookmarks, app preferences, and the saved tab session. The session records tab order, the selected book or Home, and each tab's zoom and in-book search query; page positions remain in the book records. History at `~/Library/Application Support/Sumi/library.json` may be migrated on first launch. Native library saves use an atomic replacement and owner-only file permissions.
 - The optional index defaults to `~/Library/Application Support/Sumi/library-index`. Its SQLite database contains extracted book text, filenames, titles, and outlines. It uses an owner-only directory and database.
-- Passwords for encrypted PDFs and the last captured image are held for the app session. Passwords are not written to the library.
+- Passwords for encrypted PDFs and the last captured image are held only while Sumi is running. Passwords are never written to the library or saved tab session and must be entered again after relaunch.
 - Copy actions write to the macOS clipboard. Other apps and clipboard managers may read or retain that content. Saving a captured image writes to the destination you choose.
 
-Removing a book from the shelf removes its library record, position, and bookmarks. It does not remove the PDF or an independently created text index. To remove all Sumi data, quit Sumi and remove the current and legacy library data and any index directories you created. Saved images and clipboard history are managed separately.
+Removing a book from the shelf removes its library record, position, bookmarks, and any saved tab for that book. Closing a reading tab removes its saved zoom and in-book search query but keeps the book, position, and bookmarks in the library. Neither action removes the PDF or an independently created text index. To remove all Sumi data, quit Sumi and remove the current and legacy library data and any index directories you created. Saved images and clipboard history are managed separately.
 
 ## Optional AI clients
 
